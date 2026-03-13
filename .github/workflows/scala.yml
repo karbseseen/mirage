@@ -1,0 +1,96 @@
+
+name: Build scala
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Set up java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'sbt'
+
+    - name: Set up sbt
+      uses: sbt/setup-sbt@v1
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+          ~/.cache/coursier
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt') }}
+        restore-keys: ${{ runner.os }}-sbt-
+
+    - name: Determine changed projects
+      run: |
+        DIFF=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+        echo "Projects changed:"
+        if [ -n $(echo "$DIFF" | grep '^(?!launcher\/)') ]; then
+          CHANGED=1
+          echo "Main"
+          echo "MAIN=1" >> $GITHUB_ENV
+        fi
+        if [ -n $(echo "$DIFF" | grep '^(launcher|.github)\/') ]; then
+          CHANGED=1
+          echo "Launcher"
+          echo "LAUNCHER=1" >> $GITHUB_ENV
+        fi
+        if [ -z "CHANGED" ]; then echo "none"; fi
+
+
+    - name: Main build
+      if: env.MAIN != ''
+      continue-on-error: false
+      run: sbt "package;exportDeps"
+
+    - name: Main jar save
+      if: env.MAIN != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: main-jar
+        path: target/scala-*/**/*.jar
+
+    - name: Main deps save
+      if: env.MAIN != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependencies.txt
+        path: target/dependencies.txt
+
+
+    - name: Runner build
+      if: env.LAUNCHER != ''
+      continue-on-error: false
+      run: |
+        cd launcher
+        sbt package
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        TAG_NAME="$(git rev-parse --abbrev-ref HEAD)/launcher-$(date +%Y-%m-%d)"
+        git tag "$TAG_NAME"
+        git push origin "$TAG_NAME"
+        echo "Tagged commit with $TAG_NAME"
+
+    - name: Runner jar save
+      if: env.LAUNCHER != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: launcher-jar
+        path: launcher/target/scala-*/**/*.jar

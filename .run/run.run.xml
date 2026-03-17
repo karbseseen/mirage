@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="run" type="JarApplication">
+    <option name="JAR_PATH" value="$PROJECT_DIR$/target/scala-3.8.2/mirage_3-0.1.jar" />
+    <option name="VM_PARAMETERS" value="-Dorg.slf4j.simpleLogger.defaultLogLevel=debug" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="ALTERNATIVE_JRE_PATH" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="build" run_configuration_type="SbtRunConfiguration" />
+    </method>
+  </configuration>
+</component>

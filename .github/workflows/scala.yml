@@ -1,0 +1,46 @@
+
+name: Build scala
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Set up java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'sbt'
+
+    - name: Set up sbt
+      uses: sbt/setup-sbt@v1
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+          ~/.cache/coursier
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt', '**/project/plugins.sbt') }}
+        restore-keys: ${{ runner.os }}-sbt-
+
+    - name: Build
+      continue-on-error: false
+      run: sbt package
+
+    - name: Save
+      uses: actions/upload-artifact@v4
+      with:
+        name: main-jar
+        path: target/scala-*/**/*.jar

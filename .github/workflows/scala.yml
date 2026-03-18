@@ -2,7 +2,7 @@
 name: Build scala
 
 on:
-  workflow_dispatch:
+  push:
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
     - name: Set up java
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'sbt'
 

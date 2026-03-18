@@ -1,26 +1,42 @@
+import scala.collection.compat.toTraversableLikeExtensionMethods
+
+
 ThisBuild / version := "0.1"
 ThisBuild / scalaVersion := "3.8.2"
-
 lazy val root = (project in file(".")).settings(name := "mirage")
-
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-Compile / packageBin / packageOptions += {
-  val modules = update.value.allModuleReports.toList
-    .flatMap(_.artifacts)
-    .map { case (artifact, file) => file.getPath -> artifact }
-    .toMap
+lazy val os = sys.props.get("os").getOrElse {
+  val sysOs = System.getProperty("os.name").toLowerCase
+  if (sysOs.contains("win")) "win"
+  else if (sysOs.contains("mac")) "mac"
+  else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) "linux"
+  else throw new Exception("Unknown OS, you should provide -Dos=win|mac|linux")
+}
 
-  val mavenRegex = "https://repo1\\.maven\\.org/(.*)".r
-  val classPaths = (Compile / dependencyClasspath).value
-    .map(_.data.getPath)
-    .flatMap(path => modules.getOrElse(path, throw new Exception(s"$path not found")).url)
-    .map(_.toString)
-    .sorted
-    .map {
-      case mavenRegex(path) => s"lib/$path"
-      case invalid => throw new Error(s"Invalid dependency: $invalid")
+Compile / packageBin / packageOptions += {
+  val mavenRegex = "https://repo1\\.maven\\.org/maven2/(.*)".r
+  val platformRegex = s"(.*)-$os\\.jar".r
+
+  val paths = for {
+    attr <- (Compile / dependencyClasspath).value
+    artifact <- attr.metadata.get(AttributeKey[Artifact]("artifact"))
+    url <- artifact.url
+  } yield url.toString match {
+    case mavenRegex(path) => (s"lib/maven2/$path", artifact.classifier.contains(os))
+    case invalid => throw new Error(s"Invalid dependency: $invalid")
+  }
+
+  val (platformPaths, simplePaths) = paths
+    .sortBy(_._1)
+    .partitionMap {
+      case (simplePath, false) => Right(simplePath)
+      case (platformRegex(platformPath), true) => Left(s"$platformPath-platform.jar")
+      case (invalid, true) => throw new Error(s"Invalid platform dependency: $invalid")
     }
 
-  Package.ManifestAttributes("Class-Path" -> classPaths.mkString(" "))
+  Package.ManifestAttributes(
+    "Class-Path" -> (platformPaths ++ simplePaths).mkString(" "),
+    "Platform-Path-Num" -> platformPaths.size.toString,
+  )
 }

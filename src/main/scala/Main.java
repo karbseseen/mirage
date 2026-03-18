@@ -17,6 +17,7 @@ public class Main {
         static final String depsOk = "no-dep-check";
     }
     private static final String mavenPath = "lib/maven2/";
+    private static final String platformSuffix = "-platform.jar";
     private static final long printPeriod = 100;
 
 
@@ -60,6 +61,7 @@ public class Main {
 
 
     File jarDirectory;
+    String os;
     Out out;
     private Main() {}
 
@@ -70,6 +72,12 @@ public class Main {
 
         URI jarFilePath = Main.class.getProtectionDomain().getCodeSource().getLocation().toURI();
         jarDirectory = new File(jarFilePath).getParentFile();
+        
+        String sysOs = System.getProperty("os.name").toLowerCase();
+        if (sysOs.contains("win")) os = "win";
+        else if (sysOs.contains("mac")) os = "mac";
+        else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) os = "linux";
+        else throw new Exception("Unknown OS");
 
         out = System.console() == null ? new CustomOut() : new StdOut();
 
@@ -87,11 +95,21 @@ public class Main {
         if (!Objects.equals(attrs.getValue("Implementation-Title"), "mirage")) return false;
         boolean needRestart = false;
 
-        for (String path : attrs.getValue("Class-Path").split(" ")) {
-            if (!path.startsWith(mavenPath)) throw new Error("Invalid Class-Path entry: " + path);
+        String[] classPaths = attrs.getValue("Class-Path").split(" ");
+        int platformPathNum = Integer.parseInt(attrs.getValue("Platform-Path-Num"));
+        for (int index = 0; index < classPaths.length; index++) {
+            String path = classPaths[index];
             File file = new File(jarDirectory, path);
             if (!file.isFile()) {
-                downloadFile("https://repo1.maven.org/maven2/" + path.substring(mavenPath.length()), file);
+                if (!path.startsWith(mavenPath)) throw new Error("Invalid Class-Path entry: " + path);
+                String url = "https://repo1.maven.org/maven2/" + path.substring(mavenPath.length());
+                
+                if (index < platformPathNum) {
+                    if (!url.endsWith(platformSuffix)) throw new Error("Invalid platform Class-Path entry: " + path);
+                    url = url.substring(0, url.length() - platformSuffix.length()) + "-" + os + ".jar";
+                }
+                
+                downloadFile(url, file);
                 needRestart = true;
             }
         }

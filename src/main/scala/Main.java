@@ -43,7 +43,7 @@ public class Main {
 
                 JFrame frame = new JFrame();
                 frame.add(new JScrollPane(list));
-                frame.setSize(800, 400);
+                frame.setSize(1200, 400);
                 frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
                 frame.setVisible(true);
             }
@@ -150,7 +150,7 @@ public class Main {
         FileOutputStream output = new FileOutputStream(destinationPart);
         byte[] buffer = new byte[1024 * 8];
 
-        int totalRead = 0, totalSize = (int) connection.getContentLengthLong();
+        long totalRead = 0, totalSize = connection.getContentLengthLong();
         long lastPrintTime = 0;
         while (true) {
             long time = System.currentTimeMillis();

@@ -7,6 +7,10 @@ Compile / mainClass := Some("Main")
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 Compile / packageBin / packageOptions += ManifestClassPath.task.value
+Compile / compile := (Compile / compile).dependsOn(TrSort.task).value
+
+lazy val trSort = taskKey[Unit]("TrSort")
+trSort := { TrSort.task.value }
 
 
 libraryDependencies ++= Seq(

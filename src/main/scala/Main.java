@@ -56,7 +56,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         new Main().check(args);
-        ScalaMain.apply(args);
+        MainApp.main(args);
     }
 
 

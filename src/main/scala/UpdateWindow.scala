@@ -12,7 +12,7 @@ import scalafx.scene.layout.{HBox, Priority, StackPane, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.text.{Font, Text}
 import scalafx.stage.{Modality, Stage}
-import util.{AutoTableView, SelfProperty}
+import util.{AutoTableView, SelfProperty, Tr}
 
 import java.io.{PrintWriter, StringWriter}
 import scala.jdk.CollectionConverters.IterableHasAsScala
@@ -23,7 +23,7 @@ private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfP
 
 
 class UpdateStage(parent: Stage) extends Stage:
-  title = "Update"
+  title <== Tr.update
   initModality(Modality.WindowModal)
   initOwner(parent.scene.value.getWindow)
   scene = new UpdateScene
@@ -48,7 +48,8 @@ private class UpdateScene extends Scene(600, 400):
 
 
   service.onScheduled = _ =>
-    val label = new Label("Loading"):
+    val label = new Label:
+      text <== Tr.loading
       font = new Font(16)
 
     val progress = new ProgressIndicator
@@ -63,19 +64,21 @@ private class UpdateScene extends Scene(600, 400):
 
 
   service.onSucceeded = _ =>
-    val label = new Label("Select a commit:"):
+    val label = new Label:
+      text <== Tr.selectCommit
       alignmentInParent = Pos.CenterLeft
       font = new Font(16)
 
-    val updateButton = new Button("Reload"):
+    val updateButton = new Button:
+      text <== Tr.reload
       alignmentInParent = Pos.CenterRight
       styleClass += Styles.SMALL
       onAction = _ => service.restart()
 
     val table = new AutoTableView[Run]:
       columns ++= Seq(
-        tableColumn("Name", _.value.getHeadCommit.getMessage),
-        tableColumn("Date", _.value.getUpdatedAt),
+        tableColumn(Tr.naming, _.value.getHeadCommit.getMessage),
+        tableColumn(Tr.date, _.value.getUpdatedAt),
       )
       items = ObservableBuffer(service.getValue*)
 
@@ -93,7 +96,8 @@ private class UpdateScene extends Scene(600, 400):
     val printWriter = new PrintWriter(stringWriter)
     service.getException.printStackTrace(printWriter)
 
-    val retry = new Button("Retry"):
+    val retry = new Button:
+      this.text <== Tr.retry
       margin = Insets(inset)
       onAction = _ => service.restart()
 

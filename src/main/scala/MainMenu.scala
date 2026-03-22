@@ -6,7 +6,7 @@ import util.{Language, Tr}
 private def settingsMenu =
   val languageValues = Language.values.map { language =>
     new MenuItem(language.name):
-      onAction = _ => Language.current.value = language
+      onAction = _ => Language.current.set(language)
   }
   
   val language = new Menu:
@@ -14,7 +14,7 @@ private def settingsMenu =
     items = languageValues
   
   val update = new MenuItem:
-    text <== Tr.update
+    text <== Tr.toUpdate
     onAction = _ => new UpdateStage(stage).show()
 
   new Menu:

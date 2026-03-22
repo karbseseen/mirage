@@ -12,6 +12,7 @@ import scalafx.scene.layout.{HBox, Priority, StackPane, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.text.{Font, Text}
 import scalafx.stage.{Modality, Stage}
+import util.PropertyInterpolation.b
 import util.{AutoTableView, SelfProperty, Tr}
 
 import java.io.{PrintWriter, StringWriter}
@@ -23,7 +24,7 @@ private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfP
 
 
 class UpdateStage(parent: Stage) extends Stage:
-  title <== Tr.update
+  title <== Tr.theUpdate
   initModality(Modality.WindowModal)
   initOwner(parent.scene.value.getWindow)
   scene = new UpdateScene
@@ -65,7 +66,7 @@ private class UpdateScene extends Scene(600, 400):
 
   service.onSucceeded = _ =>
     val label = new Label:
-      text <== Tr.selectCommit
+      text <== b"${Tr.selectCommit}:"
       alignmentInParent = Pos.CenterLeft
       font = new Font(16)
 

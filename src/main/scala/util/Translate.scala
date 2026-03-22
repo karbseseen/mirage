@@ -1,6 +1,6 @@
 package util
 
-import scalafx.beans.property.{ObjectProperty, ReadOnlyStringProperty, StringProperty}
+import javafx.beans.property.{ReadOnlyStringProperty, SimpleObjectProperty, SimpleStringProperty}
 
 import scala.annotation.tailrec
 import scala.language.implicitConversions
@@ -11,7 +11,7 @@ enum Language(val name: String, val default: Language | Null = null):
   case ru extends Language("Русский", en)
 
 object Language:
-  val current = new ObjectProperty[Language](this, "Language", Language.en)
+  val current = new SimpleObjectProperty[Language](this, "Language", Language.en)
 
 
 case class Translate(
@@ -23,7 +23,7 @@ case class Translate(
     if value.nonEmpty then value
     else apply(language.default)
 
-  private val mutableProperty = new StringProperty(this, en)
+  private val mutableProperty = new SimpleStringProperty(this, en)
   def property: ReadOnlyStringProperty = mutableProperty
   Language.current.subscribe { lang => if (lang != null) mutableProperty.set(apply(lang)) }
 
@@ -42,4 +42,5 @@ object Tr:
   val retry         = Translate("Retry",            "Попробовать еще раз")
   val selectCommit  = Translate("Select a commit",  "Выберите комит")
   val settings      = Translate("Settings",         "Настройки")
-  val update        = Translate("Update",           "Обновить")
+  val theUpdate     = Translate("Update",           "Обновление")
+  val toUpdate      = Translate("Update",           "Обновить")

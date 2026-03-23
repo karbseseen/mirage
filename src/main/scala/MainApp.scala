@@ -2,12 +2,11 @@ import atlantafx.base.theme.PrimerLight
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.{PrimaryStage, userAgentStylesheet}
 import scalafx.scene.Scene
-import scalafx.scene.control.*
 import scalafx.scene.layout.VBox
-import util.Tr
+import util.{AppBase, Tr}
 
 
-object MainApp extends JFXApp3:
+object MainApp extends JFXApp3 with AppBase:
   override def start(): Unit =
     userAgentStylesheet = new PrimerLight().getUserAgentStylesheet
     stage = new PrimaryStage:

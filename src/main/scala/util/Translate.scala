@@ -33,6 +33,7 @@ object Translate:
 
 object Tr:
   val appName       = Translate("Mirage",           "Мираж")
+  val branch        = Translate("Branch",           "Ветка")
   val date          = Translate("Date",             "Дата")
   val file          = Translate("File",             "Файл")
   val language      = Translate("Language",         "Язык")

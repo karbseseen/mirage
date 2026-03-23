@@ -1,6 +1,6 @@
 import atlantafx.base.controls.SelectableTextFlow
 import atlantafx.base.theme.Styles
-import org.kohsuke.github.{GHArtifact, GHRepository, GHWorkflowRun, GitHub}
+import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
 import scalafx.Includes.*
 import scalafx.collections.ObservableBuffer
 import scalafx.concurrent.{Service, Task}
@@ -16,6 +16,8 @@ import util.PropertyInterpolation.b
 import util.{AutoTableView, SelfProperty, Tr}
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.ZoneId
+import java.time.format.{DateTimeFormatter, FormatStyle}
 import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.math.Ordering.Implicits.infixOrderingOps
 
@@ -38,7 +40,7 @@ private class UpdateScene extends Scene(600, 400):
 
     val allRuns = for {
       run <- repo.queryWorkflowRuns().list().asScala
-      artifact <- run.listArtifacts().asScala.find(_.getName == "main-jar")
+      artifact <- run.listArtifacts().asScala.find(_.getName.endsWith(".jar"))
     } yield Run(run, artifact)
 
     allRuns
@@ -77,9 +79,11 @@ private class UpdateScene extends Scene(600, 400):
       onAction = _ => service.restart()
 
     val table = new AutoTableView[Run]:
+      private val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
       columns ++= Seq(
+        tableColumn(Tr.branch, _.value.getHeadBranch),
         tableColumn(Tr.naming, _.value.getHeadCommit.getMessage),
-        tableColumn(Tr.date, _.value.getUpdatedAt),
+        tableColumn(Tr.date, _.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter)),
       )
       items = ObservableBuffer(service.getValue*)
 

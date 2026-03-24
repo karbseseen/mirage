@@ -1,3 +1,5 @@
+import util.JavaUtil;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -70,8 +72,7 @@ public class Main {
             if (arg.equals(Arg.depsOk))
                 return;
 
-        URI jarFilePath = Main.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        jarDirectory = new File(jarFilePath).getParentFile();
+        jarDirectory = JavaUtil.getJarFile().getParentFile();
         
         String sysOs = System.getProperty("os.name").toLowerCase();
         if (sysOs.contains("win")) os = "win";
@@ -115,26 +116,12 @@ public class Main {
         }
 
         if (needRestart) {
-            ArrayList<String> cmdList = currentCmd();
-            cmdList.add(Arg.depsOk);
-            
-            String[] cmd = new String[cmdList.size()];
-            for (int index = 0; index < cmdList.size(); index++)
-                cmd[index] = cmdList.get(index);
-            
-            Runtime.getRuntime().exec(cmd);
-            System.exit(0);
+            ArrayList<String> cmd = JavaUtil.currentCmd();
+            cmd.add(Arg.depsOk);
+            JavaUtil.restart(cmd);
         }
 
         return true;
-    }
-
-    private ArrayList<String> currentCmd() {
-        ProcessHandle.Info info  = ProcessHandle.current().info();
-        ArrayList<String> cmd = new ArrayList<>();
-        cmd.add(info.command().orElseThrow());
-        Collections.addAll(cmd, ProcessHandle.current().info().arguments().orElseThrow());
-        return cmd;
     }
 
     private void downloadFile(String url, File destination) throws Exception {

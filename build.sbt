@@ -7,14 +7,15 @@ Compile / mainClass := Some("Main")
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 Compile / packageBin / packageOptions += ManifestClassPath.task.value
-Compile / compile := (Compile / compile).dependsOn(TrSort.task).value
+Compile / compile := (Compile / compile).dependsOn(FieldSort.task).value
 
-lazy val trSort = taskKey[Unit]("TrSort")
-trSort := { TrSort.task.value }
+lazy val fieldSort = taskKey[Unit]("FieldSort")
+fieldSort := { FieldSort.task.value }
 
 
 libraryDependencies ++= Seq(
   "org.kohsuke" % "github-api" % "1.330",
+  "com.github.javakeyring" % "java-keyring" % "1.0.4",
   "org.scalafx" %% "scalafx" % "25.0.2-R37",
   "io.github.mkpaz" % "atlantafx-base" % "2.1.0",
   //"io.github.palexdev" % "materialfx" % "11.17.0",

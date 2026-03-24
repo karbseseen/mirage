@@ -1,24 +1,51 @@
 import sbt.*
 import sbt.Keys.*
 
+import scala.collection.compat.{toOptionCompanionExtension, toTraversableLikeExtensionMethods}
 
-object TrSort {
-  private val sourceFileName = "util/Translate.scala"
 
-  private def edit(source: File): Set[File] = {
+object FieldSort {
+  private val fieldStartRegex = "^ {2}(def|val|lazy val)".r
+
+  private case class Entry(sourceFileName: String, objectName: String)
+  private val entries = List(
+    Entry("constant/Tr.scala", "Tr"),
+    Entry("constant/Constants.scala", "Constants"),
+  )
+
+  private implicit class EitherGet[T](either: Either[T, T]) {
+    def get: T = either.fold(identity, identity)
+  }
+
+  private def processLines(lines: List[String]) =  {
+    val (short, long) = lines
+      .foldLeft(List.empty[Either[String, String]]) { case (acc, line) =>
+        if (line.isEmpty) acc
+        else if (fieldStartRegex.findFirstMatchIn(line).nonEmpty) Left(line) :: acc
+        else Right(acc.head.get + System.lineSeparator + line) :: acc.tail
+      }
+      .partitionMap(identity)
+    val separator = Option.when(short.nonEmpty && long.nonEmpty)("").toList
+    short.sorted ::: separator ::: long.sorted
+  }
+
+  private def processEntry(entry: Entry, source: File): Set[File] = {
+    import entry.*
     println(s"Sorting $sourceFileName")
-    val regex = "^object Tr\\W".r
+    val regex = s"^object $objectName\\W".r
     val (beforeLines, defLine :: afterLinesRaw) = IO.readLines(source).span(regex.findFirstMatchIn(_).isEmpty)
-    val afterLines = afterLinesRaw.filter(_.nonEmpty).sorted
+    val afterLines = processLines(afterLinesRaw)
     if (afterLines.isEmpty) throw new Exception(s"Couldn't find object Tr fields in $sourceFileName")
     IO.writeLines(source, beforeLines ::: defLine :: afterLines)
     Set(source)
   }
   
   lazy val task = Def.task[Unit] {
-    val cache = streams.value.cacheDirectory / "trSort"
-    val source = (Compile / scalaSource).value / sourceFileName
-    val thisFile = (Compile / baseDirectory).value / "project" / "TrSort.scala"
-    FileFunction.cached(cache, FilesInfo.hash) { _ => edit(source) } { Set(source, thisFile) }
+    for ((entry, index) <- entries.zipWithIndex) yield {
+      val cache = streams.value.cacheDirectory / s"fieldSort$index"
+      val source = (Compile / scalaSource).value / entry.sourceFileName
+      val thisFile = (Compile / baseDirectory).value / "project" / "TrSort.scala"
+      FileFunction.cached(cache, FilesInfo.hash) { _ => processEntry(entry, source) } { Set(source, thisFile) }
+    }
   }
 }

@@ -1,4 +1,4 @@
-package util
+package fx
 
 import javafx.beans.property.{ReadOnlyStringProperty, SimpleObjectProperty, SimpleStringProperty}
 
@@ -29,19 +29,3 @@ case class Translate(
 
 object Translate:
   implicit def asProperty(translate: Translate): ReadOnlyStringProperty = translate.property
-
-
-object Tr:
-  val appName       = Translate("Mirage",           "Мираж")
-  val branch        = Translate("Branch",           "Ветка")
-  val date          = Translate("Date",             "Дата")
-  val file          = Translate("File",             "Файл")
-  val language      = Translate("Language",         "Язык")
-  val loading       = Translate("Loading",          "Загрузка")
-  val naming        = Translate("Name",             "Название")
-  val reload        = Translate("Reload",           "Перезагрузить")
-  val retry         = Translate("Retry",            "Попробовать еще раз")
-  val selectCommit  = Translate("Select a commit",  "Выберите комит")
-  val settings      = Translate("Settings",         "Настройки")
-  val theUpdate     = Translate("Update",           "Обновление")
-  val toUpdate      = Translate("Update",           "Обновить")

@@ -1,4 +1,4 @@
-package util
+package fx
 
 import com.sun.javafx.binding.StringFormatter
 import javafx.beans.binding.StringExpression

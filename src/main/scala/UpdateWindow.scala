@@ -1,25 +1,31 @@
 import atlantafx.base.controls.SelectableTextFlow
 import atlantafx.base.theme.Styles
+import constant.{Constants, Tr}
+import fx.PropertyInterpolation.b
+import fx.{AutoTableView, NotificationBox, SelfProperty}
+import javafx.concurrent as jfxc
+import javafx.scene.Node
 import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
 import scalafx.Includes.*
 import scalafx.collections.ObservableBuffer
-import scalafx.concurrent.{Service, Task}
+import scalafx.concurrent.Task
+import scalafx.geometry.Pos.Center
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.control.*
 import scalafx.scene.control.ScrollPane.ScrollBarPolicy
-import scalafx.scene.layout.{HBox, Priority, StackPane, VBox}
+import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
-import scalafx.scene.text.{Font, Text}
+import scalafx.scene.text.{Font, Text, TextFlow}
 import scalafx.stage.{Modality, Stage}
-import util.PropertyInterpolation.b
-import util.{AutoTableView, SelfProperty, Tr}
+import util.*
 
-import java.io.{PrintWriter, StringWriter}
+import java.io.{File, FileOutputStream, PrintWriter, StringWriter}
 import java.time.ZoneId
 import java.time.format.{DateTimeFormatter, FormatStyle}
 import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.math.Ordering.Implicits.infixOrderingOps
+import scala.util.Using
 
 
 private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfProperty
@@ -31,53 +37,104 @@ class UpdateStage(parent: Stage) extends Stage:
   initOwner(parent.scene.value.getWindow)
   scene = new UpdateScene
 
-private class UpdateScene extends Scene(600, 400):
 
-  private lazy val repo = GitHub.connectAnonymously.getRepository("karbseseen/mirage")
+private class UpdateScene extends Scene(new StackPane, 600, 400):
+  val notifications = new NotificationBox
+  content = Seq(new Region, notifications)
+  def mainView: Node = content(0)
+  def mainView_=(view: Node): Unit = content.set(0, view)
 
-  val service = Service(Task {
+  private def setToken(token: String): Unit =
+    GithubToken.set(token, Some(notifications))
+    new InfoService(this, token).start()
+
+  private def setTokenView(): Unit =
+    val input = new TextField:
+      hgrow = Priority.Always
+      focusTraversable = false
+      promptText = Constants.githubToken
+    val enter = new Button:
+      this.text <== Tr.go
+      disable <== input.text.delegate.isEmpty
+      onAction = _ => setToken(input.getText)
+
+    val text = new Text:
+      this.text <== b"${Tr.createToken}: "
+    val link = new Hyperlink(Constants.createTokenLinkText):
+      onMouseClicked = _ => MainApp.hostServices.showDocument(Constants.createTokenLink)
+    val textFlow = new TextFlow(text, link.delegate)
+
+    val x = content
+    mainView = new ScrollPane:
+      padding = Insets(Constants.inset)
+      hbarPolicy = ScrollBarPolicy.Never
+      content = new VBox(Constants.inset, new HBox(Constants.inset, input, enter), textFlow)
+      textFlow.prefWidth <== width - Constants.inset * 2
+
+  def resetTokenButton: Button = new Button:
+    text <== Tr.resetToken
+    onMouseClicked = _ => setTokenView()
+
+  GithubToken.get match
+    case Some(token) => new InfoService(this, token).start()
+    case None => setTokenView()
+
+
+private abstract class UpdateService[T](scene: UpdateScene) extends jfxc.Service[T]:
+  def call: T
+  override protected def succeeded(): Unit
+
+  protected def createTask: jfxc.Task[T] = Task(call)
+
+  override def scheduled(): Unit =
+    val label = new Label:
+      text <== b"${Tr.loading} "
+      font = new Font(16)
+
+    val progress = new ProgressIndicator:
+      prefWidth <== label.height
+      prefHeight <== label.height
+
+    scene.mainView = new HBox(label, progress):
+      alignment = Pos.Center
+
+  override def failed(): Unit =
+    val stringWriter = new StringWriter()
+    val printWriter = new PrintWriter(stringWriter)
+    getException.printStackTrace(printWriter)
+
+    val retry = new Button:
+      this.text <== Tr.retry
+      onAction = _ => restart()
+    val buttons = new HBox(Constants.inset, retry, scene.resetTokenButton):
+      margin = Insets(Constants.inset)
+
+    val text = new Text(stringWriter.toString):
+      fill = Color.Red
+    val selectableText = new SelectableTextFlow(text):
+      this.padding = Insets(left = Constants.inset, right = 0, top = 0, bottom = 0)
+    val textScroll = new ScrollPane:
+      hbarPolicy = ScrollBarPolicy.Never
+      vgrow = Priority.Always
+      content = selectableText
+    selectableText.prefWidthProperty <== textScroll.width
+
+    scene.mainView = new VBox(buttons, textScroll)
+
+
+private class InfoService(scene: UpdateScene, token: String) extends UpdateService[Seq[Run]](scene):
+  def call: Seq[Run] =
     implicit val runOrdering: Ordering[Run] = Ordering.by(_.value.getCreatedAt.getTime)
-
     val allRuns = for {
-      run <- repo.queryWorkflowRuns().list().asScala
+      run <- GitHub.connectUsingOAuth(token).getRepository("karbseseen/mirage").queryWorkflowRuns().list().asScala
       artifact <- run.listArtifacts().asScala.find(_.getName.endsWith(".jar"))
     } yield Run(run, artifact)
-
     allRuns
       .groupMapReduce(_.value.getHeadCommit.getId)(identity)(_ max _)
       .values
       .toSeq
-  })
 
-
-  service.onScheduled = _ =>
-    val label = new Label:
-      text <== Tr.loading
-      font = new Font(16)
-
-    val progress = new ProgressIndicator
-
-    progress.prefWidth <== label.height
-    progress.prefHeight <== label.height
-
-    root = new StackPane:
-      children = new HBox(label, progress):
-        spacing <== label.height / 4
-        alignment = Pos.Center
-
-
-  service.onSucceeded = _ =>
-    val label = new Label:
-      text <== b"${Tr.selectCommit}:"
-      alignmentInParent = Pos.CenterLeft
-      font = new Font(16)
-
-    val updateButton = new Button:
-      text <== Tr.reload
-      alignmentInParent = Pos.CenterRight
-      styleClass += Styles.SMALL
-      onAction = _ => service.restart()
-
+  override def succeeded(): Unit =
     val table = new AutoTableView[Run]:
       private val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
       columns ++= Seq(
@@ -85,38 +142,45 @@ private class UpdateScene extends Scene(600, 400):
         tableColumn(Tr.naming, _.value.getHeadCommit.getMessage),
         tableColumn(Tr.date, _.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter)),
       )
-      items = ObservableBuffer(service.getValue*)
+      items = ObservableBuffer(getValue*)
 
-    val upperRow = new StackPane:
-      margin = Insets(6)
-      children = Seq(label, updateButton)
+    val label = new Label:
+      text <== b"${Tr.selectCommit}:"
+      hgrow = Priority.Always
+      maxWidth = Double.MaxValue
+      font = new Font(16)
 
-    root = new VBox(upperRow, table)
+    val reloadButton = new Button:
+      styleClass ++= Styles.WARNING :: Styles.BUTTON_OUTLINED :: Nil
+      text <== Tr.reload
+      onAction = _ => restart()
 
+    val updateButton = new Button:
+      styleClass += Styles.ACCENT
+      disable <== table.selectionModel.selectInteger("selectedIndex").isEqualTo(-1)
+      text <== Tr.toUpdate
+      onAction = _ => new DownloadService(InfoService.this.scene, table.getSelectionModel.getSelectedItem).start()
 
-  service.onFailed = _ =>
-    val inset = 10.0
+    val upperRow = new HBox(Constants.inset, label, reloadButton, updateButton):
+      margin = Insets(Constants.inset)
+      alignment = Center
 
-    val stringWriter = new StringWriter()
-    val printWriter = new PrintWriter(stringWriter)
-    service.getException.printStackTrace(printWriter)
-
-    val retry = new Button:
-      this.text <== Tr.retry
-      margin = Insets(inset)
-      onAction = _ => service.restart()
-
-    val text = new Text(stringWriter.toString):
-      fill = Color.Red
-    val selectableText = new SelectableTextFlow(text):
-      this.padding = Insets(left = inset, right = 0, top = 0, bottom = 0)
-    val textScroll = new ScrollPane:
-      hbarPolicy = ScrollBarPolicy.Never
-      vgrow = Priority.Always
-      content = selectableText
-    selectableText.prefWidthProperty <== textScroll.width
-
-    root = new VBox(retry, textScroll)
+    scene.mainView = new VBox(upperRow, table)
 
 
-  service.start()
+private class DownloadService(scene: UpdateScene, run: Run) extends UpdateService[Unit](scene):
+  def call: Unit =
+    val jarFile = JavaUtil.getJarFile
+    val tempFile = new File(jarFile.getAbsolutePath + ".temp")
+    try
+      run.artifact.download { input =>
+        Using(FileOutputStream(tempFile)) { input.transferTo(_) }
+      }
+    catch case error: Exception =>
+      tempFile.delete()
+      throw error
+    finally
+      jarFile.delete()
+      tempFile.renameTo(jarFile)
+  override def succeeded(): Unit =
+    JavaUtil.restart()

@@ -9,7 +9,7 @@ object FieldSort {
 
   private case class Entry(sourceFileName: String, objectName: String)
   private val entries = List(
-    Entry("constant/Tr.scala", "Tr"),
+    Entry("constant/Translate.scala", "Tr"),
     Entry("constant/Constants.scala", "Constants"),
   )
 
@@ -44,7 +44,7 @@ object FieldSort {
     for ((entry, index) <- entries.zipWithIndex) yield {
       val cache = streams.value.cacheDirectory / s"fieldSort$index"
       val source = (Compile / scalaSource).value / entry.sourceFileName
-      val thisFile = (Compile / baseDirectory).value / "project" / "TrSort.scala"
+      val thisFile = (Compile / baseDirectory).value / "project" / "FieldSort.scala"
       FileFunction.cached(cache, FilesInfo.hash) { _ => processEntry(entry, source) } { Set(source, thisFile) }
     }
   }

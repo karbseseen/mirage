@@ -1,5 +1,6 @@
 package fx
 
+import constant.Translate
 import scalafx.beans.property.ReadOnlyObjectProperty
 import scalafx.scene.control.{TableColumn, TableView}
 

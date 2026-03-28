@@ -1,8 +1,7 @@
-import atlantafx.base.theme.PrimerLight
 import constant.Tr
 import fx.NotificationBox
 import scalafx.application.JFXApp3
-import scalafx.application.JFXApp3.{PrimaryStage, userAgentStylesheet}
+import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.scene.Scene
 import scalafx.scene.layout.StackPane
 
@@ -31,7 +30,6 @@ object MainApp extends JFXApp3:
   val notifications = new NotificationBox
 
   override def start(): Unit =
-    userAgentStylesheet = new PrimerLight().getUserAgentStylesheet
     stage = new PrimaryStage:
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):

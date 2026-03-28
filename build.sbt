@@ -14,11 +14,12 @@ fieldSort := { FieldSort.task.value }
 
 
 libraryDependencies ++= Seq(
-  "org.kohsuke" % "github-api" % "1.330",
-  "com.github.javakeyring" % "java-keyring" % "1.0.4",
   "org.scalafx" %% "scalafx" % "25.0.2-R37",
   "io.github.mkpaz" % "atlantafx-base" % "2.1.0",
   //"io.github.palexdev" % "materialfx" % "11.17.0",
+  "org.virtuslab" %% "scala-yaml" % "0.3.1",
+  "org.kohsuke" % "github-api" % "1.330",
+  "com.github.javakeyring" % "java-keyring" % "1.0.4",
 )
 /*libraryDependencies ++= Seq("base", "graphics", "controls")
   .map { libName => "org.openjfx" % s"javafx-$libName" % "25.0.2" classifier os }*/

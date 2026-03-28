@@ -1,6 +1,30 @@
 package constant
 
-import fx.Translate
+import config.{Config, Language}
+import javafx.beans.property as jfxbp
+
+import java.util.function.Consumer
+import scala.annotation.tailrec
+import scala.language.implicitConversions
+
+
+case class Translate(
+  en: String,
+  ru: String = "",
+):
+  @tailrec final def apply(language: Language): String =
+    val value = productElement(language.ordinal).asInstanceOf[String]
+    if value.nonEmpty then value
+    else language.default match
+      case None => ""
+      case Some(default) => apply(default)
+
+  private val mutableProperty = new jfxbp.SimpleStringProperty(this, en)
+  def property: jfxbp.ReadOnlyStringProperty = mutableProperty
+  Config[Language].subscribe { lang => mutableProperty.set(apply(lang)) }
+
+object Translate:
+  implicit def asProperty(translate: Translate): jfxbp.ReadOnlyStringProperty = translate.property
 
 
 object Tr:
@@ -20,6 +44,7 @@ object Tr:
   val selectCommit    = Translate("Select a commit",            "Выберите комит")
   val settings        = Translate("Settings",                   "Настройки")
   val theUpdate       = Translate("Update",                     "Обновление")
+  val theme           = Translate("Theme",                      "Тема")
   val toUpdate        = Translate("Update",                     "Обновить")
   val tokenCleared    = Translate("Token deleted successfully", "Токен успешно удален")
   val tokenNotCleared = Translate("Couldn't delete token",      "Не удалось удалить токен")

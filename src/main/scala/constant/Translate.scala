@@ -28,11 +28,14 @@ object Translate:
 
 
 object Tr:
+  val add             = Translate("Add",                        "Добавить")
+  val addTorrent      = Translate("Add torrent",                "Добавить торрент")
   val appName         = Translate("Mirage",                     "Мираж")
   val branch          = Translate("Branch",                     "Ветка")
   val clearToken      = Translate("Clear Github token",         "Удалить Github токен")
   val createToken     = Translate("You can create it here",     "Его можно создать здесь")
   val date            = Translate("Date",                       "Дата")
+  val enterMagnet     = Translate("Enter magnet link",          "Введите магнитную ссылку")
   val file            = Translate("File",                       "Файл")
   val go              = Translate("Go",                         "Вперед")
   val language        = Translate("Language",                   "Язык")
@@ -50,3 +53,4 @@ object Tr:
   val tokenNotCleared = Translate("Couldn't delete token",      "Не удалось удалить токен")
   val tokenNotSaved   = Translate("Couldn't save token",        "Не удалось сохранить токен")
   val tokenSaved      = Translate("Token saved successfully",   "Токен успешно сохранен")
+  val torrent         = Translate("Torrent",                    "Торрент")

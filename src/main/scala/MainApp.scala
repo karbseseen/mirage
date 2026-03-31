@@ -1,8 +1,10 @@
+import atlantafx.base.controls.ModalPane
 import constant.Tr
 import fx.NotificationBox
+import scalafx.Includes.jfxControl2sfx
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
-import scalafx.scene.Scene
+import scalafx.scene.{Node, Scene}
 import scalafx.scene.layout.StackPane
 
 import java.util.Locale
@@ -27,10 +29,11 @@ object MainApp extends JFXApp3:
   setUnixLocale("LC_TIME", Locale.Category.FORMAT)
 
 
-  val notifications = new NotificationBox
+  private given modal: ModalPane = new ModalPane
+  private given notifications: NotificationBox = new NotificationBox
 
   override def start(): Unit =
     stage = new PrimaryStage:
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):
-        content = new MainMenu :: notifications :: Nil
+        content = Seq[Node](new MainMenu, modal, notifications)

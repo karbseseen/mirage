@@ -55,7 +55,7 @@ private class UpdateScene extends Scene(new StackPane, 600, 400):
       promptText = Constants.githubToken
     val enter = new Button:
       this.text <== Tr.go
-      disable <== input.text.delegate.isEmpty
+      disable <== input.text.isEmpty
       onAction = _ => setToken(input.getText)
 
     val text = new Text:

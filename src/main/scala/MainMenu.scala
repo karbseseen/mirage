@@ -1,14 +1,54 @@
 import MainApp.stage
+import atlantafx.base.controls.ModalPane
 import atlantafx.base.theme as afxbt
 import config.Theme.given_Config_Theme
 import config.{Config, Language, Theme}
-import constant.Tr
+import constant.{Constants, Tr}
+import fx.NotificationBox
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.Pos
-import scalafx.scene.control.{Menu, MenuBar, MenuItem, RadioMenuItem, ToggleGroup}
+import scalafx.geometry.{Insets, Pos}
+import scalafx.scene.control.*
+import scalafx.scene.layout.{HBox, Priority, VBox}
+import scalafx.scene.text.Font
 
 
-private def settingsMenu =
+private def addMenu(using modal: ModalPane) =
+  lazy val torrentDialog =
+    val header = new Label:
+      font = new Font(20)
+      text <== Tr.addTorrent
+
+    val input = new TextField:
+      hgrow = Priority.Always
+      focusTraversable = false
+      promptText <== Tr.enterMagnet
+
+    val button = new Button:
+      disable <== input.text.isEmpty
+      text <== Tr.add
+      onAction = _ => modal.hide(true)
+
+    val row = new HBox(Constants.inset, input, button):
+      vgrow = Priority.Always
+      alignment = Pos.Center
+
+    new VBox(Constants.inset, header, row):
+      maxWidth = 500
+      maxHeight = 150
+      style = "-fx-background-color: -color-bg-default"
+      margin = Insets(Constants.inset)
+      padding = Insets(Constants.inset * 1.5)
+
+  val torrent = new MenuItem:
+    text <== Tr.torrent
+    onAction = _ => modal.show(torrentDialog)
+
+  new Menu:
+    text <== Tr.add
+    items = Seq(torrent)
+
+
+private def settingsMenu(using notifications: NotificationBox) =
   val language = new Menu:
     private val group = new ToggleGroup
     text <== Tr.language
@@ -36,13 +76,13 @@ private def settingsMenu =
   val clearToken = new MenuItem:
     text <== Tr.clearToken
     visible <== GithubToken.property.isNotNull
-    onAction = _ => GithubToken.clear(Some(MainApp.notifications))
+    onAction = _ => GithubToken.clear(Some(notifications))
 
   new Menu:
     text <== Tr.settings
     items = Seq(language, theme, update, clearToken)
 
 
-class MainMenu extends MenuBar:
-  menus = Seq(settingsMenu)
+class MainMenu(using ModalPane, NotificationBox) extends MenuBar:
+  menus = Seq(addMenu, settingsMenu)
   alignmentInParent = Pos.TopCenter

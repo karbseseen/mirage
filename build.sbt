@@ -23,3 +23,9 @@ libraryDependencies ++= Seq(
 )
 /*libraryDependencies ++= Seq("base", "graphics", "controls")
   .map { libName => "org.openjfx" % s"javafx-$libName" % "25.0.2" classifier os }*/
+
+
+Compile / packageBin / mappings :=
+  (Compile / packageBin / mappings).value
+    .filter { case (file, path) => !path.endsWith(".tasty") }
+

@@ -16,7 +16,7 @@ import scala.util.Try
 
 object Config:
   private val fileName = "data.yaml"
-  private val file = new File(JavaUtil.getJarFile.getParentFile, fileName)
+  private val file = new File(JavaUtil.jarFile.getParentFile, fileName)
 
   private def parseMap(root: MappingNode) = root.mappings.view
     .flatMap {

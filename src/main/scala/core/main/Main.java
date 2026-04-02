@@ -4,12 +4,12 @@ import util.JavaUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Objects;
@@ -28,6 +28,7 @@ public class Main {
 
     private interface Out {
         void print(String line, boolean isTemp);
+        default void print(String line) { print(line, false); };
     }
     private static class StdOut implements Out {
         @Override public void print(String line, boolean isTemp) {
@@ -60,38 +61,31 @@ public class Main {
 
 
     public static void main(String[] args) throws Exception {
-        new Main().check(args);
-        MainApp.main(args);
+        if (new Main().check(args)) MainApp.main(args);
     }
 
 
-    File jarDirectory;
-    String os;
-    Out out;
+    Out out = System.console() == null ? new CustomOut() : new StdOut();
     private Main() {}
 
-    private void check(String[] args) throws Exception {
+    private boolean check(String[] args) throws Exception {
+        if (JavaUtil.lock == null) {
+            out.print("Mirage is already running");
+            return false;
+        }
+        
         for (String arg : args)
             if (arg.equals(Arg.depsOk))
-                return;
-
-        jarDirectory = JavaUtil.getJarFile().getParentFile();
-        
-        String sysOs = System.getProperty("os.name").toLowerCase();
-        if (sysOs.contains("win")) os = "win";
-        else if (sysOs.contains("mac")) os = "mac";
-        else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) os = "linux";
-        else throw new Exception("Unknown OS");
-
-        out = System.console() == null ? new CustomOut() : new StdOut();
+                return true;
 
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         Enumeration<URL> manifests = loader.getResources("META-INF/MANIFEST.MF");
         while (manifests.hasMoreElements())
             try (InputStream manifest = manifests.nextElement().openStream()) {
                 if (check(new Manifest(manifest)))
-                    break;
+                    return true;
             }
+        return false;
     }
 
     private boolean check(Manifest manifest) throws Exception {
@@ -101,6 +95,14 @@ public class Main {
 
         String[] classPaths = attrs.getValue("Class-Path").split(" ");
         int platformPathNum = Integer.parseInt(attrs.getValue("Platform-Path-Num"));
+        File jarDirectory = JavaUtil.jarFile.getParentFile();
+
+        String sysOs = System.getProperty("os.name").toLowerCase(), os;
+        if (sysOs.contains("win")) os = "win";
+        else if (sysOs.contains("mac")) os = "mac";
+        else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) os = "linux";
+        else throw new Exception("Unknown OS");
+
         for (int index = 0; index < classPaths.length; index++) {
             String path = classPaths[index];
             File file = new File(jarDirectory, path);

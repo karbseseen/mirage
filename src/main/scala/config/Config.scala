@@ -30,6 +30,7 @@ object Config:
     root <- yaml.asNode.toTry.printError(_ => s"Couldn't parse $fileName")
     mapRoot <- Try(root).collect { case root: MappingNode => root }.printError(_ => s"Couldn't parse $fileName as map")
   yield parseMap(mapRoot)
+
   private val map = parseFile getOrElse mutable.Map.empty
 
   private lazy val updateHook: Unit = sys.addShutdownHook {
@@ -54,7 +55,7 @@ object Config:
 trait Config[T : YamlCodec] extends jfxbp.Property[T]:
   import Config.*
 
-  private def node = Option(getValue).map(implicitly[YamlCodec[T]].asNode)
+  private def node = Option(getValue).map(summon[YamlCodec[T]].asNode)
 
   Config.map.updateWith(getName) {
     case taken@Some(_: Config[?]) =>
@@ -64,9 +65,6 @@ trait Config[T : YamlCodec] extends jfxbp.Property[T]:
       Try(available).collect { case Some(node: Node) => node }
         .flatMap { implicitly[YamlCodec[T]].construct(_).toTry }.printError(_ => s"Couldn't parse config $getName")
         .foreach(setValue)
-      this.onChange {
-        Config.map(getName) = this
-        updateHook
-      }
+      this.onChange(updateHook)
       Some(this)
   }

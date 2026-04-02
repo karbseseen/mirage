@@ -1,6 +1,9 @@
+package core
+
 import atlantafx.base.controls.SelectableTextFlow
 import atlantafx.base.theme.Styles
 import constant.{Constants, Tr}
+import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoTableView, NotificationBox, SelfProperty}
 import javafx.concurrent as jfxc
@@ -31,7 +34,7 @@ import scala.util.Using
 private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfProperty
 
 
-class UpdateStage(parent: Stage) extends Stage:
+private[core] class UpdateStage(parent: Stage = MainApp.stage) extends Stage:
   title <== Tr.theUpdate
   initModality(Modality.WindowModal)
   initOwner(parent.scene.value.getWindow)

@@ -1,13 +1,16 @@
+package core.main;
+
 import util.JavaUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.*;
-import java.net.URI;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Objects;
 import java.util.jar.Attributes;

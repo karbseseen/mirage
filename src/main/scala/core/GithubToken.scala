@@ -1,3 +1,5 @@
+package core
+
 import atlantafx.base.theme.Styles
 import com.github.javakeyring.Keyring
 import constant.Tr
@@ -8,7 +10,7 @@ import scalafx.beans.property.{ReadOnlyStringProperty, StringProperty}
 import scala.util.Using
 
 
-object GithubToken:
+private[core] object GithubToken:
   private val domain = "mirage"
   private val key = "github-token"
 

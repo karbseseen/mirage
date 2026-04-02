@@ -1,4 +1,5 @@
-import MainApp.stage
+package core
+
 import atlantafx.base.controls.ModalPane
 import atlantafx.base.theme as afxbt
 import config.Theme.given_Config_Theme
@@ -71,7 +72,7 @@ private def settingsMenu(using notifications: NotificationBox) =
   
   val update = new MenuItem:
     text <== Tr.toUpdate
-    onAction = _ => new UpdateStage(stage).show()
+    onAction = _ => new UpdateStage().show()
 
   val clearToken = new MenuItem:
     text <== Tr.clearToken
@@ -83,6 +84,6 @@ private def settingsMenu(using notifications: NotificationBox) =
     items = Seq(language, theme, update, clearToken)
 
 
-class MainMenu(using ModalPane, NotificationBox) extends MenuBar:
+private[core] class MainMenu(using ModalPane, NotificationBox) extends MenuBar:
   menus = Seq(addMenu, settingsMenu)
   alignmentInParent = Pos.TopCenter

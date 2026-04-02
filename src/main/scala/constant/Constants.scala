@@ -10,3 +10,7 @@ object Constants:
   val createTokenLinkText = "https://github.com/settings/personal-access-tokens/new"
   val githubToken = "Github personal access token"
   val inset = 10.0
+  val modalMargin = 10.0
+  val modalPadding = 15.0
+  val modalSpace = 50.0
+  val modalWidth = 500.0

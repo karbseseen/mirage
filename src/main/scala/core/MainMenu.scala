@@ -5,17 +5,18 @@ import atlantafx.base.theme as afxbt
 import config.Theme.given_Config_Theme
 import config.{Config, Language, Theme}
 import constant.{Constants, Tr}
-import fx.NotificationBox
+import fx.{ModalBox, NotificationBox}
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.{Insets, Pos}
+import scalafx.geometry.Pos
 import scalafx.scene.control.*
-import scalafx.scene.layout.{HBox, Priority, VBox}
+import scalafx.scene.layout.{HBox, Priority, Region, VBox}
 import scalafx.scene.text.Font
 
 
 private def addMenu(using modal: ModalPane) =
   lazy val torrentDialog =
     val header = new Label:
+      vgrow = Priority.Always
       font = new Font(20)
       text <== Tr.addTorrent
 
@@ -33,12 +34,7 @@ private def addMenu(using modal: ModalPane) =
       vgrow = Priority.Always
       alignment = Pos.Center
 
-    new VBox(Constants.inset, header, row):
-      maxWidth = 500
-      maxHeight = 150
-      style = "-fx-background-color: -color-bg-default"
-      margin = Insets(Constants.inset)
-      padding = Insets(Constants.inset * 1.5)
+    new VBox(header, ModalBox.space(Constants.modalPadding), row, ModalBox.space()) with ModalBox
 
   val torrent = new MenuItem:
     text <== Tr.torrent

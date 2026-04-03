@@ -5,9 +5,9 @@ import atlantafx.base.theme as afxbt
 import config.Theme.given_Config_Theme
 import config.{Config, Language, Theme}
 import constant.{Constants, Tr}
-import fx.{ModalBox, NotificationBox}
+import fx.{AutoInsets, ModalBox, NotificationBox}
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.Pos
+import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.layout.{HBox, Priority, Region, VBox}
 import scalafx.scene.text.Font
@@ -34,7 +34,8 @@ private def addMenu(using modal: ModalPane) =
       vgrow = Priority.Always
       alignment = Pos.Center
 
-    new VBox(header, ModalBox.space(Constants.modalPadding), row, ModalBox.space()) with ModalBox
+    new VBox(header, ModalBox.space, row, ModalBox.space) with ModalBox:
+      padding = AutoInsets(left = Constants.modalPadding, top = Constants.modalPadding, right = Constants.modalPadding)
 
   val torrent = new MenuItem:
     text <== Tr.torrent

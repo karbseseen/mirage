@@ -67,7 +67,7 @@ class NotificationBox private (override val delegate: jfxsl.VBox)
   alignmentInParent = Pos.TopRight
   maxWidth = Region.UsePrefSize
   maxHeight = Region.UsePrefSize
-  margin = Insets(top = Constants.inset, right = Constants.inset, left = 0, bottom = 0)
+  margin = AutoInsets(top = Constants.inset, right = Constants.inset)
 
   def children: ObservableBuffer[afxbc.Notification] = delegate.getChildren.asInstanceOf[jfxc.ObservableList[afxbc.Notification]]
 

@@ -5,7 +5,7 @@ import atlantafx.base.theme.Styles
 import constant.{Constants, Tr}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
-import fx.{AutoTableView, NotificationBox, SelfProperty}
+import fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
 import javafx.concurrent as jfxc
 import javafx.scene.Node
 import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
@@ -102,27 +102,9 @@ private abstract class UpdateService[T](scene: UpdateScene) extends jfxc.Service
       alignment = Pos.Center
 
   override def failed(): Unit =
-    val stringWriter = new StringWriter()
-    val printWriter = new PrintWriter(stringWriter)
-    getException.printStackTrace(printWriter)
-
-    val retry = new Button:
-      this.text <== Tr.retry
-      onAction = _ => restart()
-    val buttons = new HBox(Constants.inset, retry, scene.resetTokenButton):
-      margin = Insets(Constants.inset)
-
-    val text = new Text(stringWriter.toString):
-      fill = Color.Red
-    val selectableText = new SelectableTextFlow(text):
-      this.padding = Insets(left = Constants.inset, right = 0, top = 0, bottom = 0)
-    val textScroll = new ScrollPane:
-      hbarPolicy = ScrollBarPolicy.Never
-      vgrow = Priority.Always
-      content = selectableText
-    selectableText.prefWidthProperty <== textScroll.width
-
-    scene.mainView = new VBox(buttons, textScroll)
+    scene.mainView = new ErrorView(getException, scrollable = true):
+      retryButton.onAction = _ => restart()
+      buttons.children += UpdateService.this.scene.resetTokenButton
 
 
 private class InfoService(scene: UpdateScene, token: String) extends UpdateService[Seq[Run]](scene):

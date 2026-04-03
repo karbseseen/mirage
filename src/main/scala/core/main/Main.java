@@ -13,6 +13,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -23,7 +25,6 @@ public class Main {
     }
     private static final String mavenPath = "lib/maven2/";
     private static final String platformSuffix = "-platform.jar";
-    private static final long printPeriod = 100;
 
 
     private interface Out {
@@ -78,30 +79,19 @@ public class Main {
             if (arg.equals(Arg.depsOk))
                 return true;
 
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        Enumeration<URL> manifests = loader.getResources("META-INF/MANIFEST.MF");
-        while (manifests.hasMoreElements())
-            try (InputStream manifest = manifests.nextElement().openStream()) {
-                if (check(new Manifest(manifest)))
-                    return true;
-            }
-        return false;
-    }
-
-    private boolean check(Manifest manifest) throws Exception {
+        Manifest manifest = JavaUtil.getManifest();
         Attributes attrs = manifest.getMainAttributes();
-        if (!Objects.equals(attrs.getValue("Implementation-Title"), "mirage")) return false;
         boolean needRestart = false;
 
         String[] classPaths = attrs.getValue("Class-Path").split(" ");
         int platformPathNum = Integer.parseInt(attrs.getValue("Platform-Path-Num"));
         File jarDirectory = JavaUtil.jarFile.getParentFile();
 
-        String sysOs = System.getProperty("os.name").toLowerCase(), os;
-        if (sysOs.contains("win")) os = "win";
-        else if (sysOs.contains("mac")) os = "mac";
-        else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) os = "linux";
-        else throw new Exception("Unknown OS");
+        String os = switch (JavaUtil.os) {
+            case JavaUtil.OS.Windows -> "win";
+            case JavaUtil.OS.MacOS -> "mac";
+            case JavaUtil.OS.Linux -> "linux";
+        };
 
         for (int index = 0; index < classPaths.length; index++) {
             String path = classPaths[index];
@@ -140,22 +130,10 @@ public class Main {
         URLConnection connection = new URL(url).openConnection();
         BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
         FileOutputStream output = new FileOutputStream(destinationPart);
-        byte[] buffer = new byte[1024 * 8];
 
-        long totalRead = 0, totalSize = connection.getContentLengthLong();
-        long lastPrintTime = 0;
-        while (true) {
-            long time = System.currentTimeMillis();
-            if (time - lastPrintTime > printPeriod) {
-                out.print(url + " - " + (totalRead * 100 / totalSize) + "%", true);
-                lastPrintTime = time;
-            }
-
-            int currentRead = input.read(buffer);
-            if (currentRead == -1) break;
-            output.write(buffer, 0, currentRead);
-            totalRead += currentRead;
-        }
+        long totalSize = connection.getContentLengthLong();
+        Consumer<Long> print = totalRead -> out.print(url + " - " + (totalRead * 100 / totalSize) + "%", true);
+        JavaUtil.downloadWithProgress(input, output, print);
         out.print(url + " - Done", false);
 
         input.close();

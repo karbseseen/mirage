@@ -1,19 +1,19 @@
 package core
 
-import atlantafx.base.controls.ModalPane
 import atlantafx.base.theme as afxbt
 import config.Theme.given_Config_Theme
 import config.{Config, Language, Theme}
 import constant.{Constants, Tr}
-import fx.{AutoInsets, ModalBox, NotificationBox}
+import core.main.MainApp
+import fx.{AutoInsets, ModalBox}
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.{Insets, Pos}
+import scalafx.geometry.Pos
 import scalafx.scene.control.*
-import scalafx.scene.layout.{HBox, Priority, Region, VBox}
+import scalafx.scene.layout.{HBox, Priority, VBox}
 import scalafx.scene.text.Font
 
 
-private def addMenu(using modal: ModalPane) =
+private def addMenu =
   lazy val torrentDialog =
     val header = new Label:
       vgrow = Priority.Always
@@ -28,7 +28,7 @@ private def addMenu(using modal: ModalPane) =
     val button = new Button:
       disable <== input.text.isEmpty
       text <== Tr.add
-      onAction = _ => modal.hide(true)
+      onAction = _ => MainApp.modal.hide(true)
 
     val row = new HBox(Constants.inset, input, button):
       vgrow = Priority.Always
@@ -39,14 +39,14 @@ private def addMenu(using modal: ModalPane) =
 
   val torrent = new MenuItem:
     text <== Tr.torrent
-    onAction = _ => modal.show(torrentDialog)
+    onAction = _ => MainApp.modal.show(torrentDialog)
 
   new Menu:
     text <== Tr.add
     items = Seq(torrent)
 
 
-private def settingsMenu(using notifications: NotificationBox) =
+private def settingsMenu =
   val language = new Menu:
     private val group = new ToggleGroup
     text <== Tr.language
@@ -74,13 +74,13 @@ private def settingsMenu(using notifications: NotificationBox) =
   val clearToken = new MenuItem:
     text <== Tr.clearToken
     visible <== GithubToken.property.isNotNull
-    onAction = _ => GithubToken.clear(Some(notifications))
+    onAction = _ => GithubToken.clear(Some(MainApp.notifications))
 
   new Menu:
     text <== Tr.settings
     items = Seq(language, theme, update, clearToken)
 
 
-private[core] class MainMenu(using ModalPane, NotificationBox) extends MenuBar:
+private[core] class MainMenu extends MenuBar:
   menus = Seq(addMenu, settingsMenu)
   alignmentInParent = Pos.TopCenter

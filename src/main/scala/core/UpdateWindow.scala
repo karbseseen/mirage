@@ -34,10 +34,10 @@ import scala.util.Using
 private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfProperty
 
 
-private[core] class UpdateStage(parent: Stage = MainApp.stage) extends Stage:
+private[core] class UpdateStage extends Stage:
   title <== Tr.theUpdate
   initModality(Modality.WindowModal)
-  initOwner(parent.scene.value.getWindow)
+  initOwner(MainApp.stage.scene.value.getWindow)
   scene = new UpdateScene
 
 

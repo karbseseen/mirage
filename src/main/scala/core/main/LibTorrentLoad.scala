@@ -1,6 +1,6 @@
 package core.main
 
-import atlantafx.base.controls.{ModalPane, RingProgressIndicator}
+import atlantafx.base.controls.RingProgressIndicator
 import constant.{Constants, Tr}
 import fx.{AutoInsets, ModalBox, ModalErrorView, Worker}
 import org.libtorrent4j.LibTorrent
@@ -18,18 +18,18 @@ import scala.util.Using
 
 
 private[main] object LibTorrentLoad:
-  def apply()(using root: MainApp.Root, modal: ModalPane): Unit =
+  def apply(): Unit =
     val ext = JavaUtil.os match
       case JavaUtil.OS.Windows => "dll"
       case JavaUtil.OS.MacOS => "dylib"
       case JavaUtil.OS.Linux => "so"
-    given file: File = new File(JavaUtil.jarFile.getParentFile, s"lib/libtorrent4j.$ext")
+    val file = new File(JavaUtil.jarFile.getParentFile, s"lib/libtorrent4j.$ext")
     System.setProperty("libtorrent4j.jni.path", file.getAbsolutePath)
 
-    if (!file.exists) new LoadWorker().start()
+    if (!file.exists) new LoadWorker(file).start()
 
 
-private class LoadWorker(using root: MainApp.Root, modal: ModalPane, file: File) extends Worker:
+private class LoadWorker(file: File) extends Worker:
   def run(): Unit =
     val progress = showLoading
     try { download(progress) }
@@ -83,8 +83,8 @@ private class LoadWorker(using root: MainApp.Root, modal: ModalPane, file: File)
       children = Seq(ModalBox.space, row, ModalBox.space)
 
     ui {
-      modal.setPersistent(true)
-      modal.show(box)
+      MainApp.modal.setPersistent(true)
+      MainApp.modal.show(box)
     }
 
     progress
@@ -93,10 +93,10 @@ private class LoadWorker(using root: MainApp.Root, modal: ModalPane, file: File)
     val box = new ModalErrorView(error):
       maxWidth = 600
       retryButton.onAction = _ => start()
-    ui { modal.show(box) }
+    ui { MainApp.modal.show(box) }
 
   private def showSuccess(): Unit =
     ui {
-      modal.hide(true)
-      modal.setPersistent(false)
+      MainApp.modal.hide(true)
+      MainApp.modal.setPersistent(false)
     }

@@ -14,11 +14,9 @@ import scalafx.scene.{Node, Scene}
 object MainApp extends JFXApp3
   with UnixLocale
 :
-  class Root private[MainApp] extends VBox(new MainMenu)
-
-  private given root: Root = new Root
-  private given modal: ModalPane = new ModalPane
-  private given notifications: NotificationBox = new NotificationBox
+  lazy val root = new VBox(new MainMenu)
+  lazy val modal = new ModalPane
+  lazy val notifications = new NotificationBox
 
   def start(): Unit =
     stage = new PrimaryStage:

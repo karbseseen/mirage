@@ -4,17 +4,13 @@ import util.JavaUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -113,32 +109,27 @@ public class Main {
         if (needRestart) {
             ArrayList<String> cmd = JavaUtil.currentCmd();
             cmd.add(Arg.depsOk);
-            JavaUtil.restart(cmd);
+            JavaUtil.startNewInstance(cmd);
+            System.exit(0);
         }
 
         return true;
     }
 
-    private void downloadFile(String url, File destination) throws Exception {
+    private void downloadFile(String url, File destination) throws IOException {
         File directory = destination.getParentFile();
         if (directory != null) {
             directory.mkdirs();
-            if (!directory.isDirectory()) throw new Exception("Couldn't create " + directory);
+            if (!directory.isDirectory())
+                throw new RuntimeException("Couldn't create " + directory);
         }
-        File destinationPart = new File(destination.getAbsolutePath() + ".part");
 
         URLConnection connection = new URL(url).openConnection();
-        BufferedInputStream input = new BufferedInputStream(connection.getInputStream());
-        FileOutputStream output = new FileOutputStream(destinationPart);
-
-        long totalSize = connection.getContentLengthLong();
-        Consumer<Long> print = totalRead -> out.print(url + " - " + (totalRead * 100 / totalSize) + "%", true);
-        JavaUtil.downloadWithProgress(input, output, print);
-        out.print(url + " - Done", false);
-
-        input.close();
-        output.close();
-
-        destinationPart.renameTo(destination);
+        try (BufferedInputStream input = new BufferedInputStream(connection.getInputStream())) {
+            long totalSize = connection.getContentLengthLong();
+            Consumer<Long> print = totalRead -> out.print(url + " - " + (totalRead * 100 / totalSize) + "%", true);
+            JavaUtil.downloadWithProgress(input, destination, print);
+            out.print(url + " - Done", false);
+        }
     }
 }

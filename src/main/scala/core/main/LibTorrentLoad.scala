@@ -12,7 +12,7 @@ import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.text.Font
 import util.{JavaUtil, buffered, jar}
 
-import java.io.{File, FileOutputStream}
+import java.io.File
 import java.net.URL
 import scala.util.Using
 
@@ -52,17 +52,14 @@ private class LoadWorker(file: File) extends Worker:
     val url = s"https://repo1.maven.org/maven2/org/libtorrent4j/libtorrent4j-$os/2.1.0-39/libtorrent4j-$os-$version.jar"
     val fileJarPath = s"lib/$arch/${file.getName}"
 
-    Using.resources(
-      new URL(url).openConnection.getInputStream.buffered.jar,
-      new FileOutputStream(file),
-    ) { (input, output) =>
+    Using(new URL(url).openConnection.getInputStream.buffered.jar) { input =>
       Iterator.continually(input.getNextJarEntry)
         .takeWhile(_ != null)
         .find(_.getName == fileJarPath)
         .map { entry =>
           val size = entry.getSize.toDouble
           def onProgress(read: Long): Unit = Platform.runLater(progress.setProgress(read.toDouble / size))
-          JavaUtil.downloadWithProgress(input, output, onProgress)
+          JavaUtil.downloadWithProgress(input, file, onProgress)
         }
         .getOrElse(sys.error(s"Couldn't find appropriate file in jar (searched for $fileJarPath)"))
     }

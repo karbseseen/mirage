@@ -1,9 +1,9 @@
 package util;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.jar.Manifest;
 
 
@@ -58,34 +59,47 @@ public class JavaUtil {
     }
 
 
+    static final LazyVal<File> tempFile = new LazyVal<>(() -> {
+        File file = new File(jarFile.getParentFile(), "lib/half-downloaded-lib.part");
+        file.deleteOnExit();
+        return file;
+    });
+
     public static void downloadWithProgress(
         InputStream input,
-        OutputStream output,
+        File outputFile,
         Consumer<Long> onProgress,
         long progressPeriod
     ) throws IOException {
-        long totalRead = 0, lastProgressTime = 0;
-        byte[] buffer = new byte[1024 * 8];
-        while (true) {
-            long time = System.currentTimeMillis();
-            if (time - lastProgressTime > progressPeriod) {
-                onProgress.accept(totalRead);
-                lastProgressTime = time;
-            }
+        File partOutputFile = tempFile.get();
 
-            int currentRead = input.read(buffer);
-            if (currentRead == -1) break;
-            output.write(buffer, 0, currentRead);
-            totalRead += currentRead;
+        try (FileOutputStream output = new FileOutputStream(partOutputFile)) {
+            long totalRead = 0, lastProgressTime = 0;
+            byte[] buffer = new byte[1024 * 8];
+            while (true) {
+                long time = System.currentTimeMillis();
+                if (time - lastProgressTime > progressPeriod) {
+                    onProgress.accept(totalRead);
+                    lastProgressTime = time;
+                }
+
+                int currentRead = input.read(buffer);
+                if (currentRead == -1) break;
+                output.write(buffer, 0, currentRead);
+                totalRead += currentRead;
+            }
         }
+
+        if (!partOutputFile.renameTo(outputFile))
+            throw new RuntimeException("Couldn't move file to " + outputFile.getAbsolutePath());
     }
 
     public static void downloadWithProgress(
         InputStream input,
-        OutputStream output,
+        File outputFile,
         Consumer<Long> onProgress
     ) throws IOException {
-        downloadWithProgress(input, output, onProgress, 40);
+        downloadWithProgress(input, outputFile, onProgress, 40);
     }
 
 
@@ -97,15 +111,32 @@ public class JavaUtil {
         return cmd;
     }
     
-    public static <T> T restart(ArrayList<String> cmdList) throws IOException {
+    public static void startNewInstance(ArrayList<String> cmdList) throws IOException {
         String[] cmd = new String[cmdList.size()];
         for (int index = 0; index < cmdList.size(); index++)
             cmd[index] = cmdList.get(index);
 
         lock.release();
         Runtime.getRuntime().exec(cmd);
-        System.exit(0);
-        throw new AssertionError("Unreachable");
     }
-    public static <T> T restart() throws IOException { return restart(currentCmd()); }
+    public static void startNewInstance() throws IOException { startNewInstance(currentCmd()); }
+
+
+    private static class LazyVal<T> implements Supplier<T> {
+        Supplier<T> supplier;
+        T result;
+
+        LazyVal(Supplier<T> supplier) {
+            this.supplier = supplier;
+        }
+
+        public T get() {
+            if (supplier != null) {
+                result = supplier.get();
+                supplier = null;
+            }
+            return result;
+        }
+    }
+
 }

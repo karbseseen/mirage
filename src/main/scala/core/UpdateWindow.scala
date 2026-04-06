@@ -10,6 +10,7 @@ import javafx.concurrent as jfxc
 import javafx.scene.Node
 import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
 import scalafx.Includes.*
+import scalafx.application.Platform
 import scalafx.collections.ObservableBuffer
 import scalafx.concurrent.Task
 import scalafx.geometry.Pos.Center
@@ -168,4 +169,5 @@ private class DownloadService(scene: UpdateScene, run: Run) extends UpdateServic
       JavaUtil.jarFile.delete()
       tempFile.renameTo(JavaUtil.jarFile)
   override def succeeded(): Unit =
-    JavaUtil.restart()
+    JavaUtil.startNewInstance()
+    Platform.exit()

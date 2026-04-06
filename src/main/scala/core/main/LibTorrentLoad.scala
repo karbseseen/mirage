@@ -10,6 +10,7 @@ import scalafx.scene.control.ControlIncludes.jfxProgressIndicator2sfx
 import scalafx.scene.control.Label
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.text.Font
+import torrent.TorrentView
 import util.{JavaUtil, buffered, jar}
 
 import java.io.File
@@ -27,6 +28,7 @@ private[main] object LibTorrentLoad:
     System.setProperty("libtorrent4j.jni.path", file.getAbsolutePath)
 
     if (!file.exists) new LoadWorker(file).start()
+    else MainApp.root.children += new TorrentView
 
 
 private class LoadWorker(file: File) extends Worker:
@@ -79,10 +81,9 @@ private class LoadWorker(file: File) extends Worker:
       padding = AutoInsets(left = Constants.modalPadding, right = Constants.modalPadding)
       children = Seq(ModalBox.space, row, ModalBox.space)
 
-    ui {
+    ui:
       MainApp.modal.setPersistent(true)
       MainApp.modal.show(box)
-    }
 
     progress
 
@@ -90,10 +91,11 @@ private class LoadWorker(file: File) extends Worker:
     val box = new ModalErrorView(error):
       maxWidth = 600
       retryButton.onAction = _ => start()
-    ui { MainApp.modal.show(box) }
+    ui:
+      MainApp.modal.show(box)
 
   private def showSuccess(): Unit =
-    ui {
+    ui:
       MainApp.modal.hide(true)
       MainApp.modal.setPersistent(false)
-    }
+      MainApp.root.children += new TorrentView

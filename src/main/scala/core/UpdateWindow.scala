@@ -122,11 +122,12 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
 
   override def succeeded(): Unit =
     val table = new AutoTableView[Run]:
+      def tableName: String = "update-commit"
       private val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
       columns ++= Seq(
-        tableColumn(Tr.branch, _.value.getHeadBranch),
-        tableColumn(Tr.naming, _.value.getHeadCommit.getMessage),
-        tableColumn(Tr.date, _.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter)),
+        new Column(Tr.branch, selfProp) { cellText = _.value.getHeadBranch },
+        new Column(Tr.naming, selfProp) { cellText = _.value.getHeadCommit.getMessage },
+        new Column(Tr.date, selfProp) { cellText = _.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter) },
       )
       items = ObservableBuffer(getValue*)
 

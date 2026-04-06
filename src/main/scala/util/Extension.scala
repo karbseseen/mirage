@@ -2,7 +2,12 @@ package util
 
 import java.io.{BufferedInputStream, InputStream, PrintStream}
 import java.util.jar.JarInputStream
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
+
+
+extension [T : ClassTag](iterable: IterableOnce[T])
+  def toIArray: IArray[T] = IArray.from(iterable)
 
 
 extension [T](t: Try[T])

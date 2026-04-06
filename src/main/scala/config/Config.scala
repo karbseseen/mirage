@@ -2,8 +2,7 @@ package config
 
 import javafx.beans.property as jfxbp
 import org.virtuslab.yaml.Node.{MappingNode, ScalarNode}
-import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec}
-import scalafx.Includes.jfxObservableValue2sfx
+import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec, YamlDecoder, YamlEncoder}
 import util.{JavaUtil, printError}
 
 import java.io.File
@@ -33,18 +32,19 @@ object Config:
 
   private val map = parseFile getOrElse mutable.Map.empty
 
-  private lazy val updateHook: Unit = sys.addShutdownHook {
+  sys.addShutdownHook:
     val values = map.view.flatMap {
       case (key, node: Node) => Some(ScalarNode(key) -> node)
       case (key, config: Config[?]) => config.node.map(ScalarNode(key) -> _)
     }.toSeq
     Files.writeString(file.toPath, MappingNode(values*).asYaml)
-  }
 
 
   class Default[T](val value: T)
   object Default:
     implicit def apply[T](value: T): Default[T] = new Default(value)
+    given map[K, V]: Default[Map[K, V]] = Map.empty
+    given mutableMap[K, V]: Default[mutable.Map[K, V]] = mutable.Map.empty
 
   def derived[T : YamlCodec](using ct: ClassTag[T], default: Default[T]) =
     new jfxbp.SimpleObjectProperty[T](this, ct.runtimeClass.getSimpleName.toLowerCase, default.value) with Config[T]
@@ -53,11 +53,9 @@ object Config:
 
 
 trait Config[T : YamlCodec] extends jfxbp.Property[T]:
-  import Config.*
-
   private def node = Option(getValue).map(summon[YamlCodec[T]].asNode)
 
-  Config.map.updateWith(getName) {
+  Config.map.updateWith(getName):
     case taken@Some(_: Config[?]) =>
       System.err.println(s"Config with name $getName is already registered")
       taken
@@ -65,6 +63,8 @@ trait Config[T : YamlCodec] extends jfxbp.Property[T]:
       Try(available).collect { case Some(node: Node) => node }
         .flatMap { implicitly[YamlCodec[T]].construct(_).toTry }.printError(_ => s"Couldn't parse config $getName")
         .foreach(setValue)
-      this.onChange(updateHook)
       Some(this)
-  }
+
+
+given [K, V](using YamlDecoder[Map[K, V]], YamlEncoder[Map[K, V]]): YamlCodec[Map[K, V]] = YamlCodec.make
+given [K, V](using codec: YamlCodec[Map[K, V]]): YamlCodec[mutable.Map[K, V]] = codec.mapInvariant(_.to(mutable.Map))(_.toMap)

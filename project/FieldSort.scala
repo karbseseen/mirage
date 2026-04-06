@@ -5,7 +5,7 @@ import scala.collection.compat.{toOptionCompanionExtension, toTraversableLikeExt
 
 
 object FieldSort {
-  private val fieldStartRegex = "^ {2}(def|val|lazy val)".r
+  private val fieldStartRegex = "^ {2}(val|object)".r
 
   private case class Entry(sourceFileName: String, objectName: String)
   private val entries = List(

@@ -18,6 +18,8 @@ libraryDependencies ++= Seq(
   "io.github.mkpaz" % "atlantafx-base" % "2.1.0",
   //"io.github.palexdev" % "materialfx" % "11.17.0",
   "org.libtorrent4j" % "libtorrent4j" % "2.1.0-39",
+  "org.kordamp.ikonli" % "ikonli-javafx" % "12.4.0",
+  "org.kordamp.ikonli" % "ikonli-fluentui-pack" % "12.4.0",
   "org.virtuslab" %% "scala-yaml" % "0.3.1",
   "org.kohsuke" % "github-api" % "1.330",
   "com.github.javakeyring" % "java-keyring" % "1.0.4",

@@ -30,9 +30,11 @@ object Translate:
 object Tr:
   val add               = Translate("Add",                        "Добавить")
   val addTorrent        = Translate("Add torrent",                "Добавить торрент")
+  val any               = Translate("Any",                        "Все что угодно")
   val appName           = Translate("Mirage",                     "Мираж")
   val branch            = Translate("Branch",                     "Ветка")
   val checkingFiles     = Translate("Checking files",             "Проверка файлов")
+  val chooseTorrentFile = Translate("Choose a Torrent file",      "Выберите торрент файл")
   val clearToken        = Translate("Clear Github token",         "Удалить Github токен")
   val createToken       = Translate("You can create it here",     "Его можно создать здесь")
   val date              = Translate("Date",                       "Дата")
@@ -46,7 +48,9 @@ object Tr:
   val language          = Translate("Language",                   "Язык")
   val loading           = Translate("Loading",                    "Загрузка")
   val loadingComponents = Translate("Loading components",         "Загружаем компоненты")
+  val magnetLink        = Translate("Magnet link",                "Магнитная ссылка")
   val naming            = Translate("Name",                       "Название")
+  val orTorrentFile     = Translate("or .torrent file",           "или .torrent файл")
   val progress          = Translate("Progress",                   "Прогресс")
   val reload            = Translate("Reload",                     "Перезагрузить")
   val resetToken        = Translate("Reset token",                "Обновить токен")
@@ -66,6 +70,7 @@ object Tr:
   val unknownState      = Translate("Unknown state",              "Неизвестный статус")
   val upload            = Translate("Upload",                     "Отдача")
   val wentWrong         = Translate("Something went wrong :(",    "Что-то пошло не так (")
+  val whereToSave       = Translate("Where to save",              "Куда сохранить")
 
   object Speed:
     val b   = Translate("B",  "Б")

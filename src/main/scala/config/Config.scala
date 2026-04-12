@@ -61,10 +61,10 @@ trait Config[T : YamlCodec] extends jfxbp.Property[T]:
       taken
     case available =>
       Try(available).collect { case Some(node: Node) => node }
-        .flatMap { implicitly[YamlCodec[T]].construct(_).toTry }.printError(_ => s"Couldn't parse config $getName")
+        .flatMap { implicitly[YamlCodec[T]].construct(_).toTry.printError(_ => s"Couldn't parse config $getName") }
         .foreach(setValue)
       Some(this)
 
 
-given [K, V](using YamlDecoder[Map[K, V]], YamlEncoder[Map[K, V]]): YamlCodec[Map[K, V]] = YamlCodec.make
+given [T](using YamlDecoder[T], YamlEncoder[T]): YamlCodec[T] = YamlCodec.make
 given [K, V](using codec: YamlCodec[Map[K, V]]): YamlCodec[mutable.Map[K, V]] = codec.mapInvariant(_.to(mutable.Map))(_.toMap)

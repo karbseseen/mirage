@@ -51,13 +51,12 @@ class PopupNotification(
 
   onClose = _ => close(None)
 
-  val _ =
-    lazy val subscription: Subscription = layoutBounds.onChange {
-      Animations.slideInDown(this, Constants.animationDuration).play()
-      closeAfter.foreach(_ => close(closeAfter))
-      subscription.cancel()
-    }
-    subscription
+  private lazy val subscription: Subscription = layoutBounds.onChange {
+    Animations.slideInDown(this, Constants.animationDuration).play()
+    closeAfter.foreach(_ => close(closeAfter))
+    subscription.cancel()
+  }
+  subscription
 
 
 class NotificationBox private (override val delegate: jfxsl.VBox)

@@ -1,8 +1,7 @@
 package fx
 
 import constant.Constants
-import scalafx.Includes.jfxPane2sfx
-import scalafx.geometry.{Insets, Pos}
+import scalafx.geometry.Insets
 import scalafx.scene.layout.{Pane, Region}
 
 
@@ -23,3 +22,6 @@ object ModalBox:
     minHeight = _minHeight
     prefHeight = Constants.modalSpace
   def space: Region = space(Constants.modalPadding)
+  
+  def spacing: Region = new Region:
+    prefHeight = Constants.modalPadding

@@ -10,10 +10,7 @@ import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.jar.Manifest;
@@ -21,19 +18,10 @@ import java.util.jar.Manifest;
 
 public class JavaUtil {
 
-    public enum OS { Windows, MacOS, Linux }
-
-    public static final OS os;
     public static final File jarFile;
     public static final FileLock lock;
 
     static {
-        String sysOs = System.getProperty("os.name").toLowerCase();
-        if (sysOs.contains("win")) os = OS.Windows;
-        else if (sysOs.contains("mac")) os = OS.MacOS;
-        else if (sysOs.contains("nix") || sysOs.contains("nux") || sysOs.contains("aix")) os = OS.Linux;
-        else throw new RuntimeException("Unknown OS");
-
         try {
             URI jarFilePath = JavaUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI();
             jarFile = new File(jarFilePath);
@@ -122,11 +110,11 @@ public class JavaUtil {
     public static void startNewInstance() throws IOException { startNewInstance(currentCmd()); }
 
 
-    private static class LazyVal<T> implements Supplier<T> {
+    public static class LazyVal<T> implements Supplier<T> {
         Supplier<T> supplier;
         T result;
 
-        LazyVal(Supplier<T> supplier) {
+        public LazyVal(Supplier<T> supplier) {
             this.supplier = supplier;
         }
 

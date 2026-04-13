@@ -1,11 +1,11 @@
 package torrent
 
 import atlantafx.base.theme.{Styles, Tweaks}
+import com.frostwire.jlibtorrent.TorrentStatus
 import constant.{Tr, Translate}
 import fx.{AutoSplitPane, AutoTableView, AutoTreeView}
 import org.kordamp.ikonli.fluentui.{FluentUiRegularAL, FluentUiRegularMZ}
 import org.kordamp.ikonli.javafx.FontIcon
-import org.libtorrent4j.TorrentStatus
 import scalafx.Includes.{jfxNode2sfx, jfxObservableValue2sfx}
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*

@@ -1,14 +1,18 @@
-import GetOS.os
 import sbt.*
 import sbt.Keys.*
 
-import scala.collection.compat.toTraversableLikeExtensionMethods
+import scala.collection.compat.toOptionCompanionExtension
 
 
 object ManifestClassPath {
   lazy val task = Def.task {
-    val mavenRegex = "https://repo1\\.maven\\.org/maven2/(.*)".r
-    val platformRegex = s"(.*)-$os\\.jar".r
+    val urlPrefixRegex = List(
+      "https://repo1.maven.org/maven2",
+      "https://dl.frostwire.com/maven",
+    ).map(_.replace(".", "\\.")).mkString("|")
+    val urlRegex = s"(?:$urlPrefixRegex)/(.+)".r
+
+    val platformRegex = "-(?:windows|macosx-x86_64|macosx-arm64|linux-x86_64|linux-arm64|win|mac|linux)".r
 
     val providedUrls = update.value.configuration(Provided).toList
       .flatMap(_.modules)
@@ -16,27 +20,23 @@ object ManifestClassPath {
       .flatMap(_._1.url)
       .toSet
 
-    val paths = for {
+    val pathsUnsorted = for {
       attr <- (Compile / dependencyClasspath).value
       artifact <- attr.get(AttributeKey[Artifact]("artifact"))
       url <- artifact.url
-      if !providedUrls.contains(url)
     } yield url.toString match {
-      case mavenRegex(path) => (s"lib/maven2/$path", artifact.classifier.contains(os))
+      case urlStr@urlRegex(path) => (Option.when(!providedUrls.contains(url))(s"lib/$path"), urlStr)
       case invalid => throw new Error(s"Invalid dependency: $invalid")
     }
 
-    val (platformPaths, simplePaths) = paths
-      .sortBy(_._1)
-      .partitionMap {
-        case (simplePath, false) => Right(simplePath)
-        case (platformRegex(platformPath), true) => Left(s"$platformPath-platform.jar")
-        case (invalid, true) => throw new Error(s"Invalid platform dependency: $invalid")
-      }
+    implicit val optStrOrdering: Ordering[Option[String]] = Ordering.by { _.fold(1 -> "")(0 -> _) }
+    val paths = pathsUnsorted.sorted
+
+    def toManifest(paths: Seq[String]) = paths.map(platformRegex.replaceAllIn(_, "-platform")).mkString(" ")
 
     Package.ManifestAttributes(
-      "Class-Path" -> (platformPaths ++ simplePaths).mkString(" "),
-      "Platform-Path-Num" -> platformPaths.size.toString,
+      "Class-Path" -> toManifest(paths.flatMap(_._1)),
+      "Class-Urls" -> toManifest(paths.map(_._2)),
     )
   }
 }

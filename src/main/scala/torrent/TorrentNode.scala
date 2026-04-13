@@ -1,12 +1,12 @@
 package torrent
 
+import com.frostwire.jlibtorrent.{TorrentHandle, TorrentStatus}
 import constant.{Tr, Translate}
 import fx.PropertyInterpolation.b
 import fx.SelfProperty
 import javafx.beans.binding.StringExpression
 import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleObjectProperty}
 import javafx.scene.control as jfxsc
-import org.libtorrent4j.{TorrentHandle, TorrentStatus}
 import scalafx.Includes.{jfxObjectProperty2sfx, jfxTreeItem2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.TreeItem

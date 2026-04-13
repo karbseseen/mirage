@@ -1,0 +1,1 @@
+Compile / javaSource := baseDirectory.value

@@ -42,12 +42,12 @@ class TorrentTable extends AutoTableView[TorrentNode.Root]:
 
   columns ++= Seq(
     new Column(Tr.state, _.state) { cellFactory = stateView },
-    new Column(Tr.naming, selfProp) { cellTextSortable = _.name },
-    new Column(Tr.download, _.downloadStr),
-    new Column(Tr.upload, _.uploadStr),
+    new Column(Tr.naming, _.name) { comparator = Ordering[String] },
+    new Column(Tr.download, _.downSpeedStr),
+    new Column(Tr.upload, _.upSpeedStr),
     new Column(Tr.progress, _.progress) { cellText = progressText },
   )
-  items = TorrentNode.Root.list
+  items = TorrentNode.roots
 
 class TorrentFileTable extends AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"
@@ -76,13 +76,13 @@ private def stateView(cell: Cell[TorrentStatus.State], value: TorrentStatus.Stat
   import FluentUiRegularMZ.*
   import TorrentStatus.State.*
   val iconTooltip = value match
-    case CHECKING_FILES       => (DOCUMENT_SEARCH_20, Tr.checkingFiles)
-    case CHECKING_RESUME_DATA => (DOCUMENT_SEARCH_20, Tr.checkingFiles)
-    case DOWNLOADING_METADATA => (ARROW_SYNC_20,      Tr.downloadingMeta)
-    case DOWNLOADING          => (ARROW_DOWNLOAD_20,  Tr.downloading)
-    case FINISHED             => (CHECKMARK_20,       Tr.finished)
-    case SEEDING              => (ARROW_UPLOAD_20,    Tr.seeding)
-    case _                    => (QUESTION_20,        Tr.unknownState)
+    case CHECKING_FILES       => (DOCUMENT_SEARCH_24,         Tr.checkingFiles)
+    case CHECKING_RESUME_DATA => (ARROW_ROTATE_CLOCKWISE_24,  Tr.checkingFiles)
+    case DOWNLOADING_METADATA => (ARROW_SYNC_24,              Tr.downloadingMeta)
+    case DOWNLOADING          => (ARROW_DOWNLOAD_24,          Tr.downloading)
+    case FINISHED             => (CHECKMARK_24,               Tr.finished)
+    case SEEDING              => (CHECKMARK_CIRCLE_24,        Tr.seeding)
+    case _                    => (QUESTION_24,                Tr.unknownState)
 
   cell.alignment = Pos.Center
   cell.graphic = new Button("", new FontIcon(iconTooltip._1)):

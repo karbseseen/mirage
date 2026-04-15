@@ -1,11 +1,13 @@
 package core.main
 
 import atlantafx.base.controls.ModalPane
-import constant.Tr
+import atlantafx.base.theme.Styles
+import com.frostwire.jlibtorrent.swig.torrent_flags_t
+import constant.{Tr, Translate}
 import core.MainMenu
-import fx.NotificationBox
-import scalafx.Includes.jfxControl2sfx
-import scalafx.application.JFXApp3
+import fx.{NotificationBox, PopupNotification}
+import scalafx.Includes.{jfxControl2sfx, jfxStringProperty2sfx}
+import scalafx.application.{JFXApp3, Platform}
 import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
@@ -14,6 +16,7 @@ import torrent.TorrentView
 
 object MainApp extends JFXApp3
   with UnixLocale
+  with OnShutDown
 :
   lazy val root = new VBox(new MainMenu, new TorrentView)
   lazy val modal = new ModalPane
@@ -24,3 +27,14 @@ object MainApp extends JFXApp3
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):
         content = Seq[Node](MainApp.root, modal, notifications)
+
+  /**Thread-safe*/
+  def showError(message: String | Translate): Unit =
+    val eitherMessage = message match
+      case str: String => Left(str)
+      case tr: Translate => Right(tr)
+    Platform.runLater:
+      notifications.children += new PopupNotification(eitherMessage.left.toOption.orNull):
+        eitherMessage.foreach(this.message <== _)
+        styleClass += Styles.DANGER
+  def showError(error: Throwable): Unit = showError(error.getMessage)

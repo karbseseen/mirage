@@ -1,5 +1,6 @@
 package config
 
+import core.main.MainApp
 import javafx.beans.property as jfxbp
 import org.virtuslab.yaml.Node.{MappingNode, ScalarNode}
 import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec, YamlDecoder, YamlEncoder}
@@ -32,7 +33,7 @@ object Config:
 
   private val map = parseFile getOrElse mutable.Map.empty
 
-  sys.addShutdownHook:
+  MainApp.shutdownHook:
     val values = map.view.flatMap {
       case (key, node: Node) => Some(ScalarNode(key) -> node)
       case (key, config: Config[?]) => config.node.map(ScalarNode(key) -> _)

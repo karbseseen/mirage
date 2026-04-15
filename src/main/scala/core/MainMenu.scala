@@ -15,8 +15,11 @@ import scalafx.scene.layout.{GridPane, Priority, VBox}
 import scalafx.scene.text.Font
 import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{DirectoryChooser, FileChooser}
+import torrent.Torrent
 
 import java.io.File
+import java.nio.file.{Files, Paths}
+import scala.collection.View
 
 
 private def addMenu =
@@ -39,7 +42,13 @@ private def addMenu =
       title <== Tr.chooseTorrentFile
       extensionFilters += new ExtensionFilter(Tr.torrent.property.getValue, "*.torrent")
       extensionFilters += new ExtensionFilter(Tr.any.property.getValue, "*.*")
-      Option(Conf.torrentFile.getValue).filter(_.nonEmpty).foreach(d => initialDirectory = new File(d))
+      List(inFileInput.text.value, Conf.torrentFile.value)
+        .filter(_.nonEmpty)
+        .map(File(_))
+        .collectFirst:
+          case file if file.isFile => file.getParentFile
+          case file if file.isDirectory => file
+        .foreach(initialDirectory = _)
       for file <- Option(showOpenDialog(MainApp.stage)) do inFileInput.text = file.getCanonicalPath
     val inFileButton = new Button("..."):
       onAction = _ => chooseInFile
@@ -72,8 +81,9 @@ private def addMenu =
         val saveDir = new File(outPathInput.text.value)
 
         if (magnetLink.nonEmpty)
-          ()//Torrent.session.download(magnetLink, saveDir, torrent_flags_t.from_int(0))
+          Torrent.add(magnetLink, saveDir)
         else if (torrentFile.nonEmpty)
+          Torrent.add(Files.readAllBytes(Paths.get(torrentFile)), saveDir)
           Conf.torrentFile.value = new File(torrentFile).getParentFile.getCanonicalPath
 
         MainApp.modal.hide(true)

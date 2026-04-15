@@ -6,6 +6,12 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 
+extension [T](any: T)
+  inline def also(func: T => Unit): T =
+    func(any)
+    any
+
+
 extension [T : ClassTag](iterable: IterableOnce[T])
   def toIArray: IArray[T] = IArray.from(iterable)
 

@@ -7,7 +7,7 @@ import fx.SelfProperty
 import javafx.beans.binding.StringExpression
 import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleObjectProperty, SimpleStringProperty}
 import javafx.scene.control as jfxsc
-import scalafx.Includes.jfxTreeItem2sfx
+import scalafx.Includes.{jfxObjectProperty2sfx, jfxTreeItem2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.TreeItem
 import util.also
@@ -18,7 +18,7 @@ import scala.collection.mutable
 
 
 sealed abstract class TorrentNodeBase:
-  val state = new SimpleObjectProperty[TorrentStatus.State](this, "state")
+  val state = new SimpleObjectProperty[State](this, "state")
   val progress = new SimpleFloatProperty(this, "progress")
 
 
@@ -28,6 +28,8 @@ sealed abstract class TorrentNode(val name: String) extends TorrentNodeBase with
 object TorrentNode:
 
   class Root(_name: String, val infoHash: String) extends TorrentNodeBase:
+
+    state.value = State(null)
 
     val name = SimpleStringProperty(this, "name", _name)
     val (downSpeed, downSpeedStr) = speedProperties("download")

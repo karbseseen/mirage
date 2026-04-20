@@ -52,6 +52,7 @@ object Tr:
   val magnetLink        = Translate("Magnet link",                "Магнитная ссылка")
   val naming            = Translate("Name",                       "Название")
   val orTorrentFile     = Translate("or .torrent file",           "или .torrent файл")
+  val paused            = Translate("Paused",                     "Пауза")
   val progress          = Translate("Progress",                   "Прогресс")
   val reload            = Translate("Reload",                     "Перезагрузить")
   val resetToken        = Translate("Reset token",                "Обновить токен")

@@ -71,23 +71,11 @@ private def fileView(cell: Cell[TorrentNode], value: TorrentNode): Unit =
     case file: TorrentNode.File => FluentUiRegularAL.DOCUMENT_20
   cell.graphic = new FontIcon(icon)
 
-private def stateView(cell: Cell[TorrentStatus.State], value: TorrentStatus.State): Unit =
-  import FluentUiRegularAL.*
-  import FluentUiRegularMZ.*
-  import TorrentStatus.State.*
-  val iconTooltip = value match
-    case CHECKING_FILES       => (DOCUMENT_SEARCH_24,         Tr.checkingFiles)
-    case CHECKING_RESUME_DATA => (ARROW_ROTATE_CLOCKWISE_24,  Tr.checkingFiles)
-    case DOWNLOADING_METADATA => (ARROW_SYNC_24,              Tr.downloadingMeta)
-    case DOWNLOADING          => (ARROW_DOWNLOAD_24,          Tr.downloading)
-    case FINISHED             => (CHECKMARK_24,               Tr.finished)
-    case SEEDING              => (CHECKMARK_CIRCLE_24,        Tr.seeding)
-    case _                    => (QUESTION_24,                Tr.unknownState)
-
+private def stateView(cell: Cell[State], value: State): Unit =
   cell.alignment = Pos.Center
-  cell.graphic = new Button("", new FontIcon(iconTooltip._1)):
+  cell.graphic = new Button("", new FontIcon(value.icon)):
     styleClass += Styles.FLAT
   cell.tooltip = new Tooltip:
-    text <== iconTooltip._2
+    text <== value.tooltip
 
 private def progressText(progress: Number) = s"${(progress.floatValue * 100).toInt}%"

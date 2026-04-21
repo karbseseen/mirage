@@ -59,6 +59,7 @@ object Tr:
   val retry             = Translate("Retry",                      "Попробовать еще раз")
   val seeding           = Translate("Seeding",                    "Раздается")
   val selectCommit      = Translate("Select a commit",            "Выберите комит")
+  val selectFiles       = Translate("Select files",               "Выберите файлы")
   val settings          = Translate("Settings",                   "Настройки")
   val state             = Translate("State",                      "Состояние")
   val theUpdate         = Translate("Update",                     "Обновление")
@@ -76,8 +77,8 @@ object Tr:
   val whereToSave       = Translate("Where to save",              "Куда сохранить")
 
   object Speed:
-    val b   = Translate("B",  "Б")
-    val kb  = Translate("KB", "КБ")
-    val mb  = Translate("MB", "МБ")
-    val gb  = Translate("GB", "ГБ")
+    val b   = Translate("B/s",  "Б/с")
+    val kb  = Translate("KB/s", "КБ/с")
+    val mb  = Translate("MB/s", "МБ/с")
+    val gb  = Translate("GB/s", "ГБ/с")
     val allList: List[Translate] = List(b, kb, mb, gb)

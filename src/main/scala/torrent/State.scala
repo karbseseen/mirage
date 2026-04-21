@@ -1,41 +1,37 @@
 package torrent
 
 import com.frostwire.jlibtorrent.TorrentStatus
-import com.frostwire.jlibtorrent.TorrentStatus.State.CHECKING_FILES
+import com.frostwire.jlibtorrent.TorrentStatus.State.*
 import constant.{Tr, Translate}
 import fx.PropertyInterpolation.b
-import javafx.beans.binding.StringExpression
 import org.kordamp.ikonli.Ikon
-import org.kordamp.ikonli.fluentui.{FluentUiRegularAL, FluentUiRegularMZ}
+import org.kordamp.ikonli.fluentui.FluentUiRegularAL.*
+import org.kordamp.ikonli.fluentui.FluentUiRegularMZ.*
 
 
-sealed trait State:
-  def icon: Ikon
-  def tooltip: StringExpression
+class State (
+  val value: TorrentStatus.State,
+  val paused: Boolean,
+  val isNew: Boolean,
+):
+  private def isFileSelect: Boolean = isNew && paused && value == TorrentStatus.State.FINISHED
 
+  private val (defaultIcon, defaultTooltip): (Ikon, Translate) = value match
+    case CHECKING_FILES =>        (DOCUMENT_SEARCH_24,        Tr.checkingFiles  )
+    case DOWNLOADING_METADATA =>  (ARROW_SYNC_24,             Tr.downloadingMeta)
+    case DOWNLOADING =>           (ARROW_DOWNLOAD_24,         Tr.downloading    )
+    case FINISHED =>              (CHECKMARK_24,              Tr.finished       )
+    case SEEDING =>               (CHECKMARK_CIRCLE_24,       Tr.seeding        )
+    case CHECKING_RESUME_DATA =>  (ARROW_ROTATE_CLOCKWISE_24, Tr.checkingFiles  )
+    case UNKNOWN =>               (QUESTION_24,               Tr.unknownState   )
 
-object State:
+  val (icon, tooltip) =
+    if (isFileSelect) (TEXT_BULLET_LIST_TREE_24,  Tr.selectFiles.property           )
+    else if (paused)  (PAUSE_24,                  b"${Tr.paused} ($defaultTooltip)" )
+    else              (defaultIcon,               defaultTooltip.property           )
 
-  class Resumed private[State] (val icon: Ikon, val tooltip: StringExpression) extends State
-  class Paused (val resumed: Resumed) extends State:
-    def icon = FluentUiRegularMZ.PAUSE_24
-    def tooltip: StringExpression = b"${Tr.paused} (${resumed.tooltip})"
-    override def hashCode: Int = resumed.hashCode + 1
-    override def equals(other: Any): Boolean = other match
-      case other: Paused => resumed == other.resumed
-      case _ => false
-
-  private val map =
-    import FluentUiRegularAL.*
-    import FluentUiRegularMZ.*
-    import TorrentStatus.State.*
-    Map(
-      CHECKING_FILES        -> Resumed(DOCUMENT_SEARCH_24,         Tr.checkingFiles   ),
-      CHECKING_RESUME_DATA  -> Resumed(ARROW_ROTATE_CLOCKWISE_24,  Tr.checkingFiles   ),
-      DOWNLOADING_METADATA  -> Resumed(ARROW_SYNC_24,              Tr.downloadingMeta ),
-      DOWNLOADING           -> Resumed(ARROW_DOWNLOAD_24,          Tr.downloading     ),
-      FINISHED              -> Resumed(CHECKMARK_24,               Tr.finished        ),
-      SEEDING               -> Resumed(CHECKMARK_CIRCLE_24,        Tr.seeding         ),
-    ) withDefaultValue         Resumed(QUESTION_24,                Tr.unknownState    )
-
-  def apply(libtorrentState: TorrentStatus.State): Resumed = map(libtorrentState)
+  def copy(
+    value: TorrentStatus.State = value,
+    paused: Boolean = paused,
+  ): State =
+    State(value, paused, isNew && !isFileSelect)

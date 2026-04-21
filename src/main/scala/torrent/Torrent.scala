@@ -1,73 +1,80 @@
 package torrent
 
-import com.frostwire.jlibtorrent.alerts.TorrentRemovedAlert
-import com.frostwire.jlibtorrent.swig.torrent_flags_t
-import com.frostwire.jlibtorrent.{AddTorrentParams, Priority, SessionManager, TorrentInfo}
-import constant.{Tr, Translate}
+import com.frostwire.jlibtorrent.*
 import core.main.MainApp
-import scalafx.Includes.jfxStringProperty2sfx
-import scalafx.application.Platform
+import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleObjectProperty, SimpleStringProperty}
+import javafx.scene.control as jfxsc
+import scalafx.Includes.jfxTreeItem2sfx
+import scalafx.collections.ObservableBuffer
+import torrent.Torrent.FileInfo
+import torrent.TorrentNode.{PreChild, PreFile, PreFolder}
 import torrent.listener.TorrentListener
-import util.also
+import util.{also, toIArray}
 
 import java.io.File
-import java.util.concurrent.CountDownLatch
-import scala.util.{Failure, Success, Try}
+import java.nio.file.{Files, Path}
+import scala.collection.mutable
 
 
 object Torrent:
-  private val session = new SessionManager
+
+  private[torrent] val session = new SessionManager
   TorrentListener.all.foreach(session.addListener)
   session.start()
   MainApp.shutdownLongHook(session.stop())
 
-  /** UI thread only */
-  def add(torrentFile: Array[Byte], saveDir: File): Unit =
-    try addInner(torrentFile, saveDir, None)
-    catch case error => MainApp.showError(error)
-
-  private def addInner(torrentFile: Array[Byte], saveDir: File, _node: Option[TorrentNode.Root]): Unit =
-    val info = TorrentInfo(torrentFile)
-    val hash = info.infoHashV1.toHex
-
-    _node.foreach(_.name.value = info.name)
-    val node = _node getOrElse {
-      if (TorrentNode.getTorrent(hash).nonEmpty) sys.error(Tr.torrentExists.getValue)
-      TorrentNode.Root(info.name, hash).also(TorrentNode.roots += _)
-    }
-    node.setFiles(info)
-
-    val priorities = Array.tabulate(info.numFiles)(_ => Priority.IGNORE)
-    session.download(info, saveDir, null, priorities, null, torrent_flags_t())
+  @volatile private[torrent] var loadingResume = false
 
 
-  /**UI thread only*/
+  def add(torrentFile: Path, saveDir: File): Unit =
+    val torrentFileData =
+      try Files.readAllBytes(torrentFile)
+      catch case error: Throwable => throw error.also(MainApp.showError)
+    val info = TorrentInfo(torrentFileData)
+    session.download(info, saveDir, null, null, null, TorrentFlags.STOP_WHEN_READY)
+
   def add(magnet: String, saveDir: File): Unit =
-    try addInner(magnet, saveDir)
-    catch case error => MainApp.showError(error)
+    session.download(magnet, saveDir, TorrentFlags.UPLOAD_MODE)
 
-  private def addInner(magnet: String, saveDir: File): Unit =
-    val params = AddTorrentParams.parseMagnetUri(magnet)
-    val hash = params.getInfoHashes.getBest.toHex
-    if (TorrentNode.getTorrent(hash).nonEmpty) sys.error(Tr.torrentExists.getValue)
 
-    val name = Some(params.name).filter(_.nonEmpty).getOrElse(hash)
-    val node = TorrentNode.Root(name, hash)
-    TorrentNode.roots += node
+  def pause(hash: Hash): Unit = Option(session.find(hash)).foreach(_.pause())
+  def resume(hash: Hash): Unit = Option(session.find(hash)).foreach(_.resume())
 
-    val torrentRemoved = CountDownLatch(1)
-    val removeListener = TorrentListener.Part[TorrentRemovedAlert]: event =>
-      if (event.infoHash.toHex == hash) torrentRemoved.countDown()
-    session.addListener(removeListener)
 
-    val thread = Thread: () =>
-      Try(session.fetchMagnet(magnet, Int.MaxValue, saveDir)) match
-        case Failure(_) | Success(null) => MainApp.showError(Tr.magnetAddError)
-        case Success(torrentFile) =>
-          torrentRemoved.await()
-          Platform.runLater:
-            addInner(torrentFile, saveDir, Some(node))
-            session.removeListener(removeListener)
-          ()//todo save `torrentFile`
-    thread.setDaemon(true)
-    thread.start()
+  /**UI thread only*/ val all: ObservableBuffer[Torrent] = ObservableBuffer.empty
+  /**UI thread only*/ def find(hash: Hash): Option[Torrent] =
+    map.get(hash).also: torrent =>
+      if (torrent.isEmpty)
+        Exception(s"Couldn't find torrent with hash $hash, ${hash.getClass.getSimpleName}").printStackTrace()
+
+  private val map = mutable.Map.empty[Hash, Torrent]
+  all.onChange: (_, changes) =>
+    changes.foreach:
+      case ObservableBuffer.Add(_, added) => map ++= added.map { torrent => torrent.hash -> torrent }
+      case ObservableBuffer.Remove(_, removed) => map --= removed.map { torrent => torrent.hash }
+      case _ => ()
+
+
+  private[torrent] class FileInfo (info: TorrentInfo):
+    private[Torrent] val data = List.tabulate(info.numFiles): index =>
+      val it = info.files.filePath(index).split(java.io.File.separatorChar).reverseIterator
+      if (!it.hasNext) sys.error("Empty split array iterator")
+      val file = TorrentNode.File(it.next, index)
+      val preChild = it.foldLeft[PreChild](PreFile(file)) { case (child, prefix) => PreFolder(prefix, child) }
+      (preChild, file)
+
+
+class Torrent(val hash: Hash, _name: String, _state: State):
+
+  val state     = new SimpleObjectProperty(this, "state", _state)
+  val name      = new SimpleStringProperty(this, "name", _name)
+  val progress  = new SimpleFloatProperty(this, "progress")
+  val downSpeed = new SimpleIntegerProperty(this, "download")
+  val upSpeed   = new SimpleIntegerProperty(this, "upload")
+
+  private[torrent] val tree = new jfxsc.TreeItem[TorrentNode]
+  private var _files = IArray.empty[TorrentNode.File]
+  def files: IArray[TorrentNode.File] = _files
+  private[torrent] def files_=(info: FileInfo): Unit =
+    tree.children = info.data.map(_._1).toTreeChildren
+    _files = info.data.map(_._2).toIArray

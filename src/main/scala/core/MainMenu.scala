@@ -83,7 +83,7 @@ private def addMenu =
         if (magnetLink.nonEmpty)
           Torrent.add(magnetLink, saveDir)
         else if (torrentFile.nonEmpty)
-          Torrent.add(Files.readAllBytes(Paths.get(torrentFile)), saveDir)
+          Torrent.add(Paths.get(torrentFile), saveDir)
           Conf.torrentFile.value = new File(torrentFile).getParentFile.getCanonicalPath
 
         MainApp.modal.hide(true)

@@ -125,9 +125,9 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
       def tableName: String = "update-commit"
       private val formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
       columns ++= Seq(
-        new Column(Tr.branch, selfProp) { cellText = _.value.getHeadBranch },
-        new Column(Tr.naming, selfProp) { cellText = _.value.getHeadCommit.getMessage },
-        new Column(Tr.date, selfProp) { cellText = _.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter) },
+        new Column(Tr.branch, selfProp) { cellText(_.value.getHeadBranch) },
+        new Column(Tr.naming, selfProp) { cellText(_.value.getHeadCommit.getMessage) },
+        new Column(Tr.date, selfProp) { cellText(_.value.getCreatedAt.toInstant.atZone(ZoneId.systemDefault).format(formatter)) },
       )
       items = ObservableBuffer(getValue*)
 

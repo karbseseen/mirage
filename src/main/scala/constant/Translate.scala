@@ -61,6 +61,7 @@ object Tr:
   val selectCommit      = Translate("Select a commit",            "Выберите комит")
   val selectFiles       = Translate("Select files",               "Выберите файлы")
   val settings          = Translate("Settings",                   "Настройки")
+  val size              = Translate("Size",                       "Размер")
   val state             = Translate("State",                      "Состояние")
   val theUpdate         = Translate("Update",                     "Обновление")
   val theme             = Translate("Theme",                      "Тема")
@@ -75,6 +76,13 @@ object Tr:
   val upload            = Translate("Upload",                     "Отдача")
   val wentWrong         = Translate("Something went wrong :(",    "Что-то пошло не так (")
   val whereToSave       = Translate("Where to save",              "Куда сохранить")
+
+  object Size:
+    val b   = Translate("B",  "Б")
+    val kb  = Translate("KB", "КБ")
+    val mb  = Translate("MB", "МБ")
+    val gb  = Translate("GB", "ГБ")
+    val allList: List[Translate] = List(b, kb, mb, gb)
 
   object Speed:
     val b   = Translate("B/s",  "Б/с")

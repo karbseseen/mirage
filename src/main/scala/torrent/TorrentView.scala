@@ -54,12 +54,17 @@ class TorrentTable extends AutoTableView[Torrent]:
     cellUnset: cell =>
       cell.graphic = null
       cell.tooltip = null
+
   columns ++= Seq(
     new Column(Tr.naming, _.name) { comparator = Ordering[String] },
     new Column(Tr.download, _.downSpeed) with SpeedColumn,
     new Column(Tr.upload, _.upSpeed) with SpeedColumn,
-    new Column(Tr.progress, _.progress) { cellText(progressText) },
+    new Column(Tr.progress, _.progress) with ProgressColumn,
   )
+
+  columns += new Column(Tr.size, _.size):
+    cellInit(_.alignment = Pos.CenterRight)
+    cellTextBind(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
 
 class TorrentFileTable extends AutoTreeView[TorrentNode]:
@@ -81,27 +86,35 @@ class TorrentFileTable extends AutoTreeView[TorrentNode]:
       cell.graphic = null
       cell.text = null
 
-  columns += new Column(Tr.progress, _.progress) { cellText(progressText) }
+  columns += new Column(Tr.progress, _.progress) with ProgressColumn
+
+  columns += new Column(Tr.size, selfProp):
+    cellInit(_.alignment = Pos.CenterRight)
+    cellTextBind:
+      case file: TorrentNode.File => sizeExpression(file.size.doubleValue, Tr.Size.allList)
+      case folder: TorrentNode.Folder => folder.size.flatMap(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
 /**********************************************************************************************************************/
 
-private def progressText(progress: Number) = s"${(progress.floatValue * 100).toInt}%"
+private trait ProgressColumn:
+  this: AutoColumnBase[Number] =>
+  cellInit(_.alignment = Pos.CenterRight)
+  cellText(progress => s"${(progress.floatValue * 100).toInt}%")
 
 private trait SpeedColumn:
   this: AutoColumnBase[Number] =>
-
   cellInit(_.alignment = Pos.CenterRight)
-  cellTextBind(num => speedExpression(num.doubleValue))
+  cellTextBind(num => sizeExpression(num.doubleValue, Tr.Speed.allList))
 
-  @tailrec private def speedExpression(value: Double, units: List[Translate] = Tr.Speed.allList): StringExpression =
-    def binding(scale: Int) =
-      val valueStr = java.math.BigDecimal(value)
-        .setScale(scale, RoundingMode.HALF_UP)
-        .stripTrailingZeros
-        .toPlainString
-      b"$valueStr ${units.head}"
+@tailrec private def sizeExpression(value: Double, units: List[Translate]): StringExpression =
+  def binding(scale: Int) =
+    val valueStr = java.math.BigDecimal(value)
+      .setScale(scale, RoundingMode.HALF_UP)
+      .stripTrailingZeros
+      .toPlainString
+    b"$valueStr ${units.head}"
 
-    if (value >= 1000 && units.tail.nonEmpty) speedExpression(value / 1024, units.tail)
-    else if (value >= 100) binding(0)
-    else if (value >= 10) binding(1)
-    else binding(2)
+  if (value >= 1000 && units.tail.nonEmpty) sizeExpression(value / 1024, units.tail)
+  else if (value >= 100) binding(0)
+  else if (value >= 10) binding(1)
+  else binding(2)

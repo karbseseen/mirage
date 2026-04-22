@@ -25,8 +25,7 @@ object FieldSort {
         else Right(acc.head.get + System.lineSeparator + line) :: acc.tail
       }
       .partitionMap(identity)
-    val separator = Option.when(short.nonEmpty && long.nonEmpty)("").toList
-    short.sorted ::: separator ::: long.sorted
+    short.sorted ::: long.sorted.map(System.lineSeparator + _)
   }
 
   private def processEntry(entry: Entry, source: File): Set[File] = {

@@ -23,6 +23,11 @@ extension [T](t: Try[T])
       case Success(_) => t
 
 
+extension [T](it: Iterable[T])
+  def sumMap[N](map: T => N)(using numeric: Numeric[N]): N =
+    it.foldLeft(numeric.zero) { (acc, value) => numeric.plus(acc, map(value)) }
+
+
 extension(input: InputStream)
   def buffered = new BufferedInputStream(input)
   def jar = new JarInputStream(input)

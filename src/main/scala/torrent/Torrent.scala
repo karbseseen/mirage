@@ -2,9 +2,9 @@ package torrent
 
 import com.frostwire.jlibtorrent.*
 import core.main.MainApp
-import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleObjectProperty, SimpleStringProperty}
+import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleLongProperty, SimpleObjectProperty, SimpleStringProperty}
 import javafx.scene.control as jfxsc
-import scalafx.Includes.jfxTreeItem2sfx
+import scalafx.Includes.{jfxLongProperty2sfx, jfxTreeItem2sfx}
 import scalafx.collections.ObservableBuffer
 import torrent.listener.TorrentListener
 import util.{also, toIArray}
@@ -56,11 +56,12 @@ object Torrent:
 
 class Torrent(val hash: Hash, _name: String, _state: State):
 
-  val state     = new SimpleObjectProperty(this, "state", _state)
-  val name      = new SimpleStringProperty(this, "name", _name)
-  val progress  = new SimpleFloatProperty(this, "progress")
-  val downSpeed = new SimpleIntegerProperty(this, "download")
-  val upSpeed   = new SimpleIntegerProperty(this, "upload")
+  val state     = SimpleObjectProperty(this, "state", _state)
+  val name      = SimpleStringProperty(this, "name", _name)
+  val progress  = SimpleFloatProperty(this, "progress")
+  val size      = SimpleLongProperty(this, "size")
+  val downSpeed = SimpleIntegerProperty(this, "download")
+  val upSpeed   = SimpleIntegerProperty(this, "upload")
 
   private[torrent] val tree = new jfxsc.TreeItem[TorrentNode]
   private var _files = IArray.empty[TorrentNode.File]
@@ -68,3 +69,4 @@ class Torrent(val hash: Hash, _name: String, _state: State):
   private[torrent] def files_=(info: FileInfo): Unit =
     tree.children = info.treeChildren
     _files = info.files
+    size.value = info.totalSize

@@ -6,7 +6,6 @@ import com.frostwire.jlibtorrent.{Priority, TorrentFlags, TorrentStatus}
 import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxObjectProperty2sfx, jfxStringProperty2sfx}
 import scalafx.application.Platform
 import torrent.Hash.hash
-import torrent.Torrent.FileInfo
 import torrent.*
 
 import scala.jdk.CollectionConverters.given

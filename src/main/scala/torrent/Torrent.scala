@@ -6,8 +6,6 @@ import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, Simple
 import javafx.scene.control as jfxsc
 import scalafx.Includes.jfxTreeItem2sfx
 import scalafx.collections.ObservableBuffer
-import torrent.Torrent.FileInfo
-import torrent.TorrentNode.{PreChild, PreFile, PreFolder}
 import torrent.listener.TorrentListener
 import util.{also, toIArray}
 
@@ -55,14 +53,6 @@ object Torrent:
       case _ => ()
 
 
-  private[torrent] class FileInfo (info: TorrentInfo):
-    private[Torrent] val data = List.tabulate(info.numFiles): index =>
-      val it = info.files.filePath(index).split(java.io.File.separatorChar).reverseIterator
-      if (!it.hasNext) sys.error("Empty split array iterator")
-      val file = TorrentNode.File(it.next, index)
-      val preChild = it.foldLeft[PreChild](PreFile(file)) { case (child, prefix) => PreFolder(prefix, child) }
-      (preChild, file)
-
 
 class Torrent(val hash: Hash, _name: String, _state: State):
 
@@ -76,5 +66,5 @@ class Torrent(val hash: Hash, _name: String, _state: State):
   private var _files = IArray.empty[TorrentNode.File]
   def files: IArray[TorrentNode.File] = _files
   private[torrent] def files_=(info: FileInfo): Unit =
-    tree.children = info.data.map(_._1).toTreeChildren
-    _files = info.data.map(_._2).toIArray
+    tree.children = info.treeChildren
+    _files = info.files

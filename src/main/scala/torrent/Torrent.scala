@@ -66,7 +66,7 @@ class Torrent(val hash: Hash, _name: String, _state: State):
   private[torrent] val tree = new jfxsc.TreeItem[TorrentNode]
   private var _files = IArray.empty[TorrentNode.File]
   def files: IArray[TorrentNode.File] = _files
-  private[torrent] def files_=(info: FileInfo): Unit =
+  private[torrent] def files_=(info: TorrentNode.Root): Unit =
     tree.children = info.treeChildren
     _files = info.files
     size.value = info.totalSize

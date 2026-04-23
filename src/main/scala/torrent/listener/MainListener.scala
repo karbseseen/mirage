@@ -26,7 +26,7 @@ private[listener] class MainListener extends TorrentListener:
 
       val torrent = Torrent(hash, name, state)
       for info <- Option(event.params.torrentInfo) do
-        torrent.files = FileInfo(info)
+        torrent.files = TorrentNode.Root(info)
         if (state.isNew)
           handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
 
@@ -49,7 +49,7 @@ private[listener] class MainListener extends TorrentListener:
     val hash = handle.hash
     val name = handle.name
     val info = handle.torrentFile
-    val files = FileInfo(info)
+    val files = TorrentNode.Root(info)
 
     Platform.runLater:
       for torrent <- Torrent.find(hash) do

@@ -10,7 +10,8 @@ import org.kordamp.ikonli.javafx.FontIcon
 import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxText2sfxText}
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
-import scalafx.scene.layout.Priority
+import scalafx.scene.input.MouseEvent
+import scalafx.scene.layout.{HBox, Priority}
 
 import java.math.RoundingMode
 import scala.annotation.tailrec
@@ -76,12 +77,18 @@ object TorrentFileTable extends AutoTreeView[TorrentNode]:
   showRoot = false
 
   columns += new Column(Tr.naming, selfProp):
+    treeColumn = this
     comparator = Ordering.by((_: TorrentNode).isInstanceOf[TorrentNode.File]).orElseBy(_.name)
     cellSet: (cell, value) =>
+      val include = new CheckBox:
+        selected <== value.include.isEqualTo(TorrentNode.Include.Yes)
+        indeterminate <== value.include.isEqualTo(TorrentNode.Include.Part)
+        this.addEventFilter(MouseEvent.MousePressed, _.consume())
+        onMouseClicked = _ => value.toggleInclude()
       val icon = value match
         case folder: TorrentNode.Folder => FluentUiRegularAL.FOLDER_20
         case file: TorrentNode.File => FluentUiRegularAL.DOCUMENT_20
-      cell.graphic = FontIcon(icon)
+      cell.graphic = HBox(include, FontIcon(icon))
       cell.text = value.name
     cellUnset: cell =>
       cell.graphic = null

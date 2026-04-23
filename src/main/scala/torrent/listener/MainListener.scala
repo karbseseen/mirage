@@ -1,7 +1,7 @@
 package torrent.listener
 
 import com.frostwire.jlibtorrent.alerts.*
-import com.frostwire.jlibtorrent.{TorrentFlags, TorrentStatus}
+import com.frostwire.jlibtorrent.{Priority, TorrentFlags, TorrentStatus}
 import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.application.Platform
 import torrent.*
@@ -76,10 +76,22 @@ private[listener] class MainListener extends TorrentListener:
         torrent.upSpeed.value = status.upSpeed
         torrent.progress.value = status.progress
         for
-          node <- Option(Torrent.selected.value).filter(_.torrent == torrent).flatMap(_.node)
+          node <- Option(Torrent.selected()).filter(_.torrent == torrent).flatMap(_.node)
           (file, progress) <- node.files zip torrent.handle.fileProgress
         do
           file.progress.value = progress
+
+  listen[FilePrioAlert]: event =>
+    val hash = event.handle.hash
+    if (event.error.check)
+      Platform.runLater:
+        for
+          selected <- Option(Torrent.selected()).filter(_.torrent.hash == hash)
+          node <- selected.node
+          (file, priority) <- node.files zip selected.torrent.handle.filePriorities
+        do
+          file.include() = if (priority == Priority.IGNORE) TorrentNode.Include.No else TorrentNode.Include.Yes
+          
 
 
 private case class Status(hash: Hash, downSpeed: Int, upSpeed: Int, progress: Float)

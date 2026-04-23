@@ -14,7 +14,8 @@ class State (
   val paused: Boolean,
   val isNew: Boolean,
 ):
-  private def isFileSelect: Boolean = isNew && paused && value == TorrentStatus.State.FINISHED
+  private val isFileSelect: Boolean = isNew && paused &&
+    (value == TorrentStatus.State.DOWNLOADING || value == TorrentStatus.State.FINISHED)
 
   private val (defaultIcon, defaultTooltip): (Ikon, Translate) = value match
     case CHECKING_FILES =>        (DOCUMENT_SEARCH_24,        Tr.checkingFiles  )

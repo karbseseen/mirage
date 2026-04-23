@@ -7,7 +7,7 @@ import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
 import javafx.beans.binding.StringExpression
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
-import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxText2sfxText}
+import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxText2sfxText}
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.layout.Priority
@@ -16,31 +16,27 @@ import java.math.RoundingMode
 import scala.annotation.tailrec
 
 
-class TorrentView extends AutoSplitPane:
+object TorrentView extends AutoSplitPane:
   override def splitName: String = "torrent"
-
-  val torrents = new TorrentTable
-  val files = new TorrentFileTable
 
   vgrow = Priority.Always
   orientation = Orientation.Vertical
-  items += torrents
+  items += TorrentTable
 
   private var hasFiles = false
-  Torrent.selected.unbind()     //Just in case
-  Torrent.selected <== torrents.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
+  Torrent.selected <== TorrentTable.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
   Torrent.selected.subscribe: selected =>
     val root = Option(selected).flatMap(_.node).map(_.tree).orNull
-    files.root = root
+    TorrentFileTable.root = root
     if (root == null && hasFiles)
-      items -= files
+      items -= TorrentFileTable
       hasFiles = false
     else if (root != null && !hasFiles)
-      items += files
+      items += TorrentFileTable
       hasFiles = true
 
 
-class TorrentTable extends AutoTableView[Torrent]:
+object TorrentTable extends AutoTableView[Torrent]:
   def tableName: String = "torrent-root"
 
   styleClass ++= Seq(Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -61,15 +57,18 @@ class TorrentTable extends AutoTableView[Torrent]:
     new Column(Tr.naming, _.name) { comparator = Ordering[String] },
     new Column(Tr.download, _.downSpeed) with SpeedColumn,
     new Column(Tr.upload, _.upSpeed) with SpeedColumn,
-    new Column(Tr.progress, _.progress) with ProgressColumn,
   )
+
+  columns += new Column(Tr.progress, _.progress):
+    cellInit(_.alignment = Pos.CenterRight)
+    cellText(progress => s"${(progress.floatValue * 100).toInt}%")
 
   columns += new Column(Tr.size, _.size):
     cellInit(_.alignment = Pos.CenterRight)
     cellTextBind(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
 
-class TorrentFileTable extends AutoTreeView[TorrentNode]:
+object TorrentFileTable extends AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"
 
   styleClass ++= Seq(Styles.DENSE, Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -88,7 +87,15 @@ class TorrentFileTable extends AutoTreeView[TorrentNode]:
       cell.graphic = null
       cell.text = null
 
-  columns += new Column(Tr.progress, _.progress) with ProgressColumn
+  columns += new Column(Tr.progress, _.progress):
+    cellInit(_.alignment = Pos.CenterRight)
+    cellSet: (cell, value) =>
+      val size = cell.getTableRow.getTreeItem.getValue match
+        case file: TorrentNode.File => file.size
+        case folder: TorrentNode.Folder => folder.size.get
+      cell.text = s"${value.longValue * 100 / size}%"
+    cellUnset: cell =>
+      cell.text = null
 
   columns += new Column(Tr.size, selfProp):
     cellInit(_.alignment = Pos.CenterRight)
@@ -97,11 +104,6 @@ class TorrentFileTable extends AutoTreeView[TorrentNode]:
       case folder: TorrentNode.Folder => folder.size.flatMap(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
 /**********************************************************************************************************************/
-
-private trait ProgressColumn:
-  this: AutoColumnBase[Number] =>
-  cellInit(_.alignment = Pos.CenterRight)
-  cellText(progress => s"${(progress.floatValue * 100).toInt}%")
 
 private trait SpeedColumn:
   this: AutoColumnBase[Number] =>

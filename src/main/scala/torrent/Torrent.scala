@@ -2,15 +2,13 @@ package torrent
 
 import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.swig.status_flags_t
-import constant.Translate
 import core.main.MainApp
-import javafx.beans.property.{ReadOnlyObjectProperty, SimpleFloatProperty, SimpleIntegerProperty, SimpleLongProperty, SimpleObjectProperty, SimpleStringProperty}
-import javafx.scene.control as jfxsc
-import scalafx.Includes.{jfxLongProperty2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxTreeItem2sfx}
+import javafx.beans.property.*
+import scalafx.Includes.{jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
 import torrent.listener.TorrentListener
-import util.{also, toIArray}
+import util.also
 
 import java.io.File
 import java.nio.file.{Files, Path}
@@ -26,7 +24,7 @@ object Torrent:
 
   @volatile private var loadingResume = false
 
-  private[torrent] class Selected (val hash: Hash, val node: Option[TorrentNode.Root])
+  private[torrent] class Selected private[Torrent] (val torrent: Torrent, val node: Option[TorrentNode.Root])
   private[torrent] val selected = SimpleObjectProperty[Selected](this, "selected")
 
 
@@ -80,9 +78,9 @@ class Torrent(val hash: Hash):
     for info <- Option(handle.torrentFile) do
       size.value = info.totalSize
       if (state.getValue.isNew) handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
-      if (Option(Torrent.selected.value).exists(_.hash == hash)) Torrent.selected.value = select
+      if (Option(Torrent.selected.value).exists(_.torrent == this)) Torrent.selected.value = select
   metadataUpdate()
 
   private[torrent] def select: Torrent.Selected =
-    if (handle.isValid) Torrent.Selected(hash, Option(handle.torrentFile).map(TorrentNode.Root(_)))
+    if (handle.isValid) Torrent.Selected(this, Option(handle.torrentFile).map(TorrentNode.Root(_)))
     else null

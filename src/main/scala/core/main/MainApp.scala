@@ -17,7 +17,7 @@ object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
-  lazy val root = new VBox(new MainMenu, new TorrentView)
+  lazy val root = new VBox(new MainMenu, TorrentView)
   lazy val modal = new ModalPane
   lazy val notifications = new NotificationBox
 

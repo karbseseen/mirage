@@ -2,7 +2,7 @@ package torrent
 
 import com.frostwire.jlibtorrent.TorrentInfo
 import fx.SelfProperty
-import javafx.beans.property.{ReadOnlyLongProperty, SimpleFloatProperty, SimpleLongProperty}
+import javafx.beans.property.{ReadOnlyLongProperty, SimpleLongProperty}
 import javafx.beans.value as jfxbv
 import javafx.scene.control as jfxsc
 import scalafx.Includes.{jfxLongProperty2sfx, jfxReadOnlyLongProperty2sfx}
@@ -12,22 +12,28 @@ import util.{also, toIArray}
 
 
 sealed abstract class TorrentNode(val name: String) extends SelfProperty:
-  val progress = new SimpleFloatProperty(this, "progress")
+  protected object mutableProgress extends SimpleLongProperty(this, "progress"):
+    override def fireValueChangedEvent(): Unit = super.fireValueChangedEvent()
+  def progress: ReadOnlyLongProperty = mutableProgress
 
 
 object TorrentNode:
 
-  class File private[TorrentNode] (name: String, val index: Int, val size: Long) extends TorrentNode(name)
+  class File private[TorrentNode] (name: String, val index: Int, val size: Long) extends TorrentNode(name):
+    override def progress: SimpleLongProperty = mutableProgress
 
 
   class Folder private[TorrentNode] (name: String, children: ObservableBuffer[jfxsc.TreeItem[TorrentNode]])
     extends TorrentNode(name):
     import Folder.*
 
+    private val progressListener: jfxbv.ChangeListener[Number] =
+      (_, oldValue, newValue) => mutableProgress() = mutableProgress() + newValue.longValue - oldValue.longValue
+
     private val mutableSize = SimpleLongProperty(this, "size")
     def size: ReadOnlyLongProperty = mutableSize
     private val sizeListener: jfxbv.ChangeListener[Number] =
-      (_, oldValue, newValue) => mutableSize.set(size.get + newValue.longValue - oldValue.longValue)
+      (_, oldValue, newValue) => mutableSize() = mutableSize() + newValue.longValue - oldValue.longValue
 
     applyDiff { children.diffSum(nodeDiff(_, AddListener)) }
     children.onChange: (_, changes) =>
@@ -37,20 +43,25 @@ object TorrentNode:
         case _ => emptyDiff
       applyDiff(diff)
 
-    private def nodeDiff(node: jfxsc.TreeItem[TorrentNode], updateListener: UpdateListener): Diff = node.getValue match
-      case file: File => Diff(file.size)
-      case folder: Folder =>
-        updateListener(folder.size, sizeListener)
-        Diff(folder.size.value)
+    private def nodeDiff(node: jfxsc.TreeItem[TorrentNode], updateListener: UpdateListener): Diff =
+      updateListener(node.getValue.progress, progressListener)
+      node.getValue match
+        case file: File =>
+          Diff(file.progress(), file.size)
+        case folder: Folder =>
+          updateListener(folder.size, sizeListener)
+          Diff(folder.progress(), folder.size())
 
     private def applyDiff(diff: Diff): Unit =
-      mutableSize.value = mutableSize.value + diff.size
+      if (diff.progress == 0) mutableProgress.fireValueChangedEvent()
+      else mutableProgress() = mutableProgress() + diff.progress
+      mutableSize() = mutableSize() + diff.size
 
   object Folder:
-    private class Diff(val size: Long):
-      def +(other: Diff) = Diff(size + other.size)
-      def unary_- = Diff(-size)
-    private val emptyDiff = Diff(0)
+    private class Diff(val progress: Long, val size: Long):
+      def +(other: Diff) = Diff(progress + other.progress, size + other.size)
+      def unary_- = Diff(-progress, -size)
+    private val emptyDiff = Diff(0, 0)
     extension [T](it: Iterable[T]) private def diffSum(map: T => Diff) =
       it.foldLeft(emptyDiff)((acc, item) => acc + map(item))
 

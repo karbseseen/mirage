@@ -1,12 +1,11 @@
 package torrent.listener
 
 import com.frostwire.jlibtorrent.alerts.*
-import com.frostwire.jlibtorrent.swig.status_flags_t
-import com.frostwire.jlibtorrent.{Priority, TorrentFlags, TorrentStatus}
-import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxObjectProperty2sfx, jfxStringProperty2sfx}
+import com.frostwire.jlibtorrent.{TorrentFlags, TorrentStatus}
+import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.application.Platform
-import torrent.Hash.hash
 import torrent.*
+import torrent.Hash.hash
 
 import scala.jdk.CollectionConverters.given
 
@@ -76,6 +75,11 @@ private[listener] class MainListener extends TorrentListener:
         torrent.downSpeed.value = status.downSpeed
         torrent.upSpeed.value = status.upSpeed
         torrent.progress.value = status.progress
+        for
+          node <- Option(Torrent.selected.value).filter(_.torrent == torrent).flatMap(_.node)
+          (file, progress) <- node.files zip torrent.handle.fileProgress
+        do
+          file.progress.value = progress
 
 
 private case class Status(hash: Hash, downSpeed: Int, upSpeed: Int, progress: Float)

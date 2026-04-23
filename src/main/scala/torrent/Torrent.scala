@@ -1,10 +1,13 @@
 package torrent
 
 import com.frostwire.jlibtorrent.*
+import com.frostwire.jlibtorrent.swig.status_flags_t
+import constant.Translate
 import core.main.MainApp
-import javafx.beans.property.{SimpleFloatProperty, SimpleIntegerProperty, SimpleLongProperty, SimpleObjectProperty, SimpleStringProperty}
+import javafx.beans.property.{ReadOnlyObjectProperty, SimpleFloatProperty, SimpleIntegerProperty, SimpleLongProperty, SimpleObjectProperty, SimpleStringProperty}
 import javafx.scene.control as jfxsc
-import scalafx.Includes.{jfxLongProperty2sfx, jfxTreeItem2sfx}
+import scalafx.Includes.{jfxLongProperty2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxTreeItem2sfx}
+import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
 import torrent.listener.TorrentListener
 import util.{also, toIArray}
@@ -21,7 +24,10 @@ object Torrent:
   session.start()
   MainApp.shutdownLongHook(session.stop())
 
-  @volatile private[torrent] var loadingResume = false
+  @volatile private var loadingResume = false
+
+  private[torrent] class Selected (val hash: Hash, val node: Option[TorrentNode.Root])
+  private[torrent] val selected = SimpleObjectProperty[Selected](this, "selected")
 
 
   def add(torrentFile: Path, saveDir: File): Unit =
@@ -54,19 +60,29 @@ object Torrent:
 
 
 
-class Torrent(val hash: Hash, _name: String, _state: State):
+class Torrent(val hash: Hash):
 
-  val state     = SimpleObjectProperty(this, "state", _state)
-  val name      = SimpleStringProperty(this, "name", _name)
+  val handle: TorrentHandle = Torrent.session.find(hash)
+
+  val state     = SimpleObjectProperty(this, "state", State(
+    value = handle.status(new status_flags_t).state,
+    paused = handle.isPaused,
+    isNew = !Torrent.loadingResume,
+  ))
+  val name      = SimpleStringProperty(this, "name")
   val progress  = SimpleFloatProperty(this, "progress")
   val size      = SimpleLongProperty(this, "size")
   val downSpeed = SimpleIntegerProperty(this, "download")
   val upSpeed   = SimpleIntegerProperty(this, "upload")
 
-  private[torrent] val tree = new jfxsc.TreeItem[TorrentNode]
-  private var _files = IArray.empty[TorrentNode.File]
-  def files: IArray[TorrentNode.File] = _files
-  private[torrent] def files_=(info: TorrentNode.Root): Unit =
-    tree.children = info.treeChildren
-    _files = info.files
-    size.value = info.totalSize
+  private[torrent] def metadataUpdate(): Unit =
+    name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
+    for info <- Option(handle.torrentFile) do
+      size.value = info.totalSize
+      if (state.getValue.isNew) handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
+      if (Option(Torrent.selected.value).exists(_.hash == hash)) Torrent.selected.value = select
+  metadataUpdate()
+
+  private[torrent] def select: Torrent.Selected =
+    if (handle.isValid) Torrent.Selected(hash, Option(handle.torrentFile).map(TorrentNode.Root(_)))
+    else null

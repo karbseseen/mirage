@@ -15,23 +15,9 @@ private[listener] class MainListener extends TorrentListener:
 
   listen[AddTorrentAlert]: event =>
     if (event.error.check)
-      val handle = event.handle
-      val hash = handle.hash
-      val name = Option(event.torrentName).filter(_.nonEmpty).getOrElse(hash.toString)
-      val state = State(
-        value = handle.status(new status_flags_t).state,
-        paused = handle.isPaused,
-        isNew = !Torrent.loadingResume,
-      )
-
-      val torrent = Torrent(hash, name, state)
-      for info <- Option(event.params.torrentInfo) do
-        torrent.files = TorrentNode.Root(info)
-        if (state.isNew)
-          handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
-
+      val hash = event.handle.hash
       Platform.runLater:
-        Torrent.all += torrent
+        Torrent.all += Torrent(event.handle.hash)
 
 
   listen[TorrentRemovedAlert]: event =>
@@ -41,24 +27,15 @@ private[listener] class MainListener extends TorrentListener:
 
 
   listen[MetadataFailedAlert]: event =>
-    if (!event.getError.check)
-      Torrent.session.remove(event.handle)
+    event.getError.check
+    Torrent.session.remove(event.handle)
 
   listen[MetadataReceivedAlert]: event =>
     val handle = event.handle
     val hash = handle.hash
-    val name = handle.name
-    val info = handle.torrentFile
-    val files = TorrentNode.Root(info)
-
-    Platform.runLater:
-      for torrent <- Torrent.find(hash) do
-        torrent.name.value = name
-        torrent.files = files
-
-    handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
     handle.setFlags(TorrentFlags.UPLOAD_MODE, TorrentFlags.AUTO_MANAGED or_ TorrentFlags.UPLOAD_MODE)
-
+    Platform.runLater:
+      Torrent.find(hash).foreach(_.metadataUpdate())
     //todo save torrentFile
 
 

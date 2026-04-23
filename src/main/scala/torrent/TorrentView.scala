@@ -7,7 +7,7 @@ import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
 import javafx.beans.binding.StringExpression
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
-import scalafx.Includes.{jfxIndexedCell2sfx, jfxObservableValue2sfx, jfxText2sfxText}
+import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxText2sfxText}
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.layout.Priority
@@ -27,9 +27,11 @@ class TorrentView extends AutoSplitPane:
   items += torrents
 
   private var hasFiles = false
-  private val selectedTorrent = torrents.selectionModel.flatMap(_.selectedItemProperty)
-  files.root <== selectedTorrent.map(_.tree)
-  selectedTorrent.onChange: (_,_,root) =>
+  Torrent.selected.unbind()     //Just in case
+  Torrent.selected <== torrents.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
+  Torrent.selected.subscribe: selected =>
+    val root = Option(selected).flatMap(_.node).map(_.tree).orNull
+    files.root = root
     if (root == null && hasFiles)
       items -= files
       hasFiles = false

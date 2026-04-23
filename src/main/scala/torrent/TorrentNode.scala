@@ -8,7 +8,7 @@ import javafx.scene.control as jfxsc
 import scalafx.Includes.{jfxLongProperty2sfx, jfxReadOnlyLongProperty2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.TreeItem
-import util.toIArray
+import util.{also, toIArray}
 
 
 sealed abstract class TorrentNode(val name: String) extends SelfProperty:
@@ -73,22 +73,20 @@ object TorrentNode:
       val preChild = it.foldLeft[PreChild](PreFile(file)) { case (child, prefix) => PreFolder(prefix, child) }
       (preChild, file)
   
-    val treeChildren: List[TreeItem[TorrentNode]] = data.map(_._1).toTreeChildren
+    val tree: TreeItem[TorrentNode] = data.map(_._1).toTree
     val files: IArray[TorrentNode.File] = data.map(_._2).toIArray
-    val totalSize: Long = infoFiles.totalSize
 
 
   private trait PreChild
   private case class PreFile(file: TorrentNode.File) extends PreChild
   private case class PreFolder(name: String, child: PreChild) extends PreChild
-  extension (preChildren: List[PreChild]) private def toTreeChildren: List[TreeItem[TorrentNode]] =
+  extension (preChildren: List[PreChild]) private def toTree: TreeItem[TorrentNode] =
     val (files, preFolders) = preChildren.partitionMap:
       case PreFile(file) => Left(TreeItem[TorrentNode](file))
       case folder: PreFolder => Right(folder)
     val folders = preFolders.groupMap(_.name)(_.child).map: (name, preChildren) =>
-      val subTree = new TreeItem[TorrentNode]
-      val children = preChildren.toTreeChildren
+      val subTree = preChildren.toTree
       subTree.value = TorrentNode.Folder(name, subTree.children)
-      subTree.children = children
       subTree
-    folders.toList.sortBy(_.value.name) ::: files.sortBy(_.value.name) 
+    val children = folders.toList.sortBy(_.value.name) ::: files.sortBy(_.value.name)
+    new TreeItem[TorrentNode].also(_.children = children)

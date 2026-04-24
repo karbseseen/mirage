@@ -46,6 +46,7 @@ object Tr:
   val finished          = Translate("Finished",                   "Завершено")
   val go                = Translate("Go",                         "Вперед")
   val language          = Translate("Language",                   "Язык")
+  val letsGo            = Translate("Let's go",                   "Поехали")
   val loading           = Translate("Loading",                    "Загрузка")
   val loadingComponents = Translate("Loading components",         "Загружаем компоненты")
   val magnetAddError    = Translate("Couldn't add magnet link",   "Не получилось добавить магнитную ссылку")

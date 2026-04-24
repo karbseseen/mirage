@@ -1,13 +1,17 @@
 package torrent
 
 import atlantafx.base.theme.{Styles, Tweaks}
-import constant.{Tr, Translate}
+import com.frostwire.jlibtorrent.TorrentFlags
+import constant.{Constants, Tr, Translate}
+import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
+import javafx.beans.InvalidationListener
 import javafx.beans.binding.StringExpression
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
-import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxText2sfxText}
+import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxScene2sfx, jfxText2sfxText}
+import scalafx.beans.binding.Bindings
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
@@ -17,27 +21,7 @@ import java.math.RoundingMode
 import scala.annotation.tailrec
 
 
-object TorrentView extends AutoSplitPane:
-  override def splitName: String = "torrent"
-
-  vgrow = Priority.Always
-  orientation = Orientation.Vertical
-  items += TorrentTable
-
-  private var hasFiles = false
-  Torrent.selected <== TorrentTable.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
-  Torrent.selected.subscribe: selected =>
-    val root = Option(selected).flatMap(_.node).map(_.tree).orNull
-    TorrentFileTable.root = root
-    if (root == null && hasFiles)
-      items -= TorrentFileTable
-      hasFiles = false
-    else if (root != null && !hasFiles)
-      items += TorrentFileTable
-      hasFiles = true
-
-
-object TorrentTable extends AutoTableView[Torrent]:
+val torrentTable = new AutoTableView[Torrent]:
   def tableName: String = "torrent-root"
 
   styleClass ++= Seq(Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -69,7 +53,7 @@ object TorrentTable extends AutoTableView[Torrent]:
     cellTextBind(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
 
-object TorrentFileTable extends AutoTreeView[TorrentNode]:
+val torrentFileTable = new AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"
 
   styleClass ++= Seq(Styles.DENSE, Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -109,6 +93,58 @@ object TorrentFileTable extends AutoTreeView[TorrentNode]:
     cellTextBind:
       case file: TorrentNode.File => sizeExpression(file.size.doubleValue, Tr.Size.allList)
       case folder: TorrentNode.Folder => folder.size.flatMap(size => sizeExpression(size.doubleValue, Tr.Size.allList))
+
+
+val torrentView = new AutoSplitPane:
+  override def splitName: String = "torrent"
+
+  vgrow = Priority.Always
+  orientation = Orientation.Vertical
+  items += torrentTable
+
+  private var hasFiles = false
+  Torrent.selected <== torrentTable.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
+  Torrent.selected.subscribe: selected =>
+    val root = Option(selected).flatMap(_.node).map(_.tree).orNull
+    torrentFileTable.root = root
+    if (root == null && hasFiles)
+      items -= torrentFileTable
+      hasFiles = false
+    else if (root != null && !hasFiles)
+      items += torrentFileTable
+      hasFiles = true
+
+  private def createStartButton(torrent: Torrent) = new Button:
+    styleClass += Styles.ACCENT
+    alignmentInParent = Pos.TopLeft
+    translateX = Constants.inset
+    translateY <== Bindings.createDoubleBinding(
+      () => torrentTable.localToScene(0.0, torrentTable.getHeight).y - this.getHeight - Constants.inset,
+      torrentTable.localToSceneTransformProperty,
+      torrentTable.height,
+      this.height,
+    )
+    text <== b"${Tr.letsGo}!"
+    onAction = _ =>
+      torrent.state() = torrent.state().copy(isNew = false)
+      torrent.handle.resume()
+      torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
+  private var startButton: Option[Button] = None
+  private val selectedState = Torrent.selected.flatMap(_.torrent.state)
+  private val selectedInclude = Torrent.selected.flatMap(_.node.map(_.tree.value().include).orNull)
+  private val selectedListener: InvalidationListener = _ =>
+    val canStart = Option(selectedState()).exists(_.isFileSelect) &&
+      !Option(selectedInclude()).contains(TorrentNode.Include.No)
+    if (canStart && startButton.isEmpty)
+      val startButton = createStartButton(Torrent.selected().torrent)
+      MainApp.stage.scene().getChildren += startButton
+      this.startButton = Some(startButton)
+    else if (!canStart)
+      for startButton <- startButton do
+        MainApp.stage.scene().getChildren -= startButton
+        this.startButton = None
+  selectedState.addListener(selectedListener)
+  selectedInclude.addListener(selectedListener)
 
 /**********************************************************************************************************************/
 

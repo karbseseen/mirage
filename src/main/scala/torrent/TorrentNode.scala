@@ -131,6 +131,8 @@ object TorrentNode:
     val tree: TreeItem[TorrentNode] = data.map(_._1).toTree
     val files: IArray[TorrentNode.File] = data.map(_._2).toIArray
 
+    tree.value = Folder("", tree.children)
+
 
   sealed trait FolderInclude { def value: Int }
   sealed trait FileInclude extends FolderInclude

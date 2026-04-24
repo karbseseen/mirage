@@ -10,14 +10,14 @@ import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.application.{JFXApp3, Platform}
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
-import torrent.TorrentView
+import torrent.torrentView
 
 
 object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
-  lazy val root = new VBox(new MainMenu, TorrentView)
+  lazy val root = new VBox(new MainMenu, torrentView)
   lazy val modal = new ModalPane
   lazy val notifications = new NotificationBox
 

@@ -14,7 +14,7 @@ class State (
   val paused: Boolean,
   val isNew: Boolean,
 ):
-  private val isFileSelect: Boolean = isNew && paused &&
+  val isFileSelect: Boolean = isNew && paused &&
     (value == TorrentStatus.State.DOWNLOADING || value == TorrentStatus.State.FINISHED)
 
   private val (defaultIcon, defaultTooltip): (Ikon, Translate) = value match
@@ -34,5 +34,6 @@ class State (
   def copy(
     value: TorrentStatus.State = value,
     paused: Boolean = paused,
+    isNew: Boolean = isNew,
   ): State =
-    State(value, paused, isNew && !isFileSelect)
+    State(value, paused, isNew)

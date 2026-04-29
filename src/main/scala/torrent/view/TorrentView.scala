@@ -1,7 +1,7 @@
-package torrent
+package torrent.view
 
 import atlantafx.base.theme.{Styles, Tweaks}
-import com.frostwire.jlibtorrent.TorrentFlags
+import com.frostwire.jlibtorrent.{TorrentFlags, TorrentStatus}
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
@@ -16,7 +16,9 @@ import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
+import torrent.{Torrent, TorrentNode}
 
+import java.lang
 import java.math.RoundingMode
 import scala.annotation.tailrec
 
@@ -27,6 +29,38 @@ val torrentTable = new AutoTableView[Torrent]:
   styleClass ++= Seq(Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
   styleClass -= Styles.BORDERED
   items = Torrent.all
+
+  rowSet: (row, torrent) =>
+    val notNew = torrent.state.map(!_.isNew: lang.Boolean)
+    val playPause = new MenuItem:
+      text <== torrent.state.flatMap(state => if (state.paused) Tr.resume else Tr.pause)
+      visible <== notNew
+      onAction = _ =>
+        if (torrent.state().paused)
+          torrent.handle.resume()
+          torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
+        else
+          torrent.handle.unsetFlags(TorrentFlags.AUTO_MANAGED)
+          torrent.handle.pause()
+    val delete = new MenuItem:
+      text <== Tr.delete
+      onAction = _ => MainApp.modal.show(TorrentModal.delete(torrent))
+    val recheckFiles = new MenuItem:
+      text <== Tr.recheckFiles
+      visible.bind(torrent.state.map(state =>
+        !state.isNew &&
+        !state.paused &&
+        state.value != TorrentStatus.State.CHECKING_RESUME_DATA &&
+        state.value != TorrentStatus.State.CHECKING_FILES
+      ))
+      onAction = _ => torrent.handle.forceRecheck()
+    val reannounce = new MenuItem:
+      text <== Tr.reannounce
+      visible <== notNew
+      onAction = _ => torrent.handle.forceReannounce()
+    row.contextMenu = ContextMenu(playPause, delete, recheckFiles, reannounce)
+  rowUnset: row =>
+    row.contextMenu = null
 
   columns += new Column(Tr.state, _.state):
     cellInit(_.alignment = Pos.Center)

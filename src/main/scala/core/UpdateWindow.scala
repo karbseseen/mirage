@@ -93,7 +93,7 @@ private abstract class UpdateService[T](scene: UpdateScene) extends jfxc.Service
   override def scheduled(): Unit =
     val label = new Label:
       text <== b"${Tr.loading} "
-      font = new Font(16)
+      font = Font(Constants.heading2Size)
 
     val progress = new ProgressIndicator:
       prefWidth <== label.height
@@ -135,7 +135,7 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
       text <== b"${Tr.selectCommit}:"
       hgrow = Priority.Always
       maxWidth = Double.MaxValue
-      font = new Font(16)
+      font = Font(Constants.heading2Size)
 
     val reloadButton = new Button:
       styleClass ++= Styles.WARNING :: Styles.BUTTON_OUTLINED :: Nil

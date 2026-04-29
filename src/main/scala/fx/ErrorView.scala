@@ -20,7 +20,7 @@ class ErrorView(
 
   private val label = new Text:
     margin = AutoInsets(left = inset, right = inset, top = inset)
-    font = Font(20)
+    font = Font(Constants.headingSize)
     text <== Tr.wentWrong
 
   val retryButton: Button = new Button:

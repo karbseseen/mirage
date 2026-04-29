@@ -39,10 +39,6 @@ object Torrent:
     session.download(magnet, saveDir, TorrentFlags.UPLOAD_MODE)
 
 
-  def pause(hash: Hash): Unit = Option(session.find(hash)).foreach(_.pause())
-  def resume(hash: Hash): Unit = Option(session.find(hash)).foreach(_.resume())
-
-
   /**UI thread only*/ val all: ObservableBuffer[Torrent] = ObservableBuffer.empty
   /**UI thread only*/ def find(hash: Hash): Option[Torrent] =
     map.get(hash).also: torrent =>

@@ -10,7 +10,7 @@ import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.application.{JFXApp3, Platform}
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
-import torrent.torrentView
+import torrent.view.torrentView
 
 
 object MainApp extends JFXApp3

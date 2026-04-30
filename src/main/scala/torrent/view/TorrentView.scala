@@ -6,21 +6,22 @@ import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
-import javafx.beans.{InvalidationListener, binding as jfxbb}
 import javafx.beans.binding.StringExpression
+import javafx.beans.{InvalidationListener, binding as jfxbb}
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
-import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxScene2sfx, jfxText2sfxText}
+import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxScene2sfx, jfxText2sfxText, jfxTreeItem2sfx}
 import scalafx.beans.binding.Bindings
 import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
-import torrent.{Torrent, TorrentNode}
+import torrent.{Hash, Torrent, TorrentNode}
 
 import java.lang
 import java.math.RoundingMode
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 
 val torrentTable = new AutoTableView[Torrent]:
@@ -142,9 +143,22 @@ val torrentView = new AutoSplitPane:
   orientation = Orientation.Vertical
   items += torrentTable
 
+  private val expanded = mutable.Map.empty[Hash, Expanded]
   private var hasFiles = false
   Torrent.selected <== torrentTable.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
-  Torrent.selected.subscribe: selected =>
+  Torrent.selected.subscribe: (oldSelected, selected) =>
+    for
+      oldSelected <- Option(oldSelected)
+      oldNode <- oldSelected.node
+    do
+      expanded(oldSelected.torrent.hash) = Expanded(oldNode.tree)
+    for
+      newSelected <- Option(selected)
+      newNode <- newSelected.node
+      expanded <- expanded.remove(newSelected.torrent.hash)
+    do
+      expanded.apply(newNode.tree)
+    
     val root = Option(selected).flatMap(_.node).map(_.tree).orNull
     torrentFileTable.root = root
     if (root == null && hasFiles)
@@ -205,3 +219,23 @@ private trait SpeedColumn:
   else if (value >= 100) binding(0)
   else if (value >= 10) binding(1)
   else binding(2)
+
+class Expanded(tree: TreeItem[TorrentNode]):
+  private val namedChildren =
+    for
+      treeChild <- tree.children.toList
+      folderChild <- Some(treeChild.value()).collect { case folder: TorrentNode.Folder => folder }
+    yield
+      folderChild.name -> Expanded(treeChild)
+  val children: Map[String, Expanded] = namedChildren.toMap
+  val value: Boolean = tree.expanded()
+
+  def apply(tree: TreeItem[TorrentNode]): Unit =
+    Some(tree.value()).collect:
+      case folder: TorrentNode.Folder =>
+        tree.expanded = value
+        for
+          treeChild <- tree.children
+          expandedChild <- children.get(treeChild.value().name)
+        do
+          expandedChild.apply(treeChild)

@@ -86,6 +86,10 @@ val torrentTable = new AutoTableView[Torrent]:
     cellInit(_.alignment = Pos.CenterRight)
     cellTextBind(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
+  columns += new Column(Tr.peers, _.peerNum):
+    cellInit(_.alignment = Pos.CenterRight)
+    cellText(_.intValue.toString)
+
 
 val torrentFileTable = new AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"

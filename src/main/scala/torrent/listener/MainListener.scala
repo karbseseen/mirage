@@ -81,14 +81,16 @@ private[listener] class MainListener extends TorrentListener:
         status.downloadPayloadRate,
         status.uploadPayloadRate,
         status.progress,
+        status.numPeers,
       )
 
     Platform.runLater:
       for status <- statuses do
         val torrent = status.torrent
-        torrent.downSpeed.value = status.downSpeed
-        torrent.upSpeed.value = status.upSpeed
-        torrent.progress.value = status.progress
+        torrent.downSpeed() = status.downSpeed
+        torrent.upSpeed() = status.upSpeed
+        torrent.progress() = status.progress
+        torrent.peerNum() = status.peerNum
         Option(Torrent.selected())
           .filter(_.torrent == torrent)
           .flatMap(_.node)
@@ -129,7 +131,7 @@ private[listener] class MainListener extends TorrentListener:
       Platform.runLater:
         func(torrent)
 
-  private case class Status(torrent: Torrent, downSpeed: Int, upSpeed: Int, progress: Float)
+  private case class Status(torrent: Torrent, downSpeed: Int, upSpeed: Int, progress: Float, peerNum: Int)
 
   private def saveTorrentFile(info: TorrentInfo): Unit =
     try

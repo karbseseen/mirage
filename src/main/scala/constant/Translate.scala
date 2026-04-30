@@ -57,6 +57,7 @@ object Tr:
   val orTorrentFile     = Translate("or .torrent file",           "или .torrent файл")
   val pause             = Translate("Pause",                      "Пауза")
   val paused            = Translate("Paused",                     "Пауза")
+  val peers             = Translate("Peers",                      "Пиры")
   val progress          = Translate("Progress",                   "Прогресс")
   val reallyDelete      = Translate("Really-really to delete",    "Точно-точно удалить")
   val reannounce        = Translate("Reannounce",                 "Переанонсировать")

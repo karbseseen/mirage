@@ -88,8 +88,9 @@ class Torrent(val hash: Hash, isNew: Boolean):
   val name      = SimpleStringProperty(this, "name")
   val progress  = SimpleFloatProperty(this, "progress")
   val size      = SimpleLongProperty(this, "size")
-  val downSpeed = SimpleIntegerProperty(this, "download")
-  val upSpeed   = SimpleIntegerProperty(this, "upload")
+  val downSpeed = SimpleIntegerProperty(this, "downSpeed")
+  val upSpeed   = SimpleIntegerProperty(this, "upSpeed")
+  val peerNum   = SimpleIntegerProperty(this, "peerNum")
 
   private[torrent] def metadataUpdate(): Unit =
     name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)

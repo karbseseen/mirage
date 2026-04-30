@@ -6,7 +6,7 @@ import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
-import javafx.beans.InvalidationListener
+import javafx.beans.{InvalidationListener, binding as jfxbb}
 import javafx.beans.binding.StringExpression
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
@@ -112,15 +112,17 @@ val torrentFileTable = new AutoTreeView[TorrentNode]:
       cell.graphic = null
       cell.text = null
 
-  columns += new Column(Tr.progress, _.progress):
+  columns += new Column(Tr.progress, selfProp):
     cellInit(_.alignment = Pos.CenterRight)
-    cellSet: (cell, value) =>
-      val size = cell.getTableRow.getTreeItem.getValue match
-        case file: TorrentNode.File => file.size
-        case folder: TorrentNode.Folder => folder.size.get
-      cell.text = s"${value.longValue * 100 / size}%"
-    cellUnset: cell =>
-      cell.text = null
+    cellTextBind: value =>
+      jfxbb.Bindings.createStringBinding(
+        () =>
+          val size = value match
+            case file: TorrentNode.File => file.size
+            case folder: TorrentNode.Folder => folder.size.get
+          s"${value.progress.get * 100 / size}%",
+        value.progress :: List(value).collect { case folder: TorrentNode.Folder => folder.size } *
+      )
 
   columns += new Column(Tr.size, selfProp):
     cellInit(_.alignment = Pos.CenterRight)

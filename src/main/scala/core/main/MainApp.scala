@@ -17,7 +17,7 @@ object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
-  lazy val root = new VBox(new MainMenu, torrentView)
+  lazy val root = new VBox(MainMenu.value, torrentView)
   lazy val modal = new ModalPane
   lazy val notifications = new NotificationBox
 
@@ -36,4 +36,5 @@ object MainApp extends JFXApp3
       notifications.children += new PopupNotification(eitherMessage.left.toOption.orNull):
         eitherMessage.foreach(this.message <== _)
         styleClass += Styles.DANGER
+  /**Thread-safe*/
   def showError(error: Throwable): Unit = showError(error.getMessage)

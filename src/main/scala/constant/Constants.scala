@@ -17,3 +17,5 @@ object Constants:
   val modalPadding = 15.0
   val modalSpace = 50.0
   val modalWidth = 500.0
+  val resumeRetryTime = 40_000L     //milliseconds
+  val resumeSavePeriod = 300_000L   //milliseconds

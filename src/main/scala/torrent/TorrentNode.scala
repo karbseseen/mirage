@@ -127,11 +127,19 @@ object TorrentNode:
       val file = TorrentNode.File(it.next, index, infoFiles.fileSize(index))
       val preChild = it.foldLeft[PreChild](PreFile(file)) { case (child, prefix) => PreFolder(prefix, child) }
       (preChild, file)
-  
+
     val tree: TreeItem[TorrentNode] = data.map(_._1).toTree
     val files: IArray[TorrentNode.File] = data.map(_._2).toIArray
 
     tree.value = Folder("", tree.children)
+
+    def setFilePriority(filePriority: Array[Priority]): Unit =
+      for (file, priority) <- files zip filePriority do
+        file.include() = if (priority == Priority.IGNORE) TorrentNode.Include.No else TorrentNode.Include.Yes
+
+    def setFileProgress(fileProgress: Array[Long]): Unit =
+      for (file, progress) <- files zip fileProgress do
+        file.progress() = progress
 
 
   sealed trait FolderInclude { def value: Int }
@@ -153,5 +161,5 @@ object TorrentNode:
       val subTree = preChildren.toTree
       subTree.value = TorrentNode.Folder(name, subTree.children)
       subTree
-    val children = folders.toList.sortBy(_.value.name) ::: files.sortBy(_.value.name)
+    val children = folders.toList.sortBy(_.value().name) ::: files.sortBy(_.value().name)
     new TreeItem[TorrentNode].also(_.children = children)

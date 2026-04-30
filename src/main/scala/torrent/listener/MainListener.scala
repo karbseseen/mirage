@@ -1,12 +1,19 @@
 package torrent.listener
 
+import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.alerts.*
-import com.frostwire.jlibtorrent.{Priority, TorrentFlags, TorrentStatus}
+import com.frostwire.jlibtorrent.swig.libtorrent_errors
+import constant.Constants
+import core.MainMenu
+import core.main.MainApp
 import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.application.Platform
 import torrent.*
 import torrent.Hash.hash
 
+import java.io.File
+import java.nio.file.Files
+import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
 
 
@@ -14,15 +21,25 @@ private[listener] class MainListener extends TorrentListener:
 
   listen[AddTorrentAlert]: event =>
     if (event.error.check)
-      val hash = event.handle.hash
+      val isNew = Torrent.loadingResumeCount == 0
+      val torrent = Torrent(event.handle.hash, isNew)
+      map(torrent.hash) = torrent
       Platform.runLater:
-        Torrent.all += Torrent(event.handle.hash)
+        Torrent.all += torrent
+      if (isNew) Option(event.handle.torrentFile).foreach(saveTorrentFile)
+
+    if (Torrent.loadingResumeCount > 0)
+      Torrent.loadingResumeCount -= 1
+      if (Torrent.loadingResumeCount == 0)
+        Platform.runLater:
+          MainMenu.addMenu.visible = true
 
 
   listen[TorrentRemovedAlert]: event =>
     val hash = event.hash
-    Platform.runLater:
-      Torrent.all --= Torrent.find(hash)
+    forTorrentUi(hash)(Torrent.all -= _)
+    for fileName <- List(s"$hash.torrent", s"$hash.resume") do
+      File(Torrent.directory, fileName).delete()
 
 
   listen[MetadataFailedAlert]: event =>
@@ -31,67 +48,102 @@ private[listener] class MainListener extends TorrentListener:
 
   listen[MetadataReceivedAlert]: event =>
     val handle = event.handle
-    val hash = handle.hash
-    handle.setFlags(TorrentFlags.UPLOAD_MODE, TorrentFlags.AUTO_MANAGED or_ TorrentFlags.UPLOAD_MODE)
-    Platform.runLater:
-      Torrent.find(hash).foreach(_.metadataUpdate())
-    //todo save torrentFile
+    handle.setFlags(TorrentFlags.STOP_WHEN_READY, TorrentFlags.AUTO_MANAGED or_ TorrentFlags.STOP_WHEN_READY)
+    forTorrentUi(handle.hash)(_.metadataUpdate())
+    saveTorrentFile(handle.torrentFile)
 
 
   listen[StateChangedAlert]: event =>
-    val hash = event.handle.hash
+    val handle = event.handle
     val state = event.getState
-    Platform.runLater:
-      for torrent <- Torrent.find(hash) do
-        torrent.state.value = torrent.state.value.copy(value = state)
-    if (event.getPrevState == TorrentStatus.State.DOWNLOADING_METADATA)
-      event.handle.setFlags(TorrentFlags.STOP_WHEN_READY, TorrentFlags.STOP_WHEN_READY or_ TorrentFlags.UPLOAD_MODE)
+    forTorrentUi(handle.hash): torrent =>
+      torrent.state() = torrent.state().copy(value = state)
 
   listen[TorrentPausedAlert]: event =>
-    val hash = event.handle.hash
-    Platform.runLater:
-      for torrent <- Torrent.find(hash) do
-        torrent.state.value = torrent.state.value.copy(paused = true)
+    forTorrentUi(event.handle.hash): torrent =>
+      torrent.state() = torrent.state().copy(paused = true)
 
   listen[TorrentResumedAlert]: event =>
-    val hash = event.handle.hash
-    Platform.runLater:
-      for torrent <- Torrent.find(hash) do
-        torrent.state.value = torrent.state.value.copy(paused = false)
+    forTorrentUi(event.handle.hash): torrent =>
+      torrent.state() = torrent.state().copy(paused = false)
 
 
   listen[StateUpdateAlert]: event =>
-    val statuses = for status <- event.status.asScala.toList yield Status(
-      status.hash,
-      status.downloadPayloadRate,
-      status.uploadPayloadRate,
-      status.progress,
-    )
+    val now = event.timestamp
+    val statuses = for
+      status <- event.status.asScala.toList
+      torrent <- map.get(status.hash)
+    yield
+      if (torrent.nextResumeSaveTime < now)
+        torrent.handle.saveResumeData(TorrentHandle.ONLY_IF_MODIFIED)
+      Status(
+        torrent,
+        status.downloadPayloadRate,
+        status.uploadPayloadRate,
+        status.progress,
+      )
+
     Platform.runLater:
-      for
-        status <- statuses
-        torrent <- Torrent.find(status.hash)
-      do
+      for status <- statuses do
+        val torrent = status.torrent
         torrent.downSpeed.value = status.downSpeed
         torrent.upSpeed.value = status.upSpeed
         torrent.progress.value = status.progress
-        for
-          node <- Option(Torrent.selected()).filter(_.torrent == torrent).flatMap(_.node)
-          (file, progress) <- node.files zip torrent.handle.fileProgress
-        do
-          file.progress.value = progress
+        Option(Torrent.selected())
+          .filter(_.torrent == torrent)
+          .flatMap(_.node)
+          .foreach(_.setFileProgress(torrent.handle.fileProgress))
 
   listen[FilePrioAlert]: event =>
-    val hash = event.handle.hash
     if (event.error.check)
+      val hash = event.handle.hash
       Platform.runLater:
         for
           selected <- Option(Torrent.selected()).filter(_.torrent.hash == hash)
           node <- selected.node
-          (file, priority) <- node.files zip selected.torrent.handle.filePriorities
         do
-          file.include() = if (priority == Priority.IGNORE) TorrentNode.Include.No else TorrentNode.Include.Yes
-          
+          node.setFilePriority(selected.torrent.handle.filePriorities)
 
 
-private case class Status(hash: Hash, downSpeed: Int, upSpeed: Int, progress: Float)
+  listen[SaveResumeDataAlert]: event =>
+    val success = try
+      val path = Torrent.directory.toPath.resolve(s"${event.handle.hash}.resume")
+      val data = AddTorrentParams.writeResumeData(event.params).bencode
+      Files.write(path, data)
+      true
+    catch case error: Throwable =>
+      MainApp.showError(error)
+      false
+    afterResumeSave(event, success)
+
+  listen[SaveResumeDataFailedAlert]: event =>
+    val error = event.error
+    val success = error.value == libtorrent_errors.resume_data_not_modified.swigValue
+    if (!success) error.check
+    afterResumeSave(event, success)
+
+
+  private val map = mutable.Map.empty[Hash, Torrent]
+  private def forTorrentUi(hash: Hash)(func: Torrent => Unit): Unit =
+    for torrent <- map.get(hash) do
+      Platform.runLater:
+        func(torrent)
+
+  private case class Status(torrent: Torrent, downSpeed: Int, upSpeed: Int, progress: Float)
+
+  private def saveTorrentFile(info: TorrentInfo): Unit =
+    try
+      val path = Torrent.directory.toPath.resolve(s"${info.hash}.torrent")
+      Files.write(path, info.bencode)
+    catch case error: Throwable =>
+      MainApp.showError(error)
+
+  private def afterResumeSave(event: TorrentAlert[?], success: Boolean): Unit =
+    val hash = event.handle.hash
+    if (!success) File(Torrent.directory, s"$hash.resume").delete()
+    if (MainApp.isExiting)
+      map -= hash
+      if (map.isEmpty) Torrent.exitResumeDone.countDown()
+    else
+      val untilNext = if (success) Constants.resumeSavePeriod else Constants.resumeRetryTime
+      map.get(hash).foreach(_.nextResumeSaveTime = event.timestamp + untilNext)

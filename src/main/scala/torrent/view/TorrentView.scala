@@ -7,8 +7,9 @@ import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
+import javafx.beans.InvalidationListener
 import javafx.beans.binding.{ObjectBinding, StringExpression}
-import javafx.beans.{InvalidationListener, binding as jfxbb}
+import javafx.beans.property.SimpleLongProperty
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
 import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxScene2sfx, jfxText2sfxText, jfxTreeItem2sfx}
@@ -18,7 +19,7 @@ import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
 import torrent.view.TorrentView.Selected
-import torrent.{Hash, Torrent, TorrentNode}
+import torrent.{Hash, State, Torrent, TorrentNode}
 
 import java.lang
 import java.math.RoundingMode
@@ -66,6 +67,7 @@ private val torrentTable = new AutoTableView[Torrent]:
     row.contextMenu = null
 
   columns += new Column(Tr.state, _.state):
+    comparator = Ordering.by(!(_: State).isNew).orElseBy(_.value.ordinal).orElseBy(!_.paused)
     cellInit(_.alignment = Pos.Center)
     cellSet: (cell, value) =>
       cell.graphic = FontIcon(value.icon)
@@ -79,17 +81,16 @@ private val torrentTable = new AutoTableView[Torrent]:
     new Column(Tr.naming, _.name) { comparator = Ordering[String] },
     new Column(Tr.download, _.downSpeed) with SpeedColumn,
     new Column(Tr.upload, _.upSpeed) with SpeedColumn,
+    new Column(Tr.progress, _.progress) with ProgressColumn,
   )
 
-  columns += new Column(Tr.progress, _.progress):
-    cellInit(_.alignment = Pos.CenterRight)
-    cellText(progress => s"${(progress.floatValue * 100).toInt}%")
-
   columns += new Column(Tr.size, _.size):
+    comparator = Ordering.by(_.longValue)
     cellInit(_.alignment = Pos.CenterRight)
     cellTextBind(size => sizeExpression(size.doubleValue, Tr.Size.allList))
 
   columns += new Column(Tr.peers, _.peerNum):
+    comparator = Ordering.by(_.intValue)
     cellInit(_.alignment = Pos.CenterRight)
     cellText(_.intValue.toString)
 
@@ -127,23 +128,17 @@ private val torrentFileTable = new AutoTreeView[TorrentNode]:
       cell.graphic = null
       cell.text = null
 
-  columns += new Column(Tr.progress, selfProp):
-    cellInit(_.alignment = Pos.CenterRight)
-    cellTextBind: value =>
-      jfxbb.Bindings.createStringBinding(
-        () =>
-          val size = value match
-            case file: TorrentNode.File => file.size
-            case folder: TorrentNode.Folder => folder.size.get
-          s"${value.progress.get * 100 / size}%",
-        value.progress :: List(value).collect { case folder: TorrentNode.Folder => folder.size } *
-      )
+  columns += new Column(Tr.progress, _.progress) with ProgressColumn
 
-  columns += new Column(Tr.size, selfProp):
+  columns += new Column(
+    Tr.size,
+    _ match
+      case file: TorrentNode.File => SimpleLongProperty(file.size)
+      case folder: TorrentNode.Folder => folder.size
+  ):
+    comparator = Ordering.by(_.longValue)
     cellInit(_.alignment = Pos.CenterRight)
-    cellTextBind:
-      case file: TorrentNode.File => sizeExpression(file.size.doubleValue, Tr.Size.allList)
-      case folder: TorrentNode.Folder => folder.size.flatMap(size => sizeExpression(size.doubleValue, Tr.Size.allList))
+    cellTextBind(value => sizeExpression(value.doubleValue, Tr.Size.allList))
 
 
 val torrentView = new AutoSplitPane:
@@ -222,8 +217,15 @@ private[torrent] object TorrentView:
 
 private trait SpeedColumn:
   this: AutoColumnBase[Number] =>
+  comparator = Ordering.by(_.intValue)
   cellInit(_.alignment = Pos.CenterRight)
   cellTextBind(num => sizeExpression(num.doubleValue, Tr.Speed.allList))
+
+private trait ProgressColumn:
+  this: AutoColumnBase[Number] =>
+  comparator = Ordering.by(_.floatValue)
+  cellInit(_.alignment = Pos.CenterRight)
+  cellText(progress => s"${(progress.floatValue * 100).toInt}%")
 
 @tailrec private def sizeExpression(value: Double, units: List[Translate]): StringExpression =
   def binding(scale: Int) =

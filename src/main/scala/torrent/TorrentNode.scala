@@ -1,7 +1,8 @@
 package torrent
 
-import com.frostwire.jlibtorrent.{Priority, TorrentHandle, TorrentInfo}
+import com.frostwire.jlibtorrent.{Priority, TorrentHandle}
 import fx.SelfProperty
+import javafx.beans.binding.FloatBinding
 import javafx.beans.property.*
 import javafx.beans.value as jfxbv
 import javafx.scene.control as jfxsc
@@ -19,9 +20,9 @@ private sealed abstract class TorrentNode(val name: String) extends SelfProperty
   def include: ReadOnlyObjectProperty[? <: FolderInclude]
   def toggleInclude(): Unit
 
-  protected object mutableProgress extends SimpleLongProperty(this, "progress"):
-    override def fireValueChangedEvent(): Unit = super.fireValueChangedEvent()
-  def progress: ReadOnlyLongProperty = mutableProgress
+  private val _doneBytes = SimpleLongProperty(this, "doneBytes")
+  protected def doneBytes: LongProperty = _doneBytes
+  def progress: FloatBinding
 
 
 private object TorrentNode:
@@ -32,7 +33,8 @@ private object TorrentNode:
       val priority = if (include() == Include.Yes) Priority.IGNORE else Priority.NORMAL
       TorrentView.selected.foreach(_.torrent.handle.filePriority(index, priority))
 
-    override def progress: SimpleLongProperty = mutableProgress
+    override def doneBytes: LongProperty = super.doneBytes
+    override val progress: FloatBinding = doneBytes.divide(size.toFloat)
 
 
   class Folder private[TorrentNode] (name: String, children: ObservableBuffer[jfxsc.TreeItem[TorrentNode]])
@@ -60,13 +62,16 @@ private object TorrentNode:
         else if (childIncludeCountX2 == childCount() * 2) Include.Yes
         else Include.Part
 
-    private val progressListener: jfxbv.ChangeListener[Number] =
-      (_, oldValue, newValue) => mutableProgress() = mutableProgress() + newValue.longValue - oldValue.longValue
-
     private val mutableSize = SimpleLongProperty(this, "size")
     def size: ReadOnlyLongProperty = mutableSize
     private val sizeListener: jfxbv.ChangeListener[Number] =
       (_, oldValue, newValue) => mutableSize() = mutableSize() + newValue.longValue - oldValue.longValue
+
+    private val doneListener: jfxbv.ChangeListener[Number] =
+      (_, oldValue, newValue) => doneBytes() = doneBytes() + newValue.longValue - oldValue.longValue
+    override val progress: FloatBinding = new FloatBinding:
+      def computeValue: Float = doneBytes.floatValue / size.floatValue
+      bind(doneBytes, size)
 
     private val childCount = SimpleIntegerProperty(this, "childCount")
 
@@ -82,30 +87,29 @@ private object TorrentNode:
       nodeDiff(node.getValue, updateListener)
     private def nodeDiff(node: TorrentNode, updateListener: UpdateListener): Diff =
       updateListener(node.include, includeListener)
-      updateListener(node.progress, progressListener)
+      updateListener(node.doneBytes, doneListener)
       val size = node match
         case file: File => file.size
         case folder: Folder =>
           updateListener(folder.size, sizeListener)
           folder.size()
-      Diff(node.include().value, node.progress(), size, 1)
+      Diff(node.include().value, node.doneBytes(), size, 1)
 
     private def applyDiff(diff: Diff): Unit =
       childIncludeCountX2 += diff.includeX2
-      if (diff.progress == 0) mutableProgress.fireValueChangedEvent()
-      else mutableProgress() = mutableProgress() + diff.progress
+      doneBytes() = doneBytes() + diff.doneBytes
       mutableSize() = mutableSize() + diff.size
       childCount() = childCount() + diff.children
 
   object Folder:
-    private class Diff(val includeX2: Int, val progress: Long, val size: Long, val children: Int):
+    private class Diff(val includeX2: Int, val doneBytes: Long, val size: Long, val children: Int):
       def +(other: Diff) = Diff(
         includeX2 + other.includeX2,
-        progress + other.progress,
+        doneBytes + other.doneBytes,
         size + other.size,
         children + other.children,
       )
-      def unary_- = Diff(-includeX2, -progress, -size, -children)
+      def unary_- = Diff(-includeX2, -doneBytes, -size, -children)
     private val emptyDiff = Diff(0, 0, 0, 0)
     extension [T](it: Iterable[T]) private def diffSum(map: T => Diff) =
       it.foldLeft(emptyDiff)((acc, item) => acc + map(item))
@@ -144,8 +148,8 @@ private object TorrentNode:
     def updateProgresses(pieceNum: Int): Unit =
       if (this.pieceNum != pieceNum)
         this.pieceNum = pieceNum
-        for (file, progress) <- files zip handle.fileProgress(TorrentHandle.PIECE_GRANULARITY) do
-          file.progress() = progress
+        for (file, doneBytes) <- files zip handle.fileProgress(TorrentHandle.PIECE_GRANULARITY) do
+          file.doneBytes() = doneBytes
     updateProgresses(handle.status.numPieces)
 
 

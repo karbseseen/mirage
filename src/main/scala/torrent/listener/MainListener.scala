@@ -109,8 +109,8 @@ private[listener] class MainListener extends TorrentListener:
       val slices = handle.torrentFile.mapBlock(event.pieceIndex, 0, handle.torrentFile.pieceSize(event.pieceIndex))
       Platform.runLater:
         slices.forEach: slice =>
-          val progress = root.files(slice.fileIndex).progress
-          progress() = progress() + slice.size
+          val doneBytes = root.files(slice.fileIndex).doneBytes
+          doneBytes() = doneBytes() + slice.size
 
 
   listen[SaveResumeDataAlert]: event =>

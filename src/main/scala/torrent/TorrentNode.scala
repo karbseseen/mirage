@@ -14,7 +14,7 @@ import util.{also, toIArray}
 import java.lang
 
 
-sealed abstract class TorrentNode(val name: String) extends SelfProperty:
+private sealed abstract class TorrentNode(val name: String) extends SelfProperty:
   def include: ReadOnlyObjectProperty[? <: FolderInclude]
   def toggleInclude(): Unit
 
@@ -23,7 +23,7 @@ sealed abstract class TorrentNode(val name: String) extends SelfProperty:
   def progress: ReadOnlyLongProperty = mutableProgress
 
 
-object TorrentNode:
+private object TorrentNode:
 
   class File private[TorrentNode] (name: String, val index: Int, val size: Long) extends TorrentNode(name):
     val include: SimpleObjectProperty[FileInclude] = SimpleObjectProperty(this, "include", Include.No)
@@ -119,7 +119,7 @@ object TorrentNode:
         observable.removeListener(listener)
 
 
-  class Root private[torrent] (tempInfo: TorrentInfo):
+  class Root(tempInfo: TorrentInfo):
     private val infoFiles = tempInfo.files
     private val data: List[(PreChild, TorrentNode.File)] = List.tabulate(tempInfo.numFiles): index =>
       val it = infoFiles.filePath(index).split(java.io.File.separatorChar).reverseIterator

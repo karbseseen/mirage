@@ -19,16 +19,16 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.util.{Random, Try}
 
 
-object Torrent:
+private object Torrent:
 
-  private[torrent] val session = new SessionManager
+  val session = new SessionManager
   TorrentListener.all.foreach(session.addListener)
   session.start()
 
-  private[torrent] val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
+  val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
   directory.mkdir()
   /**Edit only in alert thread*/
-  private[torrent] var loadingResumeCount = directory.list.toList
+  var loadingResumeCount: Int = directory.list.toList
     .collect:
       case s"$name.torrent" => name
     .distinct
@@ -44,7 +44,7 @@ object Torrent:
     Platform.runLater:
       MainMenu.addMenu.visible = true
 
-  private[torrent] val exitResumeDone = CountDownLatch(1)
+  val exitResumeDone = CountDownLatch(1)
   MainApp.shutdownLongHook:
     session.pause()
     session.getTorrentHandles.foreach(_.saveResumeData())
@@ -52,8 +52,8 @@ object Torrent:
     session.stop()
 
 
-  private[torrent] class Selected private[Torrent] (val torrent: Torrent, val node: Option[TorrentNode.Root])
-  private[torrent] val selected = SimpleObjectProperty[Selected](this, "selected")
+  class Selected private[Torrent] (val torrent: Torrent, val node: Option[TorrentNode.Root])
+  val selected: ObjectProperty[Selected] = SimpleObjectProperty[Selected](this, "selected")
 
 
   def add(torrentFile: Path, saveDir: File): Unit =
@@ -71,7 +71,7 @@ object Torrent:
 
 
 
-class Torrent(val hash: Hash, isNew: Boolean):
+private class Torrent(val hash: Hash, isNew: Boolean):
 
   val handle: TorrentHandle = Torrent.session.find(hash)
 
@@ -92,7 +92,7 @@ class Torrent(val hash: Hash, isNew: Boolean):
   val upSpeed   = SimpleIntegerProperty(this, "upSpeed")
   val peerNum   = SimpleIntegerProperty(this, "peerNum")
 
-  private[torrent] def metadataUpdate(): Unit =
+  def metadataUpdate(): Unit =
     name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
     for info <- Option(handle.torrentFile) do
       size.value = info.totalSize
@@ -104,7 +104,7 @@ class Torrent(val hash: Hash, isNew: Boolean):
         nextResumeSaveTime = System.currentTimeMillis + Random.nextLong(Constants.resumeSavePeriod)
   metadataUpdate()
 
-  private[torrent] def select: Torrent.Selected =
+  def select: Torrent.Selected =
     if (handle.isValid)
       val node = Option(handle.torrentFile).map(TorrentNode.Root(_))
       node.foreach(_.setFilePriority(handle.filePriorities))

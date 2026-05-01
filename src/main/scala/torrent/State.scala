@@ -9,7 +9,7 @@ import org.kordamp.ikonli.fluentui.FluentUiRegularAL.*
 import org.kordamp.ikonli.fluentui.FluentUiRegularMZ.*
 
 
-class State (
+private class State (
   val value: TorrentStatus.State,
   val paused: Boolean,
   val isNew: Boolean,

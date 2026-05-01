@@ -10,6 +10,7 @@ import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongPr
 import scalafx.application.Platform
 import torrent.*
 import torrent.Hash.hash
+import torrent.view.TorrentView
 
 import java.io.File
 import java.nio.file.Files
@@ -81,6 +82,7 @@ private[listener] class MainListener extends TorrentListener:
         status.downloadPayloadRate,
         status.uploadPayloadRate,
         status.progress,
+        status.numPieces,
         status.numPeers,
       )
 
@@ -91,20 +93,24 @@ private[listener] class MainListener extends TorrentListener:
         torrent.upSpeed() = status.upSpeed
         torrent.progress() = status.progress
         torrent.peerNum() = status.peerNum
-        Option(Torrent.selected())
-          .filter(_.torrent == torrent)
-          .flatMap(_.node)
-          .foreach(_.setFileProgress(torrent.handle.fileProgress))
+        for root <- TorrentView.selected.filter(_.torrent == torrent).flatMap(_.node) do
+          root.updateProgresses(status.pieceNum)
 
   listen[FilePrioAlert]: event =>
     if (event.error.check)
-      val hash = event.handle.hash
+      for root <- TorrentView.selected.filter(_.torrent.hash == event.handle.hash).flatMap(_.node) do
+        Platform.runLater:
+          root.updatePriorities()
+
+  listen[PieceFinishedAlert]: event =>
+    val handle = event.handle
+    for root <- TorrentView.selected.filter(_.torrent.hash == handle.hash).flatMap(_.node) do
+      root.pieceNum += 1
+      val slices = handle.torrentFile.mapBlock(event.pieceIndex, 0, handle.torrentFile.pieceSize(event.pieceIndex))
       Platform.runLater:
-        for
-          selected <- Option(Torrent.selected()).filter(_.torrent.hash == hash)
-          node <- selected.node
-        do
-          node.setFilePriority(selected.torrent.handle.filePriorities)
+        slices.forEach: slice =>
+          val progress = root.files(slice.fileIndex).progress
+          progress() = progress() + slice.size
 
 
   listen[SaveResumeDataAlert]: event =>
@@ -125,13 +131,13 @@ private[listener] class MainListener extends TorrentListener:
     afterResumeSave(event, success)
 
 
+  private case class Status(torrent: Torrent, downSpeed: Int, upSpeed: Int, progress: Float, pieceNum: Int, peerNum: Int)
+
   private val map = mutable.Map.empty[Hash, Torrent]
   private def forTorrentUi(hash: Hash)(func: Torrent => Unit): Unit =
     for torrent <- map.get(hash) do
       Platform.runLater:
         func(torrent)
-
-  private case class Status(torrent: Torrent, downSpeed: Int, upSpeed: Int, progress: Float, peerNum: Int)
 
   private def saveTorrentFile(info: TorrentInfo): Unit =
     try

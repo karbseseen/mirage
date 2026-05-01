@@ -1,6 +1,6 @@
 package torrent
 
-import com.frostwire.jlibtorrent.{Priority, TorrentInfo}
+import com.frostwire.jlibtorrent.{Priority, TorrentHandle, TorrentInfo}
 import fx.SelfProperty
 import javafx.beans.property.*
 import javafx.beans.value as jfxbv
@@ -9,6 +9,7 @@ import scalafx.Includes.{jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectP
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.TreeItem
 import torrent.TorrentNode.FolderInclude
+import torrent.view.TorrentView
 import util.{also, toIArray}
 
 import java.lang
@@ -29,7 +30,7 @@ private object TorrentNode:
     val include: SimpleObjectProperty[FileInclude] = SimpleObjectProperty(this, "include", Include.No)
     def toggleInclude(): Unit =
       val priority = if (include() == Include.Yes) Priority.IGNORE else Priority.NORMAL
-      Option(Torrent.selected()).foreach(_.torrent.handle.filePriority(index, priority))
+      TorrentView.selected.foreach(_.torrent.handle.filePriority(index, priority))
 
     override def progress: SimpleLongProperty = mutableProgress
 
@@ -42,7 +43,7 @@ private object TorrentNode:
     def include: ReadOnlyObjectProperty[FolderInclude] = mutableInclude
     def toggleInclude(): Unit =
       val priority = if (include() == Include.Yes) Priority.IGNORE else Priority.NORMAL
-      for selected <- Option(Torrent.selected()) do
+      for selected <- TorrentView.selected do
         val priorities = selected.torrent.handle.filePriorities
         allFiles.foreach(file => priorities(file.index) = priority)
         selected.torrent.handle.prioritizeFiles(priorities)
@@ -119,9 +120,10 @@ private object TorrentNode:
         observable.removeListener(listener)
 
 
-  class Root(tempInfo: TorrentInfo):
-    private val infoFiles = tempInfo.files
-    private val data: List[(PreChild, TorrentNode.File)] = List.tabulate(tempInfo.numFiles): index =>
+  class Root(handle: TorrentHandle):
+    private val info = handle.torrentFile
+    private val infoFiles = info.files
+    private val data: List[(PreChild, TorrentNode.File)] = List.tabulate(info.numFiles): index =>
       val it = infoFiles.filePath(index).split(java.io.File.separatorChar).reverseIterator
       if (!it.hasNext) sys.error("Empty split array iterator")
       val file = TorrentNode.File(it.next, index, infoFiles.fileSize(index))
@@ -133,13 +135,18 @@ private object TorrentNode:
 
     tree.value = Folder("", tree.children)
 
-    def setFilePriority(filePriority: Array[Priority]): Unit =
-      for (file, priority) <- files zip filePriority do
+    def updatePriorities(): Unit =
+      for (file, priority) <- files zip handle.filePriorities do
         file.include() = if (priority == Priority.IGNORE) TorrentNode.Include.No else TorrentNode.Include.Yes
+    updatePriorities()
 
-    def setFileProgress(fileProgress: Array[Long]): Unit =
-      for (file, progress) <- files zip fileProgress do
-        file.progress() = progress
+    var pieceNum = -1
+    def updateProgresses(pieceNum: Int): Unit =
+      if (this.pieceNum != pieceNum)
+        this.pieceNum = pieceNum
+        for (file, progress) <- files zip handle.fileProgress(TorrentHandle.PIECE_GRANULARITY) do
+          file.progress() = progress
+    updateProgresses(handle.status.numPieces)
 
 
   sealed trait FolderInclude { def value: Int }

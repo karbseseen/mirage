@@ -11,6 +11,7 @@ import scalafx.application.Platform
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
 import torrent.listener.TorrentListener
+import torrent.view.TorrentView
 import util.{JavaUtil, also}
 
 import java.io.File
@@ -50,10 +51,6 @@ private object Torrent:
     session.getTorrentHandles.foreach(_.saveResumeData())
     exitResumeDone.await(2, TimeUnit.SECONDS)
     session.stop()
-
-
-  class Selected private[Torrent] (val torrent: Torrent, val node: Option[TorrentNode.Root])
-  val selected: ObjectProperty[Selected] = SimpleObjectProperty[Selected](this, "selected")
 
 
   def add(torrentFile: Path, saveDir: File): Unit =
@@ -96,18 +93,10 @@ private class Torrent(val hash: Hash, isNew: Boolean):
     name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
     for info <- Option(handle.torrentFile) do
       size.value = info.totalSize
-      if (Option(Torrent.selected.value).exists(_.torrent == this)) Torrent.selected.value = select
+      if (TorrentView.selected.exists(_.torrent == this)) TorrentView.selectedExpr.invalidate()
       if (state().isNew)
         handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
         nextResumeSaveTime = System.currentTimeMillis
       else
         nextResumeSaveTime = System.currentTimeMillis + Random.nextLong(Constants.resumeSavePeriod)
   metadataUpdate()
-
-  def select: Torrent.Selected =
-    if (handle.isValid)
-      val node = Option(handle.torrentFile).map(TorrentNode.Root(_))
-      node.foreach(_.setFilePriority(handle.filePriorities))
-      node.foreach(_.setFileProgress(handle.fileProgress))
-      Torrent.Selected(this, node)
-    else null

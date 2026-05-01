@@ -2,11 +2,12 @@ package torrent.view
 
 import atlantafx.base.theme.{Styles, Tweaks}
 import com.frostwire.jlibtorrent.{TorrentFlags, TorrentStatus}
+import com.sun.javafx.binding.MappedBinding
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
-import javafx.beans.binding.StringExpression
+import javafx.beans.binding.{ObjectBinding, StringExpression}
 import javafx.beans.{InvalidationListener, binding as jfxbb}
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
@@ -16,6 +17,7 @@ import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
+import torrent.view.TorrentView.Selected
 import torrent.{Hash, Torrent, TorrentNode}
 
 import java.lang
@@ -24,7 +26,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 
-val torrentTable = new AutoTableView[Torrent]:
+private val torrentTable = new AutoTableView[Torrent]:
   def tableName: String = "torrent-root"
 
   styleClass ++= Seq(Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -92,7 +94,15 @@ val torrentTable = new AutoTableView[Torrent]:
     cellText(_.intValue.toString)
 
 
-val torrentFileTable = new AutoTreeView[TorrentNode]:
+private val selectedExpr =
+  val selectedItem = torrentTable.selectionModel.flatMap(_.selectedItemProperty)
+  MappedBinding(selectedItem, torrent =>
+    if (!torrent.handle.isValid) null
+    else Selected(torrent, Option(torrent.handle.torrentFile).map(_ => TorrentNode.Root(torrent.handle)))
+  )
+
+
+private val torrentFileTable = new AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"
 
   styleClass ++= Seq(Styles.DENSE, Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -145,21 +155,22 @@ val torrentView = new AutoSplitPane:
 
   private val expanded = mutable.Map.empty[Hash, Expanded]
   private var hasFiles = false
-  Torrent.selected <== torrentTable.selectionModel.flatMap(_.selectedItemProperty).map(_.select)
-  Torrent.selected.subscribe: (oldSelected, selected) =>
+  selectedExpr.subscribe: (oldSelectedNullable, newSelectedNullable) =>
+    val selected = Option(newSelectedNullable)
+
     for
-      oldSelected <- Option(oldSelected)
+      oldSelected <- Option(oldSelectedNullable)
       oldNode <- oldSelected.node
     do
       expanded(oldSelected.torrent.hash) = Expanded(oldNode.tree)
     for
-      newSelected <- Option(selected)
+      newSelected <- selected
       newNode <- newSelected.node
       expanded <- expanded.remove(newSelected.torrent.hash)
     do
       expanded.apply(newNode.tree)
-    
-    val root = Option(selected).flatMap(_.node).map(_.tree).orNull
+
+    val root = selected.flatMap(_.node).map(_.tree).orNull
     torrentFileTable.root = root
     if (root == null && hasFiles)
       items -= torrentFileTable
@@ -184,13 +195,13 @@ val torrentView = new AutoSplitPane:
       torrent.handle.resume()
       torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
   private var startButton: Option[Button] = None
-  private val selectedState = Torrent.selected.flatMap(_.torrent.state)
-  private val selectedInclude = Torrent.selected.flatMap(_.node.map(_.tree.value().include).orNull)
+  private val selectedState = selectedExpr.flatMap(_.torrent.state)
+  private val selectedInclude = selectedExpr.flatMap(_.node.map(_.tree.value().include).orNull)
   private val selectedListener: InvalidationListener = _ =>
     val canStart = Option(selectedState()).exists(_.isFileSelect) &&
       !Option(selectedInclude()).contains(TorrentNode.Include.No)
     if (canStart && startButton.isEmpty)
-      val startButton = createStartButton(Torrent.selected().torrent)
+      val startButton = createStartButton(selectedExpr().torrent)
       MainApp.stage.scene().getChildren += startButton
       this.startButton = Some(startButton)
     else if (!canStart)
@@ -200,7 +211,14 @@ val torrentView = new AutoSplitPane:
   selectedState.addListener(selectedListener)
   selectedInclude.addListener(selectedListener)
 
-/**********************************************************************************************************************/
+
+private[torrent] object TorrentView:
+  class Selected(val torrent: Torrent, val node: Option[TorrentNode.Root])
+  @volatile private var _selected: Option[Selected] = None
+  def selected: Option[Selected] = _selected
+  def selectedExpr: ObjectBinding[Selected] = torrent.view.selectedExpr
+  selectedExpr.addListener { (_, _, value) => _selected = Option(value) }
+
 
 private trait SpeedColumn:
   this: AutoColumnBase[Number] =>

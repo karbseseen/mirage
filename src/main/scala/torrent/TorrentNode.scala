@@ -139,10 +139,10 @@ private object TorrentNode:
 
     tree.value = Folder("", tree.children)
 
-    def updatePriorities(): Unit =
-      for (file, priority) <- files zip handle.filePriorities do
+    def setPriorities(priorities: Array[Priority]): Unit =
+      for (file, priority) <- files zip priorities do
         file.include() = if (priority == Priority.IGNORE) TorrentNode.Include.No else TorrentNode.Include.Yes
-    updatePriorities()
+    setPriorities(handle.filePriorities)
 
     var pieceNum = -1
     def updateProgresses(pieceNum: Int): Unit =

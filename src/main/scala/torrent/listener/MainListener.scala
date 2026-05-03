@@ -35,7 +35,6 @@ private[listener] class MainListener extends TorrentListener:
         Platform.runLater:
           MainMenu.addMenu.visible = true
 
-
   listen[TorrentRemovedAlert]: event =>
     val hash = event.hash
     forTorrentUi(hash)(Torrent.all -= _)
@@ -98,9 +97,28 @@ private[listener] class MainListener extends TorrentListener:
 
   listen[FilePrioAlert]: event =>
     if (event.error.check)
-      for root <- TorrentView.selected.filter(_.torrent.hash == event.handle.hash).flatMap(_.node) do
+      val handle = event.handle
+      val filePriorities = handle.filePriorities
+
+      for root <- TorrentView.selected.filter(_.torrent.hash == handle.hash).flatMap(_.node) do
         Platform.runLater:
-          root.updatePriorities()
+          root.setPriorities(filePriorities)
+
+      val files = handle.torrentFile.files
+      val pieceLength = handle.torrentFile.pieceLength.toLong
+      def byteToPieceDown(byteIndex: Long) = (byteIndex / pieceLength).toInt
+      def byteToPieceUp(byteIndex: Long) = ((byteIndex - 1) / pieceLength + 1).toInt
+      filePriorities.zipWithIndex.foldLeft(0L) { case (beginByte, (filePriority, fileIndex)) =>
+        val endByte = beginByte + files.fileSize(fileIndex)
+        if (filePriority == Priority.NORMAL)
+          val beginFromPiece = byteToPieceDown(beginByte)
+          val endToPiece = byteToPieceUp(endByte)
+          val beginToPiece = byteToPieceUp(beginByte + Constants.prioritizeFirstBytes) min endToPiece
+          val endFromPiece = byteToPieceDown(endByte - Constants.prioritizeLastBytes) max beginToPiece
+          (beginFromPiece until beginToPiece).foreach(handle.piecePriority(_, Priority.SIX))
+          (endFromPiece until endToPiece).foreach(handle.piecePriority(_, Priority.SIX))
+        endByte
+      }
 
   listen[PieceFinishedAlert]: event =>
     val handle = event.handle

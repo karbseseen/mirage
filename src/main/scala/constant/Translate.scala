@@ -29,11 +29,15 @@ object Translate:
 
 object Tr:
   val add               = Translate("Add",                        "Добавить")
+  val addFile           = Translate("Add file",                   "Добавить файл")
+  val addFileError      = Translate("Couldn't add file",          "Не удалось добавить файл")
   val addTorrent        = Translate("Add torrent",                "Добавить торрент")
   val any               = Translate("Any",                        "Все что угодно")
   val appName           = Translate("Mirage",                     "Мираж")
+  val audio             = Translate("Audio",                      "Аудио")
   val branch            = Translate("Branch",                     "Ветка")
   val checkingFiles     = Translate("Checking files",             "Проверка файлов")
+  val chooseMediaFile   = Translate("Choose a media file",        "Выберите медиа файл")
   val chooseTorrentFile = Translate("Choose a Torrent file",      "Выберите торрент файл")
   val clearToken        = Translate("Clear Github token",         "Удалить Github токен")
   val createToken       = Translate("You can create it here",     "Его можно создать здесь")
@@ -83,6 +87,7 @@ object Tr:
   val torrentExists     = Translate("This torrent already exists","Такой торрент уже существует")
   val unknownState      = Translate("Unknown state",              "Неизвестный статус")
   val upload            = Translate("Upload",                     "Отдача")
+  val video             = Translate("Video",                      "Видео")
   val wentWrong         = Translate("Something went wrong :(",    "Что-то пошло не так (")
   val whereToSave       = Translate("Where to save",              "Куда сохранить")
   val yepWithFiles      = Translate("Yep, with files",            "Да, вместе с файлами")

@@ -14,14 +14,17 @@ import torrent.view.TorrentModal
 object MainMenu:
 
   val addMenu: Menu =
-    val torrent = new MenuItem:
+    val torrentAdd = new MenuItem:
       text <== Tr.torrent
       onAction = _ => MainApp.modal.show(TorrentModal.add)
-  
+
+    val torrentCreate = new MenuItem:
+      text <== Tr.file
+      onAction = _ => MainApp.modal.show(TorrentModal.create)
+
     new Menu:
       text <== Tr.add
-      items = Seq(torrent)
-      visible = false   //will be set to true in MainListener after resume files are loaded
+      items = Seq(torrentAdd, torrentCreate)
 
 
   val settingsMenu: Menu =

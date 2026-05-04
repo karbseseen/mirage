@@ -1,15 +1,15 @@
 package torrent
 
 import com.frostwire.jlibtorrent.*
-import com.frostwire.jlibtorrent.swig.{status_flags_t, torrent_flags_t}
-import constant.Constants
-import core.MainMenu
+import com.frostwire.jlibtorrent.swig.*
+import constant.{Constants, Tr}
 import core.main.MainApp
 import javafx.beans.property.*
 import scalafx.Includes.{jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.application.Platform
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
+import torrent.Hash.hash
 import torrent.listener.TorrentListener
 import torrent.view.TorrentView
 import util.{JavaUtil, also}
@@ -17,6 +17,7 @@ import util.{JavaUtil, also}
 import java.io.File
 import java.nio.file.{Files, Path}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import scala.collection.mutable
 import scala.util.{Random, Try}
 
 
@@ -26,24 +27,25 @@ private object Torrent:
   TorrentListener.all.foreach(session.addListener)
   session.start()
 
+  private class Known(val needSave: Boolean)
+  private val knownTorrents = mutable.Map.empty[Hash, Known]
+
   val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
   directory.mkdir()
-  /**Edit only in alert thread*/
-  var loadingResumeCount: Int = directory.list.toList
+  knownTorrents ++= directory.list.toList
     .collect:
       case s"$name.torrent" => name
     .distinct
-    .count: name =>
+    .flatMap: name =>
       val torrentFile = File(directory, s"$name.torrent")
       val resumeFile = File(directory, s"$name.resume")
-      torrentFile.isFile &&
-        resumeFile.isFile &&
-        Try(
-          session.download(TorrentInfo(torrentFile), null, resumeFile, null, null, new torrent_flags_t)
-        ).isSuccess
-  if (loadingResumeCount == 0)
-    Platform.runLater:
-      MainMenu.addMenu.visible = true
+      if (!torrentFile.isFile || !resumeFile.isFile) None
+      else Try:
+        val info = TorrentInfo(torrentFile)
+        session.download(info, null, resumeFile, null, null, new torrent_flags_t)
+        info.hash
+      .toOption
+    .map(_ -> Known(needSave = false))
 
   val exitResumeDone = CountDownLatch(1)
   MainApp.shutdownLongHook:
@@ -63,22 +65,46 @@ private object Torrent:
   def add(magnet: String, saveDir: File): Unit =
     session.download(magnet, saveDir, TorrentFlags.UPLOAD_MODE)
 
+  def create(file: File): Unit =
+    Thread: () =>
+      try createInner(file)
+      catch case error: Throwable => MainApp.showError(error)
+    .start()
+
+  private def createInner(file: File): Unit =
+    val create = create_torrent:
+      file_storage().also:
+        libtorrent.add_files(_, file.getAbsolutePath)
+    val error = new error_code
+    libtorrent.set_piece_hashes_ex(create, file.getParent, new set_piece_hashes_listener, error)
+    if (error.failed) {
+      println("error.failed")
+      throw Exception(error.message)
+    }
+
+    val info = TorrentInfo.bdecode(Vectors.byte_vector2bytes(create.generate.bencode))
+    if (!info.isValid || info.numFiles != 1) throw Exception(Tr.addFileError.getValue)
+
+    knownTorrents.synchronized { knownTorrents(info.hash) = Known(needSave = true) }
+    session.download(info, file.getParentFile, null, null, null, TorrentFlags.SEED_MODE)
+
 
   val all: ObservableBuffer[Torrent] = ObservableBuffer.empty
 
 
 
-private class Torrent(val hash: Hash, isNew: Boolean):
+private class Torrent(val hash: Hash):
 
   val handle: TorrentHandle = Torrent.session.find(hash)
 
   /**Edit only in alert thread*/
-  @volatile var nextResumeSaveTime: Long = Long.MaxValue
+  var nextResumeSaveTime: Long = Long.MaxValue
 
+  private val known = Torrent.knownTorrents.synchronized { Torrent.knownTorrents.remove(hash) }
   private val initState = State(
     value = handle.status(new status_flags_t).state,
     paused = handle.isPaused,
-    isNew = isNew,
+    isNew = known.isEmpty,
   )
 
   val state     = SimpleObjectProperty(this, "state", initState)
@@ -89,14 +115,24 @@ private class Torrent(val hash: Hash, isNew: Boolean):
   val upSpeed   = SimpleIntegerProperty(this, "upSpeed")
   val peerNum   = SimpleIntegerProperty(this, "peerNum")
 
-  def metadataUpdate(): Unit =
-    name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
+  def metadataUpdate(): Unit = metadataUpdateInner(init = false)
+  private def metadataUpdateInner(init: Boolean): Unit =
+    def ui(): Unit =
+      name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
+      for info <- Option(handle.torrentFile) do
+        size.value = info.totalSize
+        if (TorrentView.selected.exists(_.torrent == this)) TorrentView.selectedExpr.invalidate()
+    if (init) ui() else Platform.runLater(ui())
+
     for info <- Option(handle.torrentFile) do
-      size.value = info.totalSize
-      if (TorrentView.selected.exists(_.torrent == this)) TorrentView.selectedExpr.invalidate()
       if (state().isNew)
         handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
         nextResumeSaveTime = System.currentTimeMillis
+        save(info)
       else
         nextResumeSaveTime = System.currentTimeMillis + Random.nextLong(Constants.resumeSavePeriod)
-  metadataUpdate()
+  private def save(info: TorrentInfo): Unit =
+    try Files.write(Torrent.directory.toPath.resolve(s"${info.hash}.torrent"), info.bencode)
+    catch case error: Throwable => MainApp.showError(error)
+  metadataUpdateInner(init = true)
+  known.filter(_.needSave).flatMap(_ => Option(handle.torrentFile)).foreach(save)

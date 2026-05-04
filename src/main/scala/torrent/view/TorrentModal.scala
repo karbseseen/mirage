@@ -3,7 +3,7 @@ package torrent.view
 import atlantafx.base.theme.Styles
 import com.frostwire.jlibtorrent.SessionHandle
 import config.Conf
-import constant.{Constants, Tr}
+import constant.{ConstList, Constants, Tr}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{ModalBox, ModalVBox}
@@ -39,8 +39,8 @@ object TorrentModal:
       hgrow = Priority.Always
     def chooseInFile = new FileChooser:
       title <== Tr.chooseTorrentFile
-      extensionFilters += new ExtensionFilter(Tr.torrent.property.getValue, "*.torrent")
-      extensionFilters += new ExtensionFilter(Tr.any.property.getValue, "*.*")
+      extensionFilters += ExtensionFilter(Tr.torrent.getValue, "*.torrent")
+      extensionFilters += ExtensionFilter(Tr.any.getValue, "*.*")
       List(inFileInput.text.value, Conf.torrentFile.value)
         .filter(_.nonEmpty)
         .map(File(_))
@@ -111,8 +111,49 @@ object TorrentModal:
 
     new VBox(header, ModalBox.space, grid) with ModalVBox:
       alignment = Pos.Center
-  
-  
+
+
+  def create: ModalBox =
+    val header = new Label:
+      vgrow = Priority.Always
+      font = new Font(Constants.headingSize)
+      text <== Tr.addFile
+
+    val input = new TextField:
+      hgrow = Priority.Always
+    def chooseFile = new FileChooser:
+      title <== Tr.chooseMediaFile
+      extensionFilters += ExtensionFilter(Tr.video.getValue, ConstList.videoExt.map(ext => s"*.$ext"))
+      extensionFilters += ExtensionFilter(Tr.audio.getValue, ConstList.audioExt.map(ext => s"*.$ext"))
+      extensionFilters += ExtensionFilter(Tr.any.getValue, "*.*")
+      List(input.text(), Conf.mediaFile())
+        .filter(_.nonEmpty)
+        .map(File(_))
+        .collectFirst:
+          case file if file.isFile => file.getParentFile
+          case file if file.isDirectory => file
+        .foreach(initialDirectory = _)
+      for file <- Option(showOpenDialog(MainApp.stage)) do input.text = file.getCanonicalPath
+    val fileButton = new Button("..."):
+      onAction = _ => chooseFile
+    val inputRow = HBox(Constants.inset, input, fileButton)
+
+    val button = new Button:
+      disable <== input.text.isEmpty
+      styleClass += Styles.ACCENT
+      text <== Tr.add
+      alignmentInParent = Pos.Center
+      onAction = _ =>
+        val file = File(input.text())
+        Torrent.create(file)
+        Conf.mediaFile() = file.getParentFile.getCanonicalPath
+        MainApp.modal.hide(true)
+
+    new VBox(header, ModalBox.space, inputRow, ModalBox.spacing, button) with ModalVBox:
+      alignment = Pos.Center
+      button.prefWidth <== width / 2
+
+
   def delete(torrent: Torrent): ModalBox =
 
     class DeleteButton extends Button:

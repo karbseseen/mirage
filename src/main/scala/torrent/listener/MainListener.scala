@@ -4,7 +4,6 @@ import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.alerts.*
 import com.frostwire.jlibtorrent.swig.libtorrent_errors
 import constant.Constants
-import core.MainMenu
 import core.main.MainApp
 import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx}
 import scalafx.application.Platform
@@ -22,18 +21,10 @@ private[listener] class MainListener extends TorrentListener:
 
   listen[AddTorrentAlert]: event =>
     if (event.error.check)
-      val isNew = Torrent.loadingResumeCount == 0
-      val torrent = Torrent(event.handle.hash, isNew)
+      val torrent = Torrent(event.handle.hash)
       map(torrent.hash) = torrent
       Platform.runLater:
         Torrent.all += torrent
-      if (isNew) Option(event.handle.torrentFile).foreach(saveTorrentFile)
-
-    if (Torrent.loadingResumeCount > 0)
-      Torrent.loadingResumeCount -= 1
-      if (Torrent.loadingResumeCount == 0)
-        Platform.runLater:
-          MainMenu.addMenu.visible = true
 
   listen[TorrentRemovedAlert]: event =>
     val hash = event.hash
@@ -49,8 +40,7 @@ private[listener] class MainListener extends TorrentListener:
   listen[MetadataReceivedAlert]: event =>
     val handle = event.handle
     handle.setFlags(TorrentFlags.STOP_WHEN_READY, TorrentFlags.AUTO_MANAGED or_ TorrentFlags.STOP_WHEN_READY)
-    forTorrentUi(handle.hash)(_.metadataUpdate())
-    saveTorrentFile(handle.torrentFile)
+    map.get(handle.hash).foreach(_.metadataUpdate())
 
 
   listen[StateChangedAlert]: event =>
@@ -156,13 +146,6 @@ private[listener] class MainListener extends TorrentListener:
     for torrent <- map.get(hash) do
       Platform.runLater:
         func(torrent)
-
-  private def saveTorrentFile(info: TorrentInfo): Unit =
-    try
-      val path = Torrent.directory.toPath.resolve(s"${info.hash}.torrent")
-      Files.write(path, info.bencode)
-    catch case error: Throwable =>
-      MainApp.showError(error)
 
   private def afterResumeSave(event: TorrentAlert[?], success: Boolean): Unit =
     val hash = event.handle.hash

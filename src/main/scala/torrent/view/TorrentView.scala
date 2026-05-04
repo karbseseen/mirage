@@ -19,7 +19,8 @@ import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
 import torrent.view.TorrentView.Selected
-import torrent.{Hash, State, Torrent, TorrentNode}
+import torrent.{Hash, State, Torrent, TorrentMedia, TorrentNode}
+import vlc.VlcStage
 
 import java.lang
 import java.math.RoundingMode
@@ -109,6 +110,14 @@ private val torrentFileTable = new AutoTreeView[TorrentNode]:
   styleClass ++= Seq(Styles.DENSE, Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
   styleClass -= Styles.BORDERED
   showRoot = false
+
+  rowSet: (row, value) =>
+    value match
+      case file: TorrentNode.File => row.onMouseClicked = event =>
+        if (event.getClickCount == 2)
+          VlcStage(TorrentMedia(selectedExpr().torrent, file.index))
+      case _ => row.onMouseClicked = null
+  rowUnset(_.onMouseClicked = null)
 
   columns += new Column(Tr.naming, selfProp):
     treeColumn = this

@@ -12,6 +12,7 @@ import torrent.Hash.hash
 import torrent.view.TorrentView
 
 import java.io.File
+import java.lang.foreign.{MemorySegment, ValueLayout}
 import java.nio.file.Files
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
@@ -119,6 +120,13 @@ private[listener] class MainListener extends TorrentListener:
         slices.forEach: slice =>
           val doneBytes = root.files(slice.fileIndex).doneBytes
           doneBytes() = doneBytes() + slice.size
+
+
+  listen[ReadPieceAlert]: event =>
+    for torrent <- map.get(event.handle.hash) do
+      torrent.putPieceResponse(event.piece):
+        if (event.error.isError) throw Exception(event.error.message)
+        else MemorySegment.ofAddress(event.bufferPtr).reinterpret(event.size).toArray(ValueLayout.JAVA_BYTE)
 
 
   listen[SaveResumeDataAlert]: event =>

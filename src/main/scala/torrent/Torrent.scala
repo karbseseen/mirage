@@ -16,9 +16,9 @@ import util.{JavaUtil, also}
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.{CompletableFuture, CountDownLatch, TimeUnit, TimeoutException}
 import scala.collection.mutable
-import scala.util.{Random, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 
 private object Torrent:
@@ -136,3 +136,18 @@ private class Torrent(val hash: Hash):
     catch case error: Throwable => MainApp.showError(error)
   metadataUpdateInner(init = true)
   known.filter(_.needSave).flatMap(_ => Option(handle.torrentFile)).foreach(save)
+
+  private val readRequests = mutable.Map.empty[Int, CompletableFuture[Array[Byte]]]
+  def putPieceRequest(piece: Int): CompletableFuture[Array[Byte]] =
+    readRequests.synchronized:
+      readRequests.getOrElseUpdate(piece, new CompletableFuture[Array[Byte]])
+  def putPieceResponse(piece: Int)(data: => Array[Byte]): Unit =
+    readRequests.synchronized:
+      for future <- readRequests.remove(piece) do
+        Try(data) match
+          case Success(result) => future.complete(result)
+          case Failure(error) => future.completeExceptionally(error)
+  def cancelPieceRequests(): Unit =
+    readRequests.synchronized:
+      readRequests.values.foreach(_.cancel(true))
+      readRequests.clear()

@@ -25,6 +25,7 @@ libraryDependencies ++= Seq(
   //"io.github.palexdev" % "materialfx" % "11.17.0",
   "com.frostwire" % "jlibtorrent" % jlibtorrentVersion,
   "com.frostwire" % s"jlibtorrent-$jlibtorrentPlatform" % jlibtorrentVersion % Provided,
+  "uk.co.caprica" % "vlcj-javafx" % "1.2.1",
   "org.kordamp.ikonli" % "ikonli-javafx" % "12.4.0",
   "org.kordamp.ikonli" % "ikonli-fluentui-pack" % "12.4.0",
   "org.virtuslab" %% "scala-yaml" % "0.3.1",

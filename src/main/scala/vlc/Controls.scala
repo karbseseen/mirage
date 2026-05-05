@@ -2,12 +2,17 @@ package vlc
 
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.Constants
-import fx.AutoBg
+import fx.{AutoBg, AutoInsets}
+import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.beans.binding.StringBinding
+import javafx.beans.property.SimpleIntegerProperty
 import javafx.scene.layout as jfxsl
+import javafx.util.Duration
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import org.kordamp.ikonli.javafx.FontIcon
 import scalafx.Includes.{jfxNode2sfx, jfxProperty2sfx}
+import scalafx.animation.Interpolator.EaseBoth
+import scalafx.beans.binding.BooleanBinding
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Button, Label, Slider}
@@ -49,6 +54,50 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
       iconCodeProperty <== pause.map(if (_) FluentUiFilledMZ.PLAY_48 else FluentUiFilledMZ.PAUSE_48)
     onAction = _ => pause() = !pause()
 
+  val volume: HBox = new HBox:
+    minWidth = 0
+    background = itemBg
+    alignment = Pos.CenterLeft
+
+    private val slider = new Slider(0, 100, 100):
+      margin = AutoInsets(right = Constants.playerInset)
+      value.addListener { (_,_,value) => player.audio.setVolume(value.intValue) }
+      hgrow = Priority.Always
+      skin = ProgressSliderSkin(this)
+
+    private val button = new Button:
+      background = Background.Empty
+      onAction = _ => slider.value() = if (slider.value() > 0) 0 else 100
+      graphic = new FontIcon:
+        setStyle("-fx-icon-size: 24px; -fx-icon-color: white;")
+        iconCodeProperty <== slider.value.map: d =>
+          val i = d.intValue
+          if (i <= 0)       FluentUiFilledMZ.SPEAKER_NONE_24
+          else if (i < 100) FluentUiFilledMZ.SPEAKER_1_24
+          else              FluentUiFilledMZ.SPEAKER_24
+
+    children ++= Seq(button, slider)
+
+    private val extraWidth = SimpleIntegerProperty(this, "extraWidth")
+    private val animation = Timeline(
+      KeyFrame(Duration.millis(0),    KeyValue(extraWidth, 0),              KeyValue(slider.opacity, 0)),
+      KeyFrame(Duration.millis(250),  KeyValue(extraWidth, 150, EaseBoth),  KeyValue(slider.opacity, 1, EaseBoth)),
+    )
+
+    private val sliderEnable = extraWidth.isNotEqualTo(0)
+    slider.managed <== sliderEnable
+    slider.visible <== sliderEnable
+
+    prefWidth <== button.width + extraWidth
+    maxWidth = Region.UsePrefSize
+    maxHeight = Region.UsePrefSize
+
+    val expand: BooleanBinding = hover || slider.pressed
+    expand.addListener: (_,_,expand) =>
+      animation.pause()
+      animation.setRate(if (expand) 1 else -1)
+      animation.play()
+
   val time: Label = new Label:
     padding = Insets(Constants.playerInset)
     font = Font(15)
@@ -63,7 +112,7 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
         val (h, m) = mTotal /% 60
         if (h > 0) f"$h%d:$m%02d:$s%02d" else f"$m%02d:$s%02d"
 
-  private val bottomRow = new HBox(Constants.playerInset, playPause, time):
+  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time):
     alignment = Pos.CenterLeft
 
   children = Seq(seek, bottomRow)

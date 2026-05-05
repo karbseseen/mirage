@@ -57,6 +57,7 @@ object Tr:
   val magnetAddError    = Translate("Couldn't add magnet link",   "Не получилось добавить магнитную ссылку")
   val magnetLink        = Translate("Magnet link",                "Магнитная ссылка")
   val naming            = Translate("Name",                       "Название")
+  val noSubtitles       = Translate("No subtitles",               "Без субтитров")
   val nope              = Translate("Nope",                       "Нет")
   val orTorrentFile     = Translate("or .torrent file",           "или .torrent файл")
   val pause             = Translate("Pause",                      "Пауза")

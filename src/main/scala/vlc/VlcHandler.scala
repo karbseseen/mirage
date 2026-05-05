@@ -1,13 +1,12 @@
 package vlc
 
+import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
+import uk.co.caprica.vlcj.media.TrackType
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
 
 
 private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
-
-  private var isBuffering = false
-
 
   override def lengthChanged(player: MediaPlayer, length: Long): Unit =
     runLater:
@@ -28,3 +27,21 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
       runLater:
         stage.loading.managed = true
         stage.loading.visible = true
+
+  override def elementaryStreamAdded(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
+    runLater { tracksControl(trackType).foreach(_.addItem(id)) }
+
+  override def elementaryStreamSelected(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
+    runLater { tracksControl(trackType).foreach(_.selectedId() = id) }
+
+  override def elementaryStreamDeleted(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
+    runLater { tracksControl(trackType).foreach(_.removeItem(id)) }
+
+
+  private var isBuffering = false
+
+  private def tracksControl(trackType: TrackType) =
+    Some(trackType).collect:
+      case TrackType.VIDEO => stage.controls.video
+      case TrackType.AUDIO => stage.controls.audio
+      case TrackType.TEXT => stage.controls.title

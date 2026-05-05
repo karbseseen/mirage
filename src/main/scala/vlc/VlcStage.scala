@@ -54,7 +54,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
       preserveRatio = true
 
   scene = new Scene(root, 800, 600):
-    content = Seq(imageView, controls, loading)
+    content = imageView :: loading :: controls :: controls.extraParts
 
 
   show()

@@ -1,10 +1,12 @@
 package fx
 
 import config.SplitPositionConfig
+import javafx.scene.layout.{Background, BackgroundFill, CornerRadii}
 import scalafx.geometry.Insets
 import scalafx.scene.control.SplitPane
-import scalafx.scene.layout.{Background, BackgroundFill, CornerRadii}
 import scalafx.scene.paint.Paint
+
+import scala.jdk.CollectionConverters.*
 
 
 object AutoInsets:
@@ -18,7 +20,13 @@ object AutoInsets:
 
 object AutoBg:
   def fill(fill: Paint = null, radii: CornerRadii = null, insets: Insets = null): Background =
-    Background(Array(BackgroundFill(fill, radii, insets)))
+    Background(BackgroundFill(fill, radii, insets))
+
+  extension (bg: Background)
+    def +(other: Background): Background = Background(
+      (bg.getFills.asScala ++ other.getFills.asScala).toArray,
+      (bg.getImages.asScala ++ other.getImages.asScala).toArray,
+    )
 
 
 abstract class AutoSplitPane extends SplitPane:

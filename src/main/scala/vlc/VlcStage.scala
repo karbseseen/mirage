@@ -1,7 +1,7 @@
 package vlc
 
 import javafx.beans.binding.Bindings
-import scalafx.Includes.{jfxNumberBinding2sfx, observableList2ObservableBuffer}
+import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.image.ImageView
@@ -16,6 +16,8 @@ import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 
 private class VlcStage(media: VlcMedia) extends Stage:
 
+  fullScreenExitHint = ""
+
   val factory = new MediaPlayerFactory
   val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
   val pauses = new Pauses(player)
@@ -26,6 +28,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
 
   val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)
+    onMouseClicked = event => if (event.getClickCount == 2) fullScreen = !fullScreen()
 
   val imageView: ImageView = new ImageView:
     fitWidth <== root.width
@@ -33,7 +36,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
     preserveRatio = true
     player.videoSurface.set(ImageViewVideoSurface(this))
 
-  val controls: Controls = new Controls(player, pauses)
+  val controls: Controls = new Controls(this)
 
   val loading: StackPane = new StackPane:
     private val rootSize = Bindings.min(root.width, root.height)

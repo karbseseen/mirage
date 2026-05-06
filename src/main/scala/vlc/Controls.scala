@@ -29,7 +29,9 @@ import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
 
 
-private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constants.playerInset):
+private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
+
+  import stage.{pauses, player}
 
   padding = Insets(Constants.playerInset)
   alignmentInParent = Pos.BottomCenter
@@ -40,6 +42,8 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
   private val staticBg      = AutoBg.fill(bgColor, CornerRadii(99999))
   private val staticHoverBg = staticBg + AutoBg.fill(bgHoverColor, CornerRadii(99999))
   private def hoverableBg(node: Node) = node.hover.map(if (_) staticHoverBg else staticBg)
+
+  private def fontIconStyle(size: Int) = s"-fx-icon-size: ${size}px; -fx-icon-color: white;"
 
 
   val seek: Slider = new Slider:
@@ -54,11 +58,10 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
 
   val playPause: Button = new Button:
     private val pause = pauses.createRequestProp
-    prefWidth = 50
-    prefHeight = 50
+    padding = Insets(Constants.playerInset * 1.5)
     background <== hoverableBg(this)
     graphic = new FontIcon:
-      setStyle("-fx-icon-size: 28px; -fx-icon-color: white;")
+      setStyle(fontIconStyle(28))
       iconCodeProperty <== pause.map(if (_) FluentUiFilledMZ.PLAY_48 else FluentUiFilledMZ.PAUSE_48)
     onAction = _ => pause() = !pause()
 
@@ -76,7 +79,7 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
       background = Background.Empty
       onAction = _ => slider.value() = if (slider.value() > 0) 0 else 100
       graphic = new FontIcon:
-        setStyle("-fx-icon-size: 24px; -fx-icon-color: white;")
+        setStyle(fontIconStyle(24))
         iconCodeProperty <== slider.value.map: d =>
           val i = d.intValue
           if (i <= 0)       FluentUiFilledMZ.SPEAKER_NONE_24
@@ -147,7 +150,16 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
-  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time, space, tracks):
+  val expand: Button = new Button:
+    padding = Insets(Constants.playerInset)
+    background <== hoverableBg(this)
+    graphic = new FontIcon:
+      setStyle(fontIconStyle(24))
+      iconCodeProperty <== stage.fullScreen.map(if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24)
+    onAction = _ => stage.fullScreen = !stage.fullScreen()
+
+
+  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time, space, tracks, expand):
     alignment = Pos.CenterLeft
 
   children = Seq(seek, bottomRow)
@@ -223,7 +235,7 @@ private class Controls(player: MediaPlayer, pauses: Pauses) extends VBox(Constan
       padding = Insets(Constants.playerInset)
       background <== enable.map(if (_) staticHoverBg else null)
       children += new FontIcon:
-        setStyle("-fx-icon-size: 24px; -fx-icon-color: white;")
+        setStyle(fontIconStyle(24))
         setIconCode(icon)
 
     val iconSceneX = control.parent.flatMap(GrandParentXBinding(iconPane, _)).orElse(0)

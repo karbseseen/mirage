@@ -56,6 +56,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
   scene = new Scene(root, 800, 600):
     content = imageView :: loading :: controls :: controls.extraParts
 
+  applyControlHide(this)
 
   show()
   player.events.addMediaPlayerEventListener(VlcHandler(this))

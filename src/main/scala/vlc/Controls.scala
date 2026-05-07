@@ -157,6 +157,22 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
+  val crop: Button = new Button:
+    padding = Insets(Constants.playerInset)
+    background <== hoverableBg(this)
+    graphic = new FontIcon:
+      setStyle(fontIconStyle(24))
+      setIconCode(FluentUiFilledAL.CROP_24)
+
+    val animation = Timeline(
+      KeyFrame(Duration(0),   KeyValue(stage.videoCropCoef, 0)),
+      KeyFrame(Duration(250), KeyValue(stage.videoCropCoef, 1, EaseBoth)),
+    )
+    animation.setRate(-1)
+    onAction = _ =>
+      animation.setRate(if (animation.getRate < 0) 1 else -1)
+      animation.play()
+
   val expand: Button = new Button:
     padding = Insets(Constants.playerInset)
     background <== hoverableBg(this)
@@ -166,8 +182,8 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     onAction = _ => stage.fullScreen = !stage.fullScreen()
 
 
-  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time, space, tracks, expand):
-    alignment = Pos.CenterLeft
+  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time, space, tracks, crop, expand):
+    alignment = Pos.Center
 
   children = Seq(seek, bottomRow)
 

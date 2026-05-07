@@ -5,6 +5,8 @@ import scalafx.application.Platform.runLater
 import uk.co.caprica.vlcj.media.TrackType
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
 
+import scala.jdk.CollectionConverters.*
+
 
 private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
@@ -28,14 +30,18 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
         stage.loading.managed = true
         stage.loading.visible = true
 
-  override def elementaryStreamAdded(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
+  override def elementaryStreamAdded(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
     runLater { tracksControl(trackType).foreach(_.addItem(id)) }
 
-  override def elementaryStreamSelected(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
-    runLater { tracksControl(trackType).foreach(_.selectedId() = id) }
-
-  override def elementaryStreamDeleted(mediaPlayer: MediaPlayer, trackType: TrackType, id: Int): Unit =
+  override def elementaryStreamDeleted(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
     runLater { tracksControl(trackType).foreach(_.removeItem(id)) }
+
+  override def elementaryStreamSelected(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
+    runLater:
+      tracksControl(trackType).foreach(_.selectedId() = id)
+      if (trackType == TrackType.VIDEO)
+        for video <- player.media.info.videoTracks.asScala.find(_.id == id)
+          do stage.videoSize() = (video.width, video.height)
 
 
   private var isBuffering = false

@@ -1,6 +1,8 @@
 package vlc
 
 import javafx.beans.binding.Bindings
+import javafx.beans.property.{SimpleDoubleProperty, SimpleObjectProperty}
+import javafx.geometry.Rectangle2D
 import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -30,11 +32,36 @@ private class VlcStage(media: VlcMedia) extends Stage:
     background = Background.fill(Color.Black)
     onMouseClicked = event => if (event.getClickCount == 2) fullScreen = !fullScreen()
 
+  val videoSize = SimpleObjectProperty(this, "videoSize", (1.0, 1.0))
+  val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
   val imageView: ImageView = new ImageView:
     fitWidth <== root.width
     fitHeight <== root.height
     preserveRatio = true
     player.videoSurface.set(ImageViewVideoSurface(this))
+    viewport <== Bindings.createObjectBinding(
+      () =>
+        val (videoWidth, videoHeight) = videoSize.get
+        val videoRatio = videoWidth / videoHeight
+        val windowRatio = root.width() / root.height()
+        if (videoRatio > windowRatio)
+          val videoCropWidth = videoHeight * windowRatio
+          Rectangle2D(
+            (videoWidth - videoCropWidth) / 2 * videoCropCoef.get,
+            0,
+            videoWidth * (1 - videoCropCoef.get) + videoCropWidth * videoCropCoef.get,
+            videoHeight,
+          )
+        else
+          val videoCropHeight = videoWidth / windowRatio
+          Rectangle2D(
+            0,
+            (videoHeight - videoCropHeight) / 2 * videoCropCoef.get,
+            videoWidth,
+            videoHeight * (1 - videoCropCoef.get) + videoCropHeight * videoCropCoef.get,
+          ),
+      videoSize, videoCropCoef, root.width, root.height
+    )
 
   val controls: Controls = new Controls(this)
 

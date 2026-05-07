@@ -18,12 +18,11 @@ import scalafx.beans.binding.{Bindings, BooleanBinding, BooleanExpression}
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Node
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
-import scalafx.scene.control.{Button, Label, Slider}
+import scalafx.scene.control.{Button, Slider}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
-import uk.co.caprica.vlcj.player.base.MediaPlayer
 
 import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
@@ -107,19 +106,26 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       animation.setRate(if (expand) 1 else -1)
       animation.play()
 
-  val time: Label = new Label:
+  val time: Button = new Button:
     padding = Insets(Constants.playerInset)
     font = Font(15)
     textFill = Color.White
-    background = staticBg
-    text <== new StringBinding:
+    background <== hoverableBg(this)
+
+    private var backward = false
+    private val textBind = new StringBinding:
       bind(seek.value, seek.max)
-      def computeValue: String = time2str(seek.value.toLong) + " / " + time2str(seek.max.toLong)
+      protected def computeValue: String = time1 + " / " + time2str(seek.max.toLong)
+      private def time1 =
+        if (backward) "-" + time2str(seek.max.toLong - seek.value.toLong)
+        else time2str(seek.value.toLong)
       private def time2str(msTotal: Long): String =
         val sTotal = msTotal / 1000
         val (mTotal, s) = sTotal /% 60
         val (h, m) = mTotal /% 60
         if (h > 0) f"$h%d:$m%02d:$s%02d" else f"$m%02d:$s%02d"
+    text <== textBind
+    onAction = _ => { backward = !backward; textBind.invalidate() }
 
   private val space = new Region:
     hgrow = Priority.Always

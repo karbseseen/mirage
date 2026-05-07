@@ -23,6 +23,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
+import uk.co.caprica.vlcj.player.base.TrackDescription
 
 import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
@@ -131,15 +132,15 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     hgrow = Priority.Always
 
   val video: TrackControl = new TrackControl:
-    def getName(vlcId: Int): String = player.video.trackDescriptions.asScala.find(_.id == vlcId).fold("???")(_.description)
+    def getTracks: java.util.List[TrackDescription] = player.video.trackDescriptions
     def onSelect(vlcId: Int): Unit = player.video.setTrack(vlcId)
 
   val audio: TrackControl = new TrackControl:
-    def getName(vlcId: Int): String = player.audio.trackDescriptions.asScala.find(_.id == vlcId).fold("???")(_.description)
+    def getTracks: java.util.List[TrackDescription] = player.audio.trackDescriptions
     def onSelect(vlcId: Int): Unit = player.audio.setTrack(vlcId)
 
   val title: TrackControl = new TrackControl:
-    def getName(vlcId: Int): String = player.subpictures.trackDescriptions.asScala.find(_.id == vlcId).fold("???")(_.description)
+    def getTracks: java.util.List[TrackDescription] = player.subpictures.trackDescriptions
     def onSelect(vlcId: Int): Unit = player.subpictures.setTrack(vlcId)
     override def removeItem(vlcId: Int): Unit = if (vlcId != -1) super.removeItem(vlcId)
     children += new TrackItem(-1) { text <== Tr.noSubtitles }
@@ -177,7 +178,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
 
     private def cornerRadius = 12.0
 
-    def getName(vlcId: Int): String
+    def getTracks: java.util.List[TrackDescription]
     def onSelect(vlcId: Int): Unit
 
     minWidth = 125
@@ -212,7 +213,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       textFill = Color.White
       alignment = Pos.CenterLeft
       underline <== selectedId.isEqualTo(vlcId)
-      text = getName(vlcId)
+      text = getTracks.asScala.find(_.id == vlcId).fold("???")(_.description)
       id = vlcId.toString
       padding = Insets(
         left    = Constants.playerInset * 2.5,

@@ -39,7 +39,10 @@ private class VlcStage(media: VlcMedia) extends Stage:
   val controls: Controls = new Controls(this)
 
   val loading: StackPane = new StackPane:
-    private val rootSize = Bindings.min(root.width, root.height)
+    private val rootSize = Bindings.createDoubleBinding(
+      () => root.width() min root.height() min 750,
+      root.width, root.height
+    )
     private val size = rootSize * 0.25
     maxWidth <== size
     maxHeight <== size
@@ -51,7 +54,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
       Insets.Empty,
     )))
     children += new ImageView("/vlc/loading.gif"):
-      private val size = rootSize * 0.15
+      private val size = rootSize * 0.125
       fitWidth <== size
       fitHeight <== size
       preserveRatio = true

@@ -1,9 +1,11 @@
 package vlc
 
 import constant.Constants
+import scalafx.Includes.jfxScene2sfx
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.application.Platform.runLater
+import scalafx.scene.Cursor
 import scalafx.util.Duration
 
 import java.lang
@@ -18,6 +20,7 @@ private def applyControlHide(stage: VlcStage): Unit =
     fromValue = 0
     toValue = 1
     interpolator = EaseBoth
+    onFinished = _ => if (rate() < 0) stage.scene().cursor = Cursor.None
   controls.translateY <== controls.opacity.map[lang.Number]: opacity =>
     (1 - opacity.doubleValue) * controls.height()
 
@@ -44,4 +47,5 @@ private def applyControlHide(stage: VlcStage): Unit =
     if (animation.rate() < 0)
       animation.rate = 1
       animation.play()
+      stage.scene().cursor = Cursor.Default
     thread.interrupt()

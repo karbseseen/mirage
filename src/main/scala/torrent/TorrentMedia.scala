@@ -46,6 +46,8 @@ class TorrentMedia(torrent: Torrent, fileIndex: Int) extends AbstractCallbackMed
       setDeadlines()
       true
 
+  def getName: String = files.fileName(fileIndex)
+
   def shutdown(): Unit =
     torrent.cancelPieceRequests()
 

@@ -18,6 +18,7 @@ import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 
 private class VlcStage(media: VlcMedia) extends Stage:
 
+  title = media.getName
   fullScreenExitHint = ""
 
   val factory = new MediaPlayerFactory
@@ -101,4 +102,5 @@ object VlcStage:
 
 
 trait VlcMedia extends CallbackMedia:
+  def getName: String
   def shutdown(): Unit

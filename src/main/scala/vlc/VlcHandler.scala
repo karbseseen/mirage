@@ -2,7 +2,7 @@ package vlc
 
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
-import uk.co.caprica.vlcj.media.TrackType
+import uk.co.caprica.vlcj.media.{Meta, TrackType}
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
 
 import scala.jdk.CollectionConverters.*
@@ -29,6 +29,12 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
       runLater:
         stage.loading.managed = true
         stage.loading.visible = true
+
+  override def mediaPlayerReady(player: MediaPlayer): Unit =
+    runLater:
+      Option(player.media.meta.get(Meta.TITLE))
+        .filter(title => !title.isBlank && title != "imem://")
+        .foreach(stage.title = _)
 
   override def elementaryStreamAdded(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
     runLater { tracksControl(trackType).foreach(_.addItem(id)) }

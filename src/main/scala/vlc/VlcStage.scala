@@ -17,7 +17,7 @@ import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import util.WakeLock
 
 
-private class VlcStage(media: VlcMedia) extends Stage:
+private class VlcStage(val media: VlcMedia) extends Stage:
 
   title = media.getName
   fullScreenExitHint = ""
@@ -25,7 +25,6 @@ private class VlcStage(media: VlcMedia) extends Stage:
   val wakeLock = new WakeLock
   val factory = new MediaPlayerFactory
   val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
-  val pauses = new Pauses(player)
   onHiding = _ =>
     media.shutdown()
     player.release()

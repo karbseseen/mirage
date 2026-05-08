@@ -23,7 +23,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
-import uk.co.caprica.vlcj.player.base.TrackDescription
+import uk.co.caprica.vlcj.player.base.{MediaPlayer, State, TrackDescription}
 
 import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
@@ -31,7 +31,9 @@ import scala.math.Integral.Implicits.infixIntegralOps
 
 private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
 
-  import stage.{pauses, player}
+  import stage.player
+
+  val isPlaying = SimpleBooleanProperty(this, "isPlaying")
 
   padding = Insets(Constants.playerInset)
   alignmentInParent = Pos.BottomCenter
@@ -45,25 +47,37 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
 
   private def fontIconStyle(size: Int) = s"-fx-icon-size: ${size}px; -fx-icon-color: white;"
 
+  extension (player: MediaPlayer) private def isFinished =
+    val state = player.media.info.state
+    state == State.STOPPED || state == State.ENDED
+
 
   val seek: Slider = new Slider:
-    private val pause = pauses.createRequester
+    private var wasPlaying = false
     hgrow = Priority.Always
     skin = ProgressSliderSkin(this)
     value.addListener: (_,_,value) =>
-      if (pressed() && !valueChanging()) player.controls.setTime(value.longValue)
+      if (pressed() && !valueChanging())
+        if (player.isFinished) player.media.play(stage.media)
+        player.controls.setTime(value.longValue)
     valueChanging.addListener: (_,_,changing) =>
-      if (!changing) player.controls.setTime(value().toLong)
-      pause.requestPause(changing)
+      if (changing)
+        wasPlaying = isPlaying()
+        if (wasPlaying) player.controls.setPause(true)
+      else
+        if (player.isFinished) player.media.play(stage.media)
+        else if (wasPlaying) player.controls.setPause(false)
+        player.controls.setTime(value.longValue)
 
   val playPause: Button = new Button:
-    private val pause = pauses.createRequestProp
     padding = Insets(Constants.playerInset * 1.5)
     background <== hoverableBg(this)
     graphic = new FontIcon:
       setStyle(fontIconStyle(28))
-      iconCodeProperty <== pause.map(if (_) FluentUiFilledMZ.PLAY_48 else FluentUiFilledMZ.PAUSE_48)
-    onAction = _ => pause() = !pause()
+      iconCodeProperty <== isPlaying.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
+    onAction = _ =>
+      if (player.isFinished) player.media.play(stage.media)
+      else player.controls.setPause(isPlaying())
 
   val volume: HBox = new HBox:
     background <== hoverableBg(this)

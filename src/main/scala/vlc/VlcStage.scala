@@ -1,9 +1,11 @@
 package vlc
 
 import javafx.beans.binding.Bindings
-import javafx.beans.property.{SimpleDoubleProperty, SimpleObjectProperty}
+import javafx.beans.property.{SimpleBooleanProperty, SimpleDoubleProperty, SimpleObjectProperty}
 import javafx.geometry.Rectangle2D
+import javafx.scene.input.KeyEvent
 import scalafx.Includes.jfxNumberBinding2sfx
+import scalafx.beans.BeanIncludes.jfxObservableValue2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.image.ImageView
@@ -12,12 +14,13 @@ import scalafx.scene.paint.Color
 import scalafx.stage.Stage
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
-import uk.co.caprica.vlcj.media.callback.CallbackMedia
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import util.WakeLock
 
 
 private class VlcStage(val media: VlcMedia) extends Stage:
+
+  val isPlaying = SimpleBooleanProperty(this, "isPlaying")
 
   title = media.getName
   fullScreenExitHint = ""
@@ -91,6 +94,7 @@ private class VlcStage(val media: VlcMedia) extends Stage:
 
   scene = new Scene(root, 800, 600):
     content = imageView :: loading :: controls :: controls.extraParts
+    this.addEventFilter(KeyEvent.KEY_PRESSED, VlcKeyHandler(VlcStage.this))
 
   applyControlHide(this)
 
@@ -99,10 +103,9 @@ private class VlcStage(val media: VlcMedia) extends Stage:
   player.media.play(media)
 
 
+  def togglePause(): Unit =
+    if (player.isFinished) player.media.play(media)
+    else player.controls.setPause(isPlaying())
+
 object VlcStage:
   def apply(media: VlcMedia): Stage = new VlcStage(media)
-
-
-trait VlcMedia extends CallbackMedia:
-  def getName: String
-  def shutdown(): Unit

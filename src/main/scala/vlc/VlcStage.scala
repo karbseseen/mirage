@@ -14,6 +14,7 @@ import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
 import uk.co.caprica.vlcj.media.callback.CallbackMedia
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
+import util.WakeLock
 
 
 private class VlcStage(media: VlcMedia) extends Stage:
@@ -21,6 +22,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
   title = media.getName
   fullScreenExitHint = ""
 
+  val wakeLock = new WakeLock
   val factory = new MediaPlayerFactory
   val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
   val pauses = new Pauses(player)
@@ -28,6 +30,7 @@ private class VlcStage(media: VlcMedia) extends Stage:
     media.shutdown()
     player.release()
     factory.release()
+    wakeLock.unlock()
 
   val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)

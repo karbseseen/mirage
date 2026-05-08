@@ -76,6 +76,7 @@ object Tr:
   val selectFiles       = Translate("Select files",               "Выберите файлы")
   val settings          = Translate("Settings",                   "Настройки")
   val size              = Translate("Size",                       "Размер")
+  val speed             = Translate("Speed",                      "Скорость")
   val state             = Translate("State",                      "Состояние")
   val theUpdate         = Translate("Update",                     "Обновление")
   val theme             = Translate("Theme",                      "Тема")

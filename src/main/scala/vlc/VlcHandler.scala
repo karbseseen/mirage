@@ -36,10 +36,17 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
         .filter(title => !title.isBlank && title != "imem://")
         .foreach(stage.title = _)
 
-  override def playing(player: MediaPlayer):  Unit = stage.wakeLock.lock()
-  override def paused(player: MediaPlayer):   Unit = stage.wakeLock.unlock()
-  override def stopped(player: MediaPlayer):  Unit = stage.wakeLock.unlock()
-  override def finished(player: MediaPlayer): Unit = stage.wakeLock.unlock()
+  override def playing(player: MediaPlayer): Unit =
+    runLater(stage.controls.isPlaying() = true)
+    stage.wakeLock.lock()
+
+  override def paused(player: MediaPlayer): Unit =
+    runLater(stage.controls.isPlaying() = false)
+    stage.wakeLock.unlock()
+
+  override def stopped(player: MediaPlayer): Unit =
+    runLater(stage.controls.isPlaying() = false)
+    stage.wakeLock.unlock()
 
   override def elementaryStreamAdded(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
     runLater { tracksControl(trackType).foreach(_.addItem(id)) }

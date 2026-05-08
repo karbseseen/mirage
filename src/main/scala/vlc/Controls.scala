@@ -23,7 +23,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
-import uk.co.caprica.vlcj.player.base.{MediaPlayer, State, TrackDescription}
+import uk.co.caprica.vlcj.player.base.TrackDescription
 
 import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
@@ -32,8 +32,6 @@ import scala.math.Integral.Implicits.infixIntegralOps
 private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
 
   import stage.player
-
-  val isPlaying = SimpleBooleanProperty(this, "isPlaying")
 
   padding = Insets(Constants.playerInset)
   alignmentInParent = Pos.BottomCenter
@@ -47,10 +45,6 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
 
   private def fontIconStyle(size: Int) = s"-fx-icon-size: ${size}px; -fx-icon-color: white;"
 
-  extension (player: MediaPlayer) private def isFinished =
-    val state = player.media.info.state
-    state == State.STOPPED || state == State.ENDED
-
 
   val seek: Slider = new Slider:
     private var wasPlaying = false
@@ -62,7 +56,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
         player.controls.setTime(value.longValue)
     valueChanging.addListener: (_,_,changing) =>
       if (changing)
-        wasPlaying = isPlaying()
+        wasPlaying = stage.isPlaying()
         if (wasPlaying) player.controls.setPause(true)
       else
         if (player.isFinished) player.media.play(stage.media)
@@ -74,10 +68,10 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     background <== hoverableBg(this)
     graphic = new FontIcon:
       setStyle(fontIconStyle(28))
-      iconCodeProperty <== isPlaying.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
+      iconCodeProperty <== stage.isPlaying.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
     onAction = _ =>
       if (player.isFinished) player.media.play(stage.media)
-      else player.controls.setPause(isPlaying())
+      else player.controls.setPause(stage.isPlaying())
 
   val volume: HBox = new HBox:
     background <== hoverableBg(this)

@@ -21,7 +21,7 @@ case class Translate(
 
   private val mutableProperty = new jfxbp.SimpleStringProperty(this, en)
   def property: jfxbp.ReadOnlyStringProperty = mutableProperty
-  Config[Language].subscribe { lang => mutableProperty.set(apply(lang)) }
+  Language.config.subscribe { lang => mutableProperty.set(apply(lang)) }
 
 object Translate:
   implicit def asProperty(translate: Translate): jfxbp.ReadOnlyStringProperty = translate.property

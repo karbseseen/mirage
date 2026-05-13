@@ -1,7 +1,7 @@
 package config
 
 import core.main.MainApp
-import javafx.beans.property as jfxbp
+import javafx.beans.property.{Property, SimpleObjectProperty, SimpleStringProperty}
 import org.virtuslab.yaml.Node.{MappingNode, ScalarNode}
 import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec, YamlDecoder, YamlEncoder}
 import util.{JavaUtil, printError}
@@ -18,9 +18,11 @@ object Config:
   private val fileName = "data.yaml"
   private val file = new File(JavaUtil.jarFile.getParentFile, fileName)
 
+  private type Getter = () => Option[Node]
+
   private def parseMap(root: MappingNode) = root.mappings.view
     .flatMap {
-      case (ScalarNode(key, _), value) => Some(key, value: Node | Config[?])
+      case (ScalarNode(key, _), value) => Some(key, value: Node | Getter)
       case invalid => System.err.println(s"Couldn't parse ${MappingNode(invalid).asYaml}"); None
     }
     .to(mutable.Map)
@@ -34,37 +36,36 @@ object Config:
   private val map = parseFile getOrElse mutable.Map.empty
 
   MainApp.shutdownHook:
-    val values = map.view.flatMap {
+    val values = map.view.flatMap:
       case (key, node: Node) => Some(ScalarNode(key) -> node)
-      case (key, config: Config[?]) => config.node.map(ScalarNode(key) -> _)
-    }.toSeq
-    Files.writeString(file.toPath, MappingNode(values*).asYaml)
+      case (key, getter: Getter) => getter().map(ScalarNode(key) -> _)
+    Files.writeString(file.toPath, MappingNode(values.toSeq*).asYaml)
+
+  def register[T](name: String)(get: => Option[T])(using codec: YamlCodec[T]): Option[T] =
+    val initValue = map.get(name)
+      .collect { case node: Node => node }
+      .flatMap { codec.construct(_).toTry.printError(_ => s"Couldn't parse config $name").toOption }
+    map.updateWith(name):
+      case taken@Some(_: Getter) =>
+        System.err.println(s"Config with name $name is already registered")
+        taken
+      case _ => Some(() => get.map(codec.asNode))
+    initValue
+
+  def register[T : YamlCodec](property: Property[T]): Unit =
+    val initValue = register(property.getName)(Option(property.getValue))
+    initValue.foreach(property.setValue)
 
 
-  class Default[T](val value: T)
-  object Default:
-    implicit def apply[T](value: T): Default[T] = new Default(value)
-    given map[K, V]: Default[Map[K, V]] = Map.empty
-    given mutableMap[K, V]: Default[mutable.Map[K, V]] = mutable.Map.empty
+  class StringProp(bean: AnyRef, name: String, default: String = "") extends SimpleStringProperty(bean, name, default):
+    Config.register(this)
 
-  def derived[T : YamlCodec](using ct: ClassTag[T], default: Default[T]) =
-    new jfxbp.SimpleObjectProperty[T](this, ct.runtimeClass.getSimpleName.toLowerCase, default.value) with Config[T]
-  
-  def apply[T](using config: Config[T]): Config[T] = config
-
-
-trait Config[T : YamlCodec] extends jfxbp.Property[T]:
-  private def node = Option(getValue).map(summon[YamlCodec[T]].asNode)
-
-  Config.map.updateWith(getName):
-    case taken@Some(_: Config[?]) =>
-      System.err.println(s"Config with name $getName is already registered")
-      taken
-    case available =>
-      Try(available).collect { case Some(node: Node) => node }
-        .flatMap { implicitly[YamlCodec[T]].construct(_).toTry.printError(_ => s"Couldn't parse config $getName") }
-        .foreach(setValue)
-      Some(this)
+  class ObjectProp[T : YamlCodec](bean: AnyRef, name: String, default: T)
+    extends SimpleObjectProperty[T](bean, name, default)
+  :
+    def this(bean: AnyRef, default: T)(using tag: ClassTag[T]) =
+      this(bean, tag.runtimeClass.getSimpleName.toLowerCase, default)
+    Config.register(this)
 
 
 given [T](using YamlDecoder[T], YamlEncoder[T]): YamlCodec[T] = YamlCodec.make

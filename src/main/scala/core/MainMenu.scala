@@ -1,8 +1,6 @@
 package core
 
-import atlantafx.base.theme as afxbt
-import config.*
-import config.Theme.given_Config_Theme
+import config.{Language, Theme}
 import constant.Tr
 import core.main.MainApp
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
@@ -34,8 +32,8 @@ object MainMenu:
       items = Language.values.map { language =>
         new RadioMenuItem(language.name):
           toggleGroup = group
-          if (language == Config[Language].value) selected = true
-          onAction = _ => Config[Language].value = language
+          if (language == Language.config()) selected = true
+          onAction = _ => Language.config() = language
       }
 
     val theme = new Menu:
@@ -44,8 +42,8 @@ object MainMenu:
       items = Theme.map.values.toList.sortBy(_.getName).map { theme =>
         new RadioMenuItem(theme.getName):
           toggleGroup = group
-          if (theme == Config[afxbt.Theme].value) selected = true
-          onAction = _ => Config[afxbt.Theme].setValue(theme)
+          if (theme == Theme.config()) selected = true
+          onAction = _ => Theme.config() = theme
       }
 
     val update = new MenuItem:

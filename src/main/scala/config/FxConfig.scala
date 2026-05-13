@@ -12,9 +12,7 @@ import scala.collection.mutable
 object ColumnWidthConfig:
   private type WidthMap = mutable.Map[String, mutable.Map[String, Int]]
 
-  private val config =
-    new jfxbp.SimpleObjectProperty[WidthMap](this, "column-width", mutable.Map.empty)
-      with Config[WidthMap]
+  private val config = Config.ObjectProp[WidthMap](this, "column-width", mutable.Map.empty)
 
   def apply(tableName: String, columnName: String, column: TableColumnBase[?, ?]): Unit =
     val map = config.getValue.getOrElseUpdate(tableName, mutable.Map.empty)
@@ -25,9 +23,7 @@ object ColumnWidthConfig:
 object SplitPositionConfig:
   private type PosMap = mutable.Map[String, List[Float]]
 
-  private val config =
-    new jfxbp.SimpleObjectProperty[PosMap](this, "split-position", mutable.Map.empty)
-      with Config[PosMap]
+  private val config = Config.ObjectProp[PosMap](this, "split-position", mutable.Map.empty)
 
   def apply(name: String, split: SplitPane): Unit =
     for (position, index) <- config.getValue.getOrElseUpdate(name, Nil).zipWithIndex

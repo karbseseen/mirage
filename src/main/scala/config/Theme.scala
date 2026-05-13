@@ -7,16 +7,15 @@ import scalafx.application.JFXApp3.userAgentStylesheet
 
 
 object Theme:
-  given Config.Default[afxbt.Theme] = afxbt.PrimerLight()
 
   val map: Map[String, afxbt.Theme] = List(
-    new afxbt.CupertinoDark(),
-    new afxbt.CupertinoLight(),
-    new afxbt.Dracula(),
-    new afxbt.NordDark(),
-    new afxbt.NordLight(),
-    new afxbt.PrimerDark(),
-    implicitly[Config.Default[afxbt.Theme]].value,
+    afxbt.CupertinoDark(),
+    afxbt.CupertinoLight(),
+    afxbt.Dracula(),
+    afxbt.NordDark(),
+    afxbt.NordLight(),
+    afxbt.PrimerDark(),
+    afxbt.PrimerLight(),
     afxbt.Theme.of("Old School", "", false),
   ).map(theme => theme.getName -> theme).toMap
 
@@ -28,6 +27,5 @@ object Theme:
         .flatMap(Theme.map.get)
         .toRight(ConstructError.from(s"Couldn't parse Theme: ${node.asYaml}"))
 
-  given Config[afxbt.Theme] = Config.derived[afxbt.Theme]
-
-  Config[afxbt.Theme].subscribe { theme => userAgentStylesheet = Some(theme.getUserAgentStylesheet).filter(_.nonEmpty) }
+  val config: Config.ObjectProp[afxbt.Theme] = Config.ObjectProp(this, afxbt.PrimerLight())
+  config.subscribe { theme => userAgentStylesheet = Some(theme.getUserAgentStylesheet).filter(_.nonEmpty) }

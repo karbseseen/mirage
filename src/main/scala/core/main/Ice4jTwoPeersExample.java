@@ -7,6 +7,9 @@ import org.ice4j.ice.harvest.CandidateHarvesterSet;
 import org.ice4j.ice.harvest.StunCandidateHarvester;
 import org.ice4j.ice.harvest.UPNPHarvester;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
@@ -15,27 +18,27 @@ import java.util.concurrent.ExecutorService;
 
 class Ice4jTwoPeersExample {
 
+    static class ParamReader {
+        BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+        String read(String name) throws IOException {
+            System.out.print(name + ": ");
+            return input.readLine();
+        }
+    }
+
     static class Peer implements Runnable {
-        final String name;
-        final CountDownLatch gatherDone;
-        final CountDownLatch peerDone = new CountDownLatch(1);
+        final String name = "Peer";
 
         Agent agent;
         IceMediaStream stream;
         Component component;
 
-        Peer(String name, CountDownLatch gatherDone) {
-            this.name = name;
-            this.gatherDone = gatherDone;
-        }
-
         @Override
         public void run() {
             try {
                 createAgent();
-                gatherDone.countDown();
-
-                peerDone.await();
+                printMe();
+                setRemote();
                 startConnectivityEstablishment();
 
                 waitForConnected();
@@ -57,30 +60,33 @@ class Ice4jTwoPeersExample {
 
             stream = agent.createMediaStream("data");
             component = agent.createComponent(stream, 25000, 25000, 26000);
-
-            StringBuilder localCandidatesStr = new StringBuilder();
-            localCandidatesStr.append(name).append(" local candidates:");
-            for (LocalCandidate c : component.getLocalCandidates())
-                localCandidatesStr.append("\n  ").append(c.getTransportAddress());
-            System.out.println(localCandidatesStr);
         }
 
-        void setRemote(Peer other) {
-            stream.setRemoteUfrag(other.agent.getLocalUfrag());
-            stream.setRemotePassword(other.agent.getLocalPassword());
-
-            for (LocalCandidate c : other.component.getLocalCandidates()) {
-                RemoteCandidate rc = new RemoteCandidate(
-                    c.getTransportAddress(),
-                    component,
-                    c.getType(),
-                    c.getFoundation(),
-                    c.getPriority(),
-                    null);
-                component.addRemoteCandidate(rc);
+        void printMe() {
+            System.out.println("Ufrag: "    + agent.getLocalUfrag());
+            System.out.println("Password: " + agent.getLocalPassword());
+            for (var candidate : component.getLocalCandidates()) {
+                var address = candidate.getTransportAddress();
+                System.out.println("Ip: "       + address.getHostAddress());
+                System.out.println("Port: "     + address.getPort());
             }
+        }
 
-            peerDone.countDown();
+        void setRemote() throws IOException {
+            var reader = new ParamReader();
+            
+            stream.setRemoteUfrag(reader.read("Ufrag"));
+            stream.setRemotePassword(reader.read("Password"));
+            
+            var address = new TransportAddress(reader.read("Ip"), Integer.parseInt(reader.read("Port")), Transport.UDP);
+            RemoteCandidate rc = new RemoteCandidate(
+                address,
+                component,
+                CandidateType.STUN_CANDIDATE,
+                address.toString(),
+                123,
+                null);
+            component.addRemoteCandidate(rc);
         }
 
         void startConnectivityEstablishment() {
@@ -127,24 +133,7 @@ class Ice4jTwoPeersExample {
     }
 
     static void main(String[] args) throws Exception {
-        CountDownLatch gatherDone = new CountDownLatch(2);
-
-        Peer a = new Peer("A", gatherDone);
-        Peer b = new Peer("B", gatherDone);
-
-        Thread ta = new Thread(a);
-        Thread tb = new Thread(b);
-
-        ta.start();
-        tb.start();
-
-        gatherDone.await();
-
-        a.setRemote(b);
-        b.setRemote(a);
-
-        ta.join();
-        tb.join();
+        new Peer().run();
 
         var field = CandidateHarvesterSet.class.getDeclaredField("threadPool");
         field.setAccessible(true);

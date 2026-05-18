@@ -31,6 +31,7 @@ libraryDependencies ++= Seq(
   "org.virtuslab" %% "scala-yaml" % "0.3.1",
   "org.kohsuke" % "github-api" % "1.330",
   "com.github.javakeyring" % "java-keyring" % "1.0.4",
+  "org.jitsi" % "ice4j" % "3.2-15-g6da2b08",
 )
 /*libraryDependencies ++= Seq("base", "graphics", "controls")
   .map { libName => "org.openjfx" % s"javafx-$libName" % "25.0.2" classifier os }*/

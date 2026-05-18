@@ -2,7 +2,7 @@
 name: Build scala
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
   build:

@@ -47,12 +47,15 @@ class Ice4jTwoPeersExample {
     }
 
     static class Peer implements Runnable {
-        final String name = "Peer";
-
+        final String name;
         Agent agent;
         IceMediaStream stream;
         Component component;
 
+        Peer(String name) {
+            this.name = name;
+        }
+        
         @Override
         public void run() {
             try {
@@ -157,12 +160,12 @@ class Ice4jTwoPeersExample {
         void waitForTerminate() throws InterruptedException {
             while (agent.getState() != IceProcessingState.TERMINATED)
                 Thread.sleep(100);
-            agent.free();
         }
     }
 
     static void main(String[] args) throws Exception {
-        new Peer().run();
+        System.out.println(args[0]);
+        new Peer(args[0]).run();
 
         var field = CandidateHarvesterSet.class.getDeclaredField("threadPool");
         field.setAccessible(true);

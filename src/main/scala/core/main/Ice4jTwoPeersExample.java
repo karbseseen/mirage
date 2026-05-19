@@ -102,7 +102,6 @@ class Ice4jTwoPeersExample {
         }
 
         void setRemote() throws IOException {
-
             BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
             System.out.print("Remote auth: ");
             var auth = Auth.fromString(input.readLine());
@@ -110,13 +109,12 @@ class Ice4jTwoPeersExample {
             stream.setRemoteUfrag(auth.ufrag);
             stream.setRemotePassword(auth.password);
 
-            var address = new TransportAddress(auth.ip, auth.port, Transport.UDP);
             RemoteCandidate rc = new RemoteCandidate(
-                address,
+                new TransportAddress(auth.ip, auth.port, Transport.UDP),
                 component,
-                CandidateType.STUN_CANDIDATE,
-                address.toString(),
-                123,
+                auth.type,
+                auth.foundation,
+                auth.priority,
                 null);
             component.addRemoteCandidate(rc);
         }

@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 
 
@@ -21,20 +22,26 @@ class Ice4jTwoPeersExample {
     record Auth(
         String ip,
         int port,
+        CandidateType type,
+        String foundation,
+        long priority,
         String ufrag,
         String password
     ) {
         @Override @NotNull public String toString() {
-            return ip + ":" + port + ":" + ufrag + ":" + password;
+            return ip + ":" + port + ":" + type + ":" + foundation + ":" + priority + ":" + ufrag + ":" + password;
         }
         static Auth fromString(String str) {
             var parts = str.split(":");
-            if (parts.length != 4) throw new IllegalArgumentException();
+            if (parts.length != 7) throw new IllegalArgumentException();
             return new Auth(
                 parts[0],
                 Integer.parseInt(parts[1]),
-                parts[2],
-                parts[3]
+                Arrays.stream(CandidateType.values()).filter(ct -> ct.toString().equals(parts[2])).findFirst().get(),
+                parts[3],
+                Long.parseLong(parts[4]),
+                parts[5],
+                parts[6]
             );
         }
     }
@@ -78,14 +85,16 @@ class Ice4jTwoPeersExample {
         void printMe() {
             System.out.println("My auths:");
             for (var candidate : component.getLocalCandidates()) {
-                var address = candidate.getTransportAddress();
                 var auth = new Auth(
-                    address.getHostAddress(),
-                    address.getPort(),
+                    candidate.getTransportAddress().getHostAddress(),
+                    candidate.getTransportAddress().getPort(),
+                    candidate.getType(),
+                    candidate.getFoundation(),
+                    candidate.getPriority(),
                     agent.getLocalUfrag(),
                     agent.getLocalPassword()
                 );
-                System.out.println(auth + " (" + address.getHostAddress() + ":" + address.getPort() + ")");
+                System.out.println(auth);
             }
         }
 

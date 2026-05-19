@@ -6,23 +6,36 @@ import org.ice4j.ice.*;
 import org.ice4j.ice.harvest.CandidateHarvesterSet;
 import org.ice4j.ice.harvest.StunCandidateHarvester;
 import org.ice4j.ice.harvest.UPNPHarvester;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 
 
 class Ice4jTwoPeersExample {
 
-    static class ParamReader {
-        BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
-        String read(String name) throws IOException {
-            System.out.print(name + ": ");
-            return input.readLine();
+    record Auth(
+        String ip,
+        int port,
+        String ufrag,
+        String password
+    ) {
+        @Override @NotNull public String toString() {
+            return ip + ":" + port + ":" + ufrag + ":" + password;
+        }
+        static Auth fromString(String str) {
+            var parts = str.split(":");
+            if (parts.length != 4) throw new IllegalArgumentException();
+            return new Auth(
+                parts[0],
+                Integer.parseInt(parts[1]),
+                parts[2],
+                parts[3]
+            );
         }
     }
 
@@ -63,22 +76,29 @@ class Ice4jTwoPeersExample {
         }
 
         void printMe() {
-            System.out.println("Ufrag: "    + agent.getLocalUfrag());
-            System.out.println("Password: " + agent.getLocalPassword());
+            System.out.println("My auths:");
             for (var candidate : component.getLocalCandidates()) {
                 var address = candidate.getTransportAddress();
-                System.out.println("Ip: "       + address.getHostAddress());
-                System.out.println("Port: "     + address.getPort());
+                var auth = new Auth(
+                    address.getHostAddress(),
+                    address.getPort(),
+                    agent.getLocalUfrag(),
+                    agent.getLocalPassword()
+                );
+                System.out.println(auth + " (" + address.getHostAddress() + ":" + address.getPort() + ")");
             }
         }
 
         void setRemote() throws IOException {
-            var reader = new ParamReader();
-            
-            stream.setRemoteUfrag(reader.read("Ufrag"));
-            stream.setRemotePassword(reader.read("Password"));
-            
-            var address = new TransportAddress(reader.read("Ip"), Integer.parseInt(reader.read("Port")), Transport.UDP);
+
+            BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+            System.out.print("Remote auth: ");
+            var auth = Auth.fromString(input.readLine());
+
+            stream.setRemoteUfrag(auth.ufrag);
+            stream.setRemotePassword(auth.password);
+
+            var address = new TransportAddress(auth.ip, auth.port, Transport.UDP);
             RemoteCandidate rc = new RemoteCandidate(
                 address,
                 component,

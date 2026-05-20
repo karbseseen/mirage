@@ -24,7 +24,7 @@ import scala.util.{Failure, Random, Success, Try}
 private object Torrent:
 
   val session = new SessionManager
-  MainListener().register()
+  new MainListener
   session.start()
 
   private class Known(val needSave: Boolean)

@@ -12,9 +12,14 @@ import scala.reflect.ClassTag
 
 
 object TorrentListener:
-  class Part[A <: Alert[?] : AlertTypeInt](typedAlert: A => Unit) extends AlertListener:
-    def types: Array[Int] = Array(summon[AlertTypeInt[A]].value)
-    def alert(alert: Alert[?]): Unit = typedAlert(alert.asInstanceOf[A])
+  def listen[A <: Alert[?]](handler: A => Unit)(using alertType: AlertTypeInt[A]): Unit =
+    Torrent.session.addListener:
+      new AlertListener:
+        def types: Array[Int] = Array(alertType.value)
+        def alert(alert: Alert[?]): Unit = handler(alert.asInstanceOf[A])
+
+  def listenError[A <: Alert[?] : AlertTypeInt](getError: A => ErrorCode): Unit =
+    listen[A](getError(_).check)
 
   case class AlertTypeInt[A <: Alert[?]](value: Int)
   object AlertTypeInt:
@@ -22,17 +27,7 @@ object TorrentListener:
       AlertTypeInt { tag.runtimeClass.getField("alert_type").get(null).asInstanceOf[Integer].intValue }
 
 
-abstract class TorrentListener:
-  private var parts: List[Part[?]] = Nil
-
-  protected def listen[A <: Alert[?] : AlertTypeInt](handler: A => Unit): Unit = parts = new Part(handler) :: parts
-  protected def listenError[A <: Alert[?] : AlertTypeInt](getError: A => ErrorCode): Unit = listen[A](getError(_).check)
-
-  extension (error: ErrorCode)
-    protected def check: Boolean =
-      val isError = error.isError
-      if (isError) MainApp.showError(error.message)
-      !isError
-
-  def register(): Unit =
-    parts.foreach(Torrent.session.addListener)
+extension (error: ErrorCode) def check: Boolean =
+  val isError = error.isError
+  if (isError) MainApp.showError(error.message)
+  !isError

@@ -18,7 +18,7 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
 
 
-private[listener] class MainListener extends TorrentListener:
+private[torrent] class MainListener extends TorrentListener:
 
   listen[AddTorrentAlert]: event =>
     if (event.error.check)

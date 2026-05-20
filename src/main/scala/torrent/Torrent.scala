@@ -10,7 +10,7 @@ import scalafx.application.Platform
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
 import torrent.Hash.hash
-import torrent.listener.TorrentListener
+import torrent.listener.{MainListener, TorrentListener}
 import torrent.view.TorrentView
 import util.{JavaUtil, also}
 
@@ -24,7 +24,7 @@ import scala.util.{Failure, Random, Success, Try}
 private object Torrent:
 
   val session = new SessionManager
-  TorrentListener.all.foreach(session.addListener)
+  MainListener().register()
   session.start()
 
   private class Known(val needSave: Boolean)
@@ -151,3 +151,7 @@ private class Torrent(val hash: Hash):
     readRequests.synchronized:
       readRequests.values.foreach(_.cancel(true))
       readRequests.clear()
+
+
+
+def torrentSession = Torrent.session

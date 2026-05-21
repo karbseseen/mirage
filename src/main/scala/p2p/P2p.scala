@@ -124,6 +124,7 @@ object P2p:
       .open(StandardProtocolFamily.INET)
       .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
       .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
+      .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
     channel.configureBlocking(false)
     channel.join(multicastAddress.getAddress, interface)
     channel.register(selector, SelectionKey.OP_READ)

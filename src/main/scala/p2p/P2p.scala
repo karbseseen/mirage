@@ -3,17 +3,21 @@ package p2p
 import byte_codec.ByteCodec
 import config.Config
 import core.main.MainApp
-import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.{ReadOnlyBooleanProperty, SimpleBooleanProperty, SimpleObjectProperty}
+import javafx.collections.{FXCollections, ObservableMap}
+import p2p.loop_handler.StunHandler
 
 import java.net.{Inet4Address, Inet6Address, InetSocketAddress, StandardProtocolFamily}
 import java.nio.ByteBuffer
 import java.nio.channels.spi.AbstractSelectableChannel
 import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
+import java.util.concurrent.{Executors, ScheduledExecutorService, ScheduledFuture, TimeUnit}
 import java.util.function.Consumer
 import scala.collection.mutable
 import scala.util.{Random, Try}
 
 
+/**Is for ui thread*/
 val roomName = Config.StringProp(P2p, "roomName", "")
 
 private object P2p:
@@ -22,6 +26,12 @@ private object P2p:
   inline val PeerActiveTime       = 4_000
   inline val PeerPingTime         = 1_500
   inline val UndiscoveredPingTime = 150
+
+  val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
+
+  /**All P2p observable values are for scheduler thread*/
+  private val _hasActivePeers = SimpleBooleanProperty(this, "hasActivePeers", false)
+  def hasActivePeers: ReadOnlyBooleanProperty = _hasActivePeers
 
   val selector: Selector = Selector.open
   val v4RemoteSocket: RemoteSocket = RemoteSocket:
@@ -94,7 +104,8 @@ private object P2p:
 
   class RemoteSocket(val channel: DatagramChannel) extends Socket(channel):
     val address = SimpleObjectProperty(this, "address", Option.empty[InetSocketAddress])
-    var addressTime = 0L
+    var lastAddressTime = 0L
+    var lastReceiveTime = 0L
 
   case class Id(data0: Long, data1: Long)
   object Id:

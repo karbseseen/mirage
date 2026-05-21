@@ -17,9 +17,19 @@ private object Stun:
     val XorMappedAddress: Short = 0x0020
 
   private val transactionId = Random.nextBytes(12)
-  private val server = InetSocketAddress("stun.l.google.com", 19302)
+  private val servers = IArray(
+    InetSocketAddress("stun.l.google.com",      19302),
+    InetSocketAddress("stun1.l.google.com",     19302),
+    InetSocketAddress("stun2.l.google.com",     19302),
+    InetSocketAddress("stun3.l.google.com",     19302),
+    InetSocketAddress("stun4.l.google.com",     19302),
+    InetSocketAddress("global.stun.twilio.com", 3478),
+    InetSocketAddress("jp1.stun.twilio.com",    3478),
+    InetSocketAddress("stun.cloudflare.com",    3478),
+    InetSocketAddress("stun.nextcloud.com",     443),
+  )
 
-  trait Result
+  sealed trait Result
   class Success(val address: InetSocketAddress) extends Result
   object Error extends Result
   object NotAStun extends Result
@@ -31,21 +41,20 @@ private object Stun:
       .putShort(0)
       .putInt(MagicCookie)
       .put(transactionId)
-    socket.send(buffer, server)
+    socket.send(buffer, servers(Random.nextInt(servers.length)))
 
-  def parseResponse(packet: DatagramPacket): Result =
-    if (packet.getLength < 20) NotAStun
+  def parseResponse(data: ByteBuffer): Result = {
+    val size = data.remaining
+    if (size < 20) NotAStun
     else
-      val buffer = ByteBuffer.wrap(packet.getData)
-        .order(ByteOrder.BIG_ENDIAN)
-        .limit(packet.getLength)
-        .position(2)
+      data.position(2)
       if (
-        buffer.getShort != packet.getLength - 20 ||
-          buffer.getInt != MagicCookie ||
-          transactionId.exists(_ != buffer.get)
+        data.getShort != size - 20 ||
+          data.getInt != MagicCookie ||
+          transactionId.exists(_ != data.get)
       ) NotAStun
-      else parseResponseInner(buffer)
+      else parseResponseInner(data)
+  }
 
   @tailrec private def parseResponseInner(buffer: ByteBuffer): Result =
     if (buffer.remaining < 4) Error

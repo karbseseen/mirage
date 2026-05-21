@@ -9,7 +9,6 @@ import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongPr
 import scalafx.application.Platform
 import torrent.*
 import torrent.Hash.hash
-import torrent.listener.TorrentListener.{listen, listenError}
 import torrent.view.TorrentView
 
 import java.io.File
@@ -19,7 +18,7 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
 
 
-private[torrent] class MainListener:
+private[listener] class MainListener extends TorrentListener:
 
   listen[AddTorrentAlert]: event =>
     if (event.error.check)

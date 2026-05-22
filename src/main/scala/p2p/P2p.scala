@@ -84,7 +84,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
         case announce: MulticastAnnounce =>
           send(Ping(myId, roomName, Ping.cookie), address, channel)
           pingTime(announce.senderId) = now
-          (0, false)
+          (foundLatency, foundPeer.nonEmpty)
         case ping: Ping =>
           send(Pong(myId, ping.senderId), address, channel)
           (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)

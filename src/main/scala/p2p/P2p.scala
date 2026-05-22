@@ -73,17 +73,18 @@ class P2p(val roomName: String) extends Tasks with Peers:
     if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
 
     val now = System.currentTimeMillis
-    val foundPeer = getPeerImpl(message.senderId)
+    val foundPeer = peerImpls.get(message.senderId)
 
     val foundLatency = foundPeer.fold(0)(_.latency)
     val (latency, needPeer) = message match
       case announce: MulticastAnnounce =>
-        Peer.send(Ping(myId, roomName, Ping.cookie), address, channel)
+        Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
         pingTime(announce.senderId) = now
         (foundLatency, foundPeer.nonEmpty)
       case ping: Ping =>
         Peer.send(Pong(myId, ping.senderId), address, channel)
-        (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
+        List(foundLatency, ping.latency).filter(_ > 0).reduceOption((a, b) => (a + b) / 2).getOrElse(0) ->
+          (ping.roomName == roomName && ping.cookie == Ping.cookie)
       case pong: Pong => pingTime.remove(message.senderId)
         .map(pingTime => (now - pingTime).toInt)
         .filter(_ < Peers.PingWaitTime)
@@ -112,6 +113,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
   private def updateInterfaces(): Unit =
     val oldSockets = sockets.map(socket => socket.interface -> socket).to(mutable.Map)
+
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
       if interface.isUp && !interface.isLoopback && !interface.isVirtual
@@ -119,7 +121,14 @@ class P2p(val roomName: String) extends Tasks with Peers:
         try Some(new MulticastSocket(interface))
         catch case error: Throwable => { error.printStackTrace(); None }
     yield socket
-    oldSockets.values.foreach(_.channel.close())
+
+    for
+      socket <- oldSockets.values
+      _ = socket.channel.close()
+      peer <- peerImpls.values
+      if peer.channel == socket.channel
+    do
+      peer.cancel()
 
     val ping = ByteBuffer.wrap(ByteCodec.encode[Message](MulticastAnnounce(myId, roomName, Ping.cookie)))
     sockets.foreach(_.channel.send(ping, multicastAddress))

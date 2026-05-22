@@ -33,7 +33,7 @@ trait Peers private[p2p] extends Tasks:
 
   protected val pingTime = mutable.Map.empty[Peer.Id, Long]
   private val _peers = mutable.Map.empty[Peer.Id, PeerImpl]
-  protected def getPeerImpl(id: Peer.Id): Option[PeerImpl] = _peers.get(id)
+  protected def peerImpls: collection.Map[Peer.Id, PeerImpl] = _peers
   def peers: collection.Map[Peer.Id, Peer] = _peers
 
   private var _activePeerNum = 0
@@ -44,7 +44,7 @@ trait Peers private[p2p] extends Tasks:
     if (hadActive != hasActive)
       onHasActivePeerChanged(hasActive)
     _activePeerNum = value
-  protected def onHasActivePeerChanged(hadActivePeers: Boolean): Unit
+  protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit
 
   schedulePeriodic(5000 * 60, 5000 * 60):
     val minTime = System.currentTimeMillis - PingWaitTime
@@ -103,7 +103,7 @@ object Peers:
 
     private var pingTask = newPingTask
     private def newPingTask = p2p.schedulePeriodicAt(lastSeen + PingPeriod, PingPeriod):
-      send(Ping(p2p.myId, p2p.roomName, Ping.cookie))
+      send(Ping(p2p.myId, p2p.roomName, Ping.cookie, latency))
       peers.pingTime(id) = System.currentTimeMillis
 
     private var lifecycleTask: Task = newLifecycleTask

@@ -36,14 +36,11 @@ trait Peers private[p2p] extends Tasks:
     _activePeerNum = value
   protected def onHasActivePeerChanged(hadActivePeers: Boolean): Unit
 
-  def getPeers: Iterable[Peer] = peers.values
-
-  private[p2p] def killPeer(peer: Peer): Unit =
-    peers -= peer.id
-
   schedulePeriodic(5000 * 60, 5000 * 60):
     val minTime = System.currentTimeMillis - PingWaitTime
     pingTime.filterInPlace { case (_, time) => time > minTime }
+
+  def getPeers: Iterable[Peer] = peers.values
 
 
   protected trait PeerImpl extends Peer:

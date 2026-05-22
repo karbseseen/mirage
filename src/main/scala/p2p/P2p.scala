@@ -53,6 +53,20 @@ class P2p(val roomName: String):
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
+  def send(message: Message, peer: Peer): Unit =
+    val data = ByteBuffer.wrap(ByteCodec.encode(message))
+    peer.channel.send(data, peer.address)
+
+  def sendToAll(data: ByteBuffer): Unit =
+    sockets.foreach(_.channel.send(data, multicastAddress))
+
+  def close(): Future[?] =
+    val closer: Runnable = () =>
+      selector.close()
+      sockets.foreach(_.channel.close())
+      scheduler.shutdown()
+    scheduler.schedule(closer, 0, MILLISECONDS)
+
 
   private val interfaceUpdater: Runnable = () =>
     val oldSockets = sockets.map(socket => (socket.interface, socket.ip) -> socket).to(mutable.Map)
@@ -134,13 +148,6 @@ class P2p(val roomName: String):
 
   scheduler.scheduleWithFixedDelay(receiver, 50, 1, MILLISECONDS)
 
-
-  def send(message: Message, peer: Peer): Unit =
-    val data = ByteBuffer.wrap(ByteCodec.encode(message))
-    peer.channel.send(data, peer.address)
-
-  def sendToAll(data: ByteBuffer): Unit =
-    sockets.foreach(_.channel.send(data, multicastAddress))
 
   private val pingTimeCleaner: Runnable = () =>
     val minTime = System.currentTimeMillis - PingWaitTime

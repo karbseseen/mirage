@@ -3,6 +3,7 @@ package p2p
 import byte_codec.ByteCodec
 import p2p.Message.{MulticastAnnounce, Ping, Pong}
 import p2p.P2p.*
+import p2p.Peers.PeerImpl
 
 import java.net.*
 import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
@@ -48,11 +49,6 @@ class P2p(val roomName: String) extends Tasks with Peers:
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
-  def send(message: Message, peer: Peer): Unit = send(message, peer.address, peer.channel)
-  private def send(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
-    val data = ByteBuffer.wrap(ByteCodec.encode(message))
-    channel.send(data, address)
-
   def sendToAll(data: ByteBuffer): Unit =
     sockets.foreach(_.channel.send(data, multicastAddress))
 
@@ -76,25 +72,29 @@ class P2p(val roomName: String) extends Tasks with Peers:
   private def handleMessage(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
     if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
 
-    val peer = peers.updateWith(message.senderId): foundPeer =>
-      foundPeer.foreach(_.cancel())
-      val now = System.currentTimeMillis
-      val foundLatency = foundPeer.fold(0)(_.latency)
-      val (latency, needPeer) = message match
-        case announce: MulticastAnnounce =>
-          send(Ping(myId, roomName, Ping.cookie), address, channel)
-          pingTime(announce.senderId) = now
-          (foundLatency, foundPeer.nonEmpty)
-        case ping: Ping =>
-          send(Pong(myId, ping.senderId), address, channel)
-          (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
-        case pong: Pong => pingTime.remove(message.senderId)
-          .map(pingTime => (now - pingTime).toInt)
-          .filter(_ < Peers.PingWaitTime)
-          .fold(foundLatency, false)(waitTime => ((foundLatency + waitTime) / 3, pong.receiverId == myId)) //current latency = waitTime / 2
-        case _ => (foundLatency, foundPeer.nonEmpty)
-      Option.when(needPeer):
-        new Peer(message.senderId, now, latency, address, channel, this) with PeerImpl
+    val now = System.currentTimeMillis
+    val foundPeer = getPeerImpl(message.senderId)
+
+    val foundLatency = foundPeer.fold(0)(_.latency)
+    val (latency, needPeer) = message match
+      case announce: MulticastAnnounce =>
+        Peer.send(Ping(myId, roomName, Ping.cookie), address, channel)
+        pingTime(announce.senderId) = now
+        (foundLatency, foundPeer.nonEmpty)
+      case ping: Ping =>
+        Peer.send(Pong(myId, ping.senderId), address, channel)
+        (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
+      case pong: Pong => pingTime.remove(message.senderId)
+        .map(pingTime => (now - pingTime).toInt)
+        .filter(_ < Peers.PingWaitTime)
+        .fold(foundLatency, false)(waitTime => ((foundLatency + waitTime) / 3, pong.receiverId == myId)) //current latency = waitTime / 2
+      case _ => (foundLatency, foundPeer.nonEmpty)
+
+    val peer = foundPeer match
+      case None if needPeer => Some(PeerImpl(message.senderId, this, now, latency, address, channel))
+      case Some(peer) if needPeer => peer.update(now, latency, address, channel); Some(peer)
+      case Some(peer) if !needPeer => peer.cancel(); None
+      case _ => None
 
     for
       peer <- peer
@@ -149,6 +149,5 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
 
 object P2p:
-
   private inline val InterfaceUpdatePeriodSmall = 4_000
   private inline val InterfaceUpdatePeriodBig   = 20_000

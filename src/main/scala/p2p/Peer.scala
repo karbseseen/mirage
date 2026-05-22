@@ -44,24 +44,24 @@ trait Peers private[p2p] extends Tasks:
 
 
   protected trait PeerImpl extends Peer:
-    def cancel(): Unit =
-      task.cancel()
-      if (active) activePeerNum -= 1
-
     private var active = true
     activePeerNum += 1
 
-    private var task: Task = pingTask
-    private def pingTask = scheduleSingleAt(lastSeen + PingPeriod):
+    private val pingTask = schedulePeriodicAt(lastSeen + PingPeriod, PingPeriod):
       p2p.send(Ping(p2p.myId, p2p.roomName, Ping.cookie), this)
       pingTime(id) = System.currentTimeMillis
-      task = inactiveTask
-    private def inactiveTask = p2p.scheduleSingleAt(lastSeen + ActiveTime):
+
+    private var lifecycleTask: Task = p2p.scheduleSingleAt(lastSeen + ActiveTime):
       active = false
       activePeerNum -= 1
-      task = dieTask
-    private def dieTask = p2p.scheduleSingleAt(lastSeen + LiveTime):
-      peers -= id
+      lifecycleTask = scheduleSingleAt(lastSeen + LiveTime):
+        peers -= id
+        cancel()
+
+    def cancel(): Unit =
+      pingTask.cancel()
+      lifecycleTask.cancel()
+      if (active) activePeerNum -= 1
 
 
 object Peers:

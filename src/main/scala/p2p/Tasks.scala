@@ -54,16 +54,17 @@ trait Tasks private[p2p]:
         try task.run()
         catch case error: Throwable => error.printStackTrace()
         Some(task).collect:
-          case periodic: PeriodicTask => taskQueue += periodic.next
+          case periodic: PeriodicTask =>
+            periodic.time = System.currentTimeMillis + periodic.period
+            taskQueue += periodic
         runAvailable()
       case Some(task) => Some(task.time - now)
       case None => None
 
 
   private class Task(value: => Unit, var time: Long) extends p2p.Task:
-    @volatile private[Tasks] var cancelled = false
+    @volatile var cancelled = false
     def cancel(): Unit = cancelled = true
     def run(): Unit = value
 
-  private class PeriodicTask(value: => Unit, time: Long, period: Long) extends Task(value, time):
-    def next = PeriodicTask(value, System.currentTimeMillis + period, period)
+  private class PeriodicTask(value: => Unit, time: Long, val period: Long) extends Task(value, time)

@@ -83,7 +83,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
       val (latency, needPeer) = message match
         case announce: MulticastAnnounce =>
           send(Ping(myId, roomName, Ping.cookie), address, channel)
-          pingTime(announce.senderId) = System.currentTimeMillis
+          pingTime(announce.senderId) = now
           (0, false)
         case ping: Ping =>
           send(Pong(myId, ping.senderId), address, channel)
@@ -121,7 +121,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
     yield socket
     oldSockets.values.foreach(_.channel.close())
 
-    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, roomName, Ping.cookie)))
+    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](MulticastAnnounce(myId, roomName, Ping.cookie)))
     sockets.foreach(_.channel.send(ping, multicastAddress))
 
   protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit =

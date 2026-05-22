@@ -21,7 +21,7 @@ object Peer:
   case class Id(part1: Long, part2: Long)
 
 
-private trait Peers extends Tasks:
+trait Peers private[p2p] extends Tasks:
 
   protected val peers = mutable.Map.empty[Peer.Id, PeerImpl]
   protected val pingTime = mutable.Map.empty[Peer.Id, Long]
@@ -35,6 +35,8 @@ private trait Peers extends Tasks:
       onHasActivePeerChanged(hasActive)
     _activePeerNum = value
   protected def onHasActivePeerChanged(hadActivePeers: Boolean): Unit
+
+  def getPeers: Iterable[Peer] = peers.values
 
   private[p2p] def killPeer(peer: Peer): Unit =
     peers -= peer.id

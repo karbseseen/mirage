@@ -56,11 +56,11 @@ trait Peers private[p2p] extends Tasks:
       p2p.send(Ping(p2p.myId, p2p.roomName, Ping.cookie), this)
       pingTime(id) = System.currentTimeMillis
       task = inactiveTask
-    private def inactiveTask = p2p.scheduleSingleAt(lastSeen + PingPeriod):
+    private def inactiveTask = p2p.scheduleSingleAt(lastSeen + ActiveTime):
       active = false
       activePeerNum -= 1
       task = dieTask
-    private def dieTask = p2p.scheduleSingleAt(lastSeen + PingPeriod):
+    private def dieTask = p2p.scheduleSingleAt(lastSeen + LiveTime):
       peers -= id
 
 

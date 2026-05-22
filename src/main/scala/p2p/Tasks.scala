@@ -13,7 +13,7 @@ sealed trait Task:
 
 
 /**All of its methods are thread unsafe and intended to be called in scheduled tasks*/
-abstract class Tasks private[p2p]:
+trait Tasks private[p2p]:
 
   private val taskQueue = mutable.PriorityQueue.empty[Task](using Ordering.by(-_.time))
   private val closeLatch = CountDownLatch(1)
@@ -21,10 +21,14 @@ abstract class Tasks private[p2p]:
 
 
   def scheduleSingle(delay: Long)(task: => Unit): p2p.Task =
-    Task(task, System.currentTimeMillis + delay).also(taskQueue += _)
+    scheduleSingleAt(System.currentTimeMillis + delay)(task)
+  def scheduleSingleAt(time: Long)(task: => Unit): p2p.Task =
+    Task(task, time).also(taskQueue += _)
 
   def schedulePeriodic(delay: Long, period: Long)(task: => Unit): p2p.Task =
-    PeriodicTask(task, System.currentTimeMillis + delay, period).also(taskQueue += _)
+    schedulePeriodicAt(System.currentTimeMillis + delay, period)(task)
+  def schedulePeriodicAt(time: Long, period: Long)(task: => Unit): p2p.Task =
+    PeriodicTask(task, time, period).also(taskQueue += _)
 
   def close(): CountDownLatch =
     closed = true

@@ -13,6 +13,7 @@ import java.util.concurrent.{Executors, Future, ScheduledExecutorService}
 import java.util.function.Consumer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
+import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 
 
@@ -33,7 +34,8 @@ class P2p(val roomName: String):
   private val selector: Selector = Selector.open
   private var sockets: List[MulticastSocket] = Nil
   private val peers = mutable.Map.empty[Peer.Id, Peer]
-  private[p2p] val pingTime = mutable.Map.empty[Peer.Id, Long]
+  private val pingTime = mutable.Map.empty[Peer.Id, Long]
+  private val messageHandlers = mutable.Map.empty[Class[? <: Message], List[MessageHandler[? <: Message]]]
   private var hasActivePeers = false
 
   private val buffer = ByteBuffer.allocate(2048)
@@ -43,24 +45,36 @@ class P2p(val roomName: String):
   val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
 
 
+  def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
+    messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+      listOpt => Some(handler :: listOpt.getOrElse(Nil)) 
+
+  def removeMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
+    messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+      _.map(_.filter(_ != handler)).filter(_.nonEmpty)
+
+
   private val interfaceUpdater: Runnable = () =>
     val oldSockets = sockets.map(socket => (socket.interface, socket.ip) -> socket).to(mutable.Map)
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
       if interface.isUp && !interface.isLoopback && !interface.isVirtual
       ip <- interface.getInetAddresses.asScala.collect { case v4: Inet4Address => v4 }
-    yield
-      oldSockets.remove(interface, ip) getOrElse new MulticastSocket(interface, ip)
+      socket <- oldSockets.remove(interface, ip).orElse:
+        try Some(new MulticastSocket(interface, ip))
+        catch case error: Throwable => { error.printStackTrace(); None }
+    yield socket
     oldSockets.values.foreach(_.channel.close())
 
-    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, roomName)))
+    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, roomName, Ping.cookie)))
     sockets.foreach(_.channel.send(ping, multicastAddress))
 
   private var interfaceUpdateTask: Future[?] =
     scheduler.scheduleWithFixedDelay(interfaceUpdater, 0, InterfaceUpdatePeriodSmall, MILLISECONDS)
 
   private def updateActivePeers(): Unit =
-    val hasActivePeers = peers.values.exists(_.isActive)
+    val now = System.currentTimeMillis
+    val hasActivePeers = peers.values.exists(now - _.lastSeen < PeerActiveTime)
     if (this.hasActivePeers != hasActivePeers)
       this.hasActivePeers = hasActivePeers
       interfaceUpdateTask.cancel(false)
@@ -71,19 +85,13 @@ class P2p(val roomName: String):
           scheduler.scheduleWithFixedDelay(interfaceUpdater, 0, InterfaceUpdatePeriodSmall, MILLISECONDS)
 
 
-  private[p2p] def getPeer(id: Peer.Id): Option[Peer] = peers.get(id)
-
-  private[p2p] def updatePeer(peer: Peer): Unit =
-    peers(peer.id) = peer
-    updateActivePeers()
-
   private val peerKiller: Runnable = () =>
     val now = System.currentTimeMillis
     peers.filterInPlace: (_, peer) =>
       val age = now - peer.lastSeen
-      if (age > PeerPingPeriod || !peer.verified)
-        send(Ping(myId, roomName), peer)
-        pingTime(peer.id) = System.currentTimeMillis
+      if (age > PeerPingPeriod)
+        send(Ping(myId, roomName, Ping.cookie), peer)
+        pingTime(peer.id) = now
       age < PeerLiveTime
     updateActivePeers()
 
@@ -97,13 +105,33 @@ class P2p(val roomName: String):
           val address = channel.receive(buffer.rewind)
           for
             address <- Some(address).collect { case inet: InetSocketAddress => inet }
-            message <- Try(ByteCodec.decode[Message](buffer.array))
+            message <- Try(ByteCodec.decode[Message](buffer.array, 0, buffer.position))
           do
             if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong)    //Just in case
-            Message.handle(this, message, address, channel)
+            handleMessage(message, address, channel)
         case _ => (),
       1000,
     )
+
+  private def handleMessage(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
+    val peer = peers.updateWith(message.senderId): foundPeer =>
+      val now = System.currentTimeMillis
+      val foundLatency = foundPeer.fold(0)(_.latency)
+      val (latency, needPeer) = message match
+        case ping: Ping => (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
+        case pong: Pong => pingTime.remove(message.senderId)
+          .map(pingTime => (now - pingTime).toInt)
+          .filter(_ < PingWaitTime)
+          .fold(foundLatency, false)(waitTime => ((foundLatency + waitTime) / 3, pong.receiverId == myId))    //current latency = waitTime / 2
+        case _ => (foundLatency, foundPeer.nonEmpty)
+      Option.when(needPeer):
+        Peer(message.senderId, now, latency, address, channel)
+
+    for (ping, peer) <- Some(message).collect { case ping: Ping => ping }.zip(peer) do
+      send(Pong(myId, ping.senderId), peer)
+
+    messageHandlers.getOrElse(message.getClass, Nil)
+      .foreach(_.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this))
 
   scheduler.scheduleWithFixedDelay(receiver, 50, 1, MILLISECONDS)
 
@@ -134,10 +162,10 @@ class P2p(val roomName: String):
 
 
 object P2p:
-  private[p2p] inline val PeerLiveTime    = 10_000
-  private[p2p] inline val PeerActiveTime  = 5_000
-  private[p2p] inline val PeerPingPeriod  = 1_500
-  private[p2p] inline val PingWaitTime    = 8_000
+  inline val PeerActiveTime  = 5_000
+  private inline val PeerLiveTime    = 10_000
+  private inline val PeerPingPeriod  = 1_500
+  private inline val PingWaitTime    = 8_000
 
   private inline val InterfaceUpdatePeriodSmall = 4_000
   private inline val InterfaceUpdatePeriodBig   = 20_000
@@ -147,11 +175,9 @@ class Peer private[p2p] (
   val id: Peer.Id,
   val lastSeen: Long,
   val latency: Int,
-  val verified: Boolean,
   val address: InetSocketAddress,
   private[p2p] val channel: DatagramChannel,
-):
-  def isActive: Boolean = verified && System.currentTimeMillis - lastSeen < PeerActiveTime
+)
 
 object Peer:
   case class Id(part1: Long, part2: Long)

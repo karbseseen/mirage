@@ -3,13 +3,14 @@ package p2p
 import byte_codec.ByteCodec
 import p2p.Message.{Ping, Pong}
 import p2p.P2p.*
+import util.SingleThreadExecutor
 
 import java.net.*
-import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
+import java.nio.{ByteBuffer, ByteOrder}
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit.{MILLISECONDS, MINUTES}
-import java.util.concurrent.{Executors, Future, ScheduledExecutorService}
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit.{MINUTES, NANOSECONDS}
 import java.util.function.Consumer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
@@ -42,7 +43,7 @@ class P2p(val roomName: String):
 
   private var _myId = Peer.Id(Random.nextLong, Random.nextLong)
   def myId: Peer.Id = _myId
-  val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
+  val scheduler = new SingleThreadExecutor
 
 
   def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
@@ -61,14 +62,16 @@ class P2p(val roomName: String):
     sockets.foreach(_.channel.send(data, multicastAddress))
 
   def close(): Future[?] =
-    val closer: Runnable = () =>
+    scheduler.scheduleSingle(0):
       selector.close()
       sockets.foreach(_.channel.close())
-      scheduler.shutdown()
-    scheduler.schedule(closer, 0, MILLISECONDS)
+      scheduler.impl.shutdown()
 
 
-  private val interfaceUpdater: Runnable = () =>
+  private var interfaceUpdateTask: Future[?] =
+    scheduler.schedulePeriodic(0, InterfaceUpdatePeriodSmall)(updateInterfaces())
+
+  private def updateInterfaces(): Unit =
     val oldSockets = sockets.map(socket => socket.interface -> socket).to(mutable.Map)
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
@@ -82,9 +85,6 @@ class P2p(val roomName: String):
     val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, roomName, Ping.cookie)))
     sockets.foreach(_.channel.send(ping, multicastAddress))
 
-  private var interfaceUpdateTask: Future[?] =
-    scheduler.scheduleWithFixedDelay(interfaceUpdater, 0, InterfaceUpdatePeriodSmall, MILLISECONDS)
-
   private def updateActivePeers(): Unit =
     val now = System.currentTimeMillis
     val hasActivePeers = peers.values.exists(now - _.lastSeen < PeerActiveTime)
@@ -92,13 +92,11 @@ class P2p(val roomName: String):
       this.hasActivePeers = hasActivePeers
       interfaceUpdateTask.cancel(false)
       interfaceUpdateTask =
-        if (hasActivePeers)
-          scheduler.scheduleWithFixedDelay(interfaceUpdater, InterfaceUpdatePeriodBig, InterfaceUpdatePeriodBig, MILLISECONDS)
-        else
-          scheduler.scheduleWithFixedDelay(interfaceUpdater, 0, InterfaceUpdatePeriodSmall, MILLISECONDS)
+        if (hasActivePeers) scheduler.schedulePeriodic(InterfaceUpdatePeriodBig, InterfaceUpdatePeriodBig)(updateInterfaces())
+        else scheduler.schedulePeriodic(0, InterfaceUpdatePeriodSmall)(updateInterfaces())
 
 
-  private val peerKiller: Runnable = () =>
+  scheduler.schedulePeriodic(PeerLiveTime, PeerLiveTime):
     val now = System.currentTimeMillis
     peers.filterInPlace: (_, peer) =>
       val age = now - peer.lastSeen
@@ -108,10 +106,8 @@ class P2p(val roomName: String):
       age < PeerLiveTime
     updateActivePeers()
 
-  scheduler.scheduleWithFixedDelay(peerKiller, PeerLiveTime, PeerLiveTime, MILLISECONDS)
 
-
-  private val receiver: Runnable = () =>
+  scheduler.schedulePeriodic(50_000_000, 1, NANOSECONDS):
     selector.select(
       key => key.channel match
         case channel: DatagramChannel if key.isReadable =>
@@ -123,7 +119,7 @@ class P2p(val roomName: String):
             if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong)    //Just in case
             handleMessage(message, address, channel)
         case _ => (),
-      1000,
+      scheduler.timeUntilNext.getOrElse(1000),
     )
 
   private def handleMessage(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
@@ -145,14 +141,10 @@ class P2p(val roomName: String):
       messageHandlers.getOrElse(message.getClass, Nil)
         .foreach(_.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this))
 
-  scheduler.scheduleWithFixedDelay(receiver, 50, 1, MILLISECONDS)
 
-
-  private val pingTimeCleaner: Runnable = () =>
+  scheduler.schedulePeriodic(5, 5, MINUTES):
     val minTime = System.currentTimeMillis - PingWaitTime
     pingTime.filterInPlace { case (_, time) => time > minTime }
-
-  scheduler.scheduleWithFixedDelay(pingTimeCleaner, 5, 5, MINUTES)
 
 
   private class MulticastSocket(val interface: NetworkInterface):

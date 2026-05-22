@@ -54,6 +54,7 @@ trait Peers private[p2p] extends Tasks:
     private var task: Task = pingTask
     private def pingTask = scheduleSingleAt(lastSeen + PingPeriod):
       p2p.send(Ping(p2p.myId, p2p.roomName, Ping.cookie), this)
+      pingTime(id) = System.currentTimeMillis
       task = inactiveTask
     private def inactiveTask = p2p.scheduleSingleAt(lastSeen + PingPeriod):
       active = false

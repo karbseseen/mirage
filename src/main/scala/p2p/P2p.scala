@@ -1,7 +1,7 @@
 package p2p
 
 import byte_codec.ByteCodec
-import p2p.Message.{Ping, Pong}
+import p2p.Message.{MulticastAnnounce, Ping, Pong}
 import p2p.P2p.*
 
 import java.net.*
@@ -48,9 +48,10 @@ class P2p(val roomName: String) extends Tasks with Peers:
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
-  def send(message: Message, peer: Peer): Unit =
+  def send(message: Message, peer: Peer): Unit = send(message, peer.address, peer.channel)
+  private def send(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
     val data = ByteBuffer.wrap(ByteCodec.encode(message))
-    peer.channel.send(data, peer.address)
+    channel.send(data, address)
 
   def sendToAll(data: ByteBuffer): Unit =
     sockets.foreach(_.channel.send(data, multicastAddress))
@@ -80,7 +81,13 @@ class P2p(val roomName: String) extends Tasks with Peers:
       val now = System.currentTimeMillis
       val foundLatency = foundPeer.fold(0)(_.latency)
       val (latency, needPeer) = message match
-        case ping: Ping => (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
+        case announce: MulticastAnnounce =>
+          send(Ping(myId, roomName, Ping.cookie), address, channel)
+          pingTime(announce.senderId) = System.currentTimeMillis
+          (0, false)
+        case ping: Ping =>
+          send(Pong(myId, ping.senderId), address, channel)
+          (foundLatency, ping.roomName == roomName && ping.cookie == Ping.cookie)
         case pong: Pong => pingTime.remove(message.senderId)
           .map(pingTime => (now - pingTime).toInt)
           .filter(_ < Peers.PingWaitTime)
@@ -89,10 +96,11 @@ class P2p(val roomName: String) extends Tasks with Peers:
       Option.when(needPeer):
         new Peer(message.senderId, now, latency, address, channel, this) with PeerImpl
 
-    for peer <- peer do
-      Some(message).collect { case ping: Ping => send(Pong(myId, ping.senderId), peer) }
-      messageHandlers.getOrElse(message.getClass, Nil)
-        .foreach(_.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this))
+    for
+      peer <- peer
+      handler <- messageHandlers.getOrElse(message.getClass, Nil)
+    do
+      handler.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this)
 
 
   protected def onClose(): Unit =

@@ -83,12 +83,15 @@ class P2p(val roomName: String) extends Tasks with Peers:
         (foundLatency, foundPeer.nonEmpty)
       case ping: Ping =>
         Peer.send(Pong(myId, ping.senderId), address, channel)
-        List(foundLatency, ping.latency).filter(_ > 0).reduceOption((a, b) => (a + b) / 2).getOrElse(0) ->
-          (ping.roomName == roomName && ping.cookie == Ping.cookie)
+        val latency = List(foundLatency, ping.latency)
+          .filter(_ > 0)
+          .reduceOption((found, got) => (found * 7 + got) / 8)
+          .getOrElse(0)
+        (latency, ping.roomName == roomName && ping.cookie == Ping.cookie)
       case pong: Pong => pingTime.remove(message.senderId)
         .map(pingTime => (now - pingTime).toInt)
         .filter(_ < Peers.PingWaitTime)
-        .fold(foundLatency, false)(waitTime => ((foundLatency + waitTime) / 3, pong.receiverId == myId)) //current latency = waitTime / 2
+        .fold(foundLatency, false)(waitTime => ((foundLatency * 6 + waitTime) / 8, pong.receiverId == myId)) //current latency = waitTime / 2
       case _ => (foundLatency, foundPeer.nonEmpty)
 
     val peer = foundPeer match

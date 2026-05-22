@@ -2,10 +2,12 @@ package p2p
 
 import byte_codec.ByteCodec
 import p2p.Message.{Ping, Pong}
+import p2p.P2p.*
 
 import java.net.*
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit.{MILLISECONDS, MINUTES}
 import java.util.concurrent.{Executors, Future, ScheduledExecutorService}
 import java.util.function.Consumer
@@ -14,17 +16,19 @@ import scala.jdk.CollectionConverters.*
 import scala.util.{Random, Try}
 
 
-object P2p:
+class P2p(val roomName: String):
 
-  private[p2p] inline val PeerLiveTime    = 10_000
-  private[p2p] inline val PeerActiveTime  = 5_000
-  private[p2p] inline val PeerPingPeriod  = 1_500
-  private[p2p] inline val PingWaitTime    = 8_000
-
-  private inline val InterfaceUpdatePeriodSmall = 4_000
-  private inline val InterfaceUpdatePeriodBig   = 20_000
-
-  private val multicastAddress = InetSocketAddress(Inet4Address.ofLiteral("239.227.162.194"), 42815)
+  private val multicastAddress =
+    val roomBytes = ByteBuffer
+      .wrap(MessageDigest.getInstance("MD5").digest(roomName.getBytes))
+      .order(ByteOrder.BIG_ENDIAN)
+    val port = roomBytes.getShort.toInt match
+      case port if port < 1024 => 65535 - port
+      case port => port
+    val ipv4 = Array.tabulate(4):
+      case 0 => 239.toByte
+      case _ => roomBytes.get
+    InetSocketAddress(InetAddress.getByAddress(ipv4), port)
 
   private val selector: Selector = Selector.open
   private var sockets: List[MulticastSocket] = Nil
@@ -40,15 +44,16 @@ object P2p:
 
 
   private val interfaceUpdater: Runnable = () =>
-    val oldSockets = sockets.map(socket => socket.interface -> socket).to(mutable.Map)
+    val oldSockets = sockets.map(socket => (socket.interface, socket.ip) -> socket).to(mutable.Map)
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
       if interface.isUp && !interface.isLoopback && !interface.isVirtual
+      ip <- interface.getInetAddresses.asScala.collect { case v4: Inet4Address => v4 }
     yield
-      oldSockets.remove(interface) getOrElse new MulticastSocket(interface)
+      oldSockets.remove(interface, ip) getOrElse new MulticastSocket(interface, ip)
     oldSockets.values.foreach(_.channel.close())
 
-    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, Ping.cookie)))
+    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](Ping(myId, roomName)))
     sockets.foreach(_.channel.send(ping, multicastAddress))
 
   private var interfaceUpdateTask: Future[?] =
@@ -76,7 +81,9 @@ object P2p:
     val now = System.currentTimeMillis
     peers.filterInPlace: (_, peer) =>
       val age = now - peer.lastSeen
-      if (age > PeerPingPeriod || !peer.verified) ping(peer)
+      if (age > PeerPingPeriod || !peer.verified)
+        send(Ping(myId, roomName), peer)
+        pingTime(peer.id) = System.currentTimeMillis
       age < PeerLiveTime
     updateActivePeers()
 
@@ -93,12 +100,12 @@ object P2p:
             message <- Try(ByteCodec.decode[Message](buffer.array))
           do
             if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong)    //Just in case
-            Message.handle(message, address, channel)
+            Message.handle(this, message, address, channel)
         case _ => (),
       1000,
     )
 
-  scheduler.scheduleWithFixedDelay(receiver, 50, 0, MILLISECONDS)
+  scheduler.scheduleWithFixedDelay(receiver, 50, 1, MILLISECONDS)
 
 
   def send(message: Message, peer: Peer): Unit =
@@ -108,26 +115,32 @@ object P2p:
   def sendToAll(data: ByteBuffer): Unit =
     sockets.foreach(_.channel.send(data, multicastAddress))
 
-  private def ping(peer: Peer): Unit =
-    P2p.send(Ping(P2p.myId, Ping.cookie), peer)
-    pingTime(peer.id) = System.currentTimeMillis
-
   private val pingTimeCleaner: Runnable = () =>
     val minTime = System.currentTimeMillis - PingWaitTime
     pingTime.filterInPlace { case (_, time) => time > minTime }
 
-  P2p.scheduler.scheduleWithFixedDelay(pingTimeCleaner, 5, 5, MINUTES)
+  scheduler.scheduleWithFixedDelay(pingTimeCleaner, 5, 5, MINUTES)
 
 
-  private class MulticastSocket(val interface: NetworkInterface):
+  private class MulticastSocket(val interface: NetworkInterface, val ip: Inet4Address):
     val channel: DatagramChannel = DatagramChannel
       .open(StandardProtocolFamily.INET)
-      .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
+      .bind(InetSocketAddress(ip, multicastAddress.getPort))
       .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
       .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
     channel.configureBlocking(false)
     channel.join(multicastAddress.getAddress, interface)
     channel.register(selector, SelectionKey.OP_READ)
+
+
+object P2p:
+  private[p2p] inline val PeerLiveTime    = 10_000
+  private[p2p] inline val PeerActiveTime  = 5_000
+  private[p2p] inline val PeerPingPeriod  = 1_500
+  private[p2p] inline val PingWaitTime    = 8_000
+
+  private inline val InterfaceUpdatePeriodSmall = 4_000
+  private inline val InterfaceUpdatePeriodBig   = 20_000
 
 
 class Peer private[p2p] (
@@ -138,7 +151,7 @@ class Peer private[p2p] (
   val address: InetSocketAddress,
   private[p2p] val channel: DatagramChannel,
 ):
-  def isActive: Boolean = verified && System.currentTimeMillis - lastSeen < P2p.PeerActiveTime
+  def isActive: Boolean = verified && System.currentTimeMillis - lastSeen < PeerActiveTime
 
 object Peer:
   case class Id(part1: Long, part2: Long)

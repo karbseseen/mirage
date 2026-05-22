@@ -127,11 +127,10 @@ class P2p(val roomName: String):
       Option.when(needPeer):
         Peer(message.senderId, now, latency, address, channel)
 
-    for (ping, peer) <- Some(message).collect { case ping: Ping => ping }.zip(peer) do
-      send(Pong(myId, ping.senderId), peer)
-
-    messageHandlers.getOrElse(message.getClass, Nil)
-      .foreach(_.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this))
+    for peer <- peer do
+      Some(message).collect { case ping: Ping => send(Pong(myId, ping.senderId), peer) }
+      messageHandlers.getOrElse(message.getClass, Nil)
+        .foreach(_.asInstanceOf[MessageHandler[Message]].onReceive(message, peer, this))
 
   scheduler.scheduleWithFixedDelay(receiver, 50, 1, MILLISECONDS)
 

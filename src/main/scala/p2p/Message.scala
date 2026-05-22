@@ -8,7 +8,7 @@ sealed trait Message extends Product:
 
 
 trait MessageHandler[M <: Message]:
-  def onReceive(message: M, peer: Option[Peer], p2p: P2p): Unit
+  def onReceive(message: M, peer: Peer, p2p: P2p): Unit
 
 
 object Message:

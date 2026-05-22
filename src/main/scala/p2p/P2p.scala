@@ -158,7 +158,7 @@ class P2p(val roomName: String):
   private class MulticastSocket(val interface: NetworkInterface):
     val channel: DatagramChannel = DatagramChannel
       .open(StandardProtocolFamily.INET)
-      .setOption(StandardSocketOptions.SO_REUSEPORT, true)
+      .setOption(StandardSocketOptions.SO_REUSEADDR, true)
       .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
       .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
       .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)

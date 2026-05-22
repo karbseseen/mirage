@@ -69,13 +69,12 @@ class P2p(val roomName: String):
 
 
   private val interfaceUpdater: Runnable = () =>
-    val oldSockets = sockets.map(socket => (socket.interface, socket.ip) -> socket).to(mutable.Map)
+    val oldSockets = sockets.map(socket => socket.interface -> socket).to(mutable.Map)
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
       if interface.isUp && !interface.isLoopback && !interface.isVirtual
-      ip <- interface.getInetAddresses.asScala.collect { case v4: Inet4Address => v4 }
-      socket <- oldSockets.remove(interface, ip).orElse:
-        try Some(new MulticastSocket(interface, ip))
+      socket <- oldSockets.remove(interface).orElse:
+        try Some(new MulticastSocket(interface))
         catch case error: Throwable => { error.printStackTrace(); None }
     yield socket
     oldSockets.values.foreach(_.channel.close())
@@ -156,10 +155,11 @@ class P2p(val roomName: String):
   scheduler.scheduleWithFixedDelay(pingTimeCleaner, 5, 5, MINUTES)
 
 
-  private class MulticastSocket(val interface: NetworkInterface, val ip: Inet4Address):
+  private class MulticastSocket(val interface: NetworkInterface):
     val channel: DatagramChannel = DatagramChannel
       .open(StandardProtocolFamily.INET)
-      .bind(InetSocketAddress(ip, multicastAddress.getPort))
+      .setOption(StandardSocketOptions.SO_REUSEPORT, true)
+      .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
       .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
       .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
     channel.configureBlocking(false)

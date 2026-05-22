@@ -11,6 +11,7 @@ import java.nio.{ByteBuffer, ByteOrder}
 import java.security.MessageDigest
 import java.util.function.Consumer
 import scala.collection.mutable
+import scala.io.StdIn
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.{Random, Try}
@@ -52,6 +53,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
         _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
   def multicast(message: Message): Unit =
+    println(s"* <- $message")
     val data = ByteBuffer.wrap(ByteCodec.encode(message))
     sockets.foreach(_.channel.send(data.rewind, multicastAddress))
 
@@ -73,6 +75,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
       handleMessage(message, address, channel)
 
   private def handleMessage(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
+    println(s"$address -> $message")
     if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
 
     val now = System.currentTimeMillis
@@ -139,9 +142,11 @@ class P2p(val roomName: String) extends Tasks with Peers:
     do
       peer.kill()
 
+    print(sockets.map(_.interface).mkString("(", ", ", ") "))
     multicast(MulticastAnnounce(myId, roomName, Ping.cookie))
 
   protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit =
+    println(s"hasActivePeers: $hasActivePeers")
     if (this.hasActivePeers != hasActivePeers)
       this.hasActivePeers = hasActivePeers
       interfaceUpdateTask.cancel()
@@ -167,3 +172,18 @@ class P2p(val roomName: String) extends Tasks with Peers:
 object P2p:
   private inline val InterfaceUpdatePeriodSmall = 5_000
   private inline val InterfaceUpdatePeriodBig   = 20_000
+
+  def main(args: Array[String]): Unit =
+    val p2p = P2p("Test room")
+    println("multicastAddress: " + p2p.multicastAddress)
+
+    p2p.addPeerListener: (peer, added) =>
+      println(s"${peer.address} ${if (added) "born" else "died"}")
+
+    for
+      line <- Iterator.continually(StdIn.readLine).takeWhile(_ != "q")
+      peer <- p2p.peers.values
+    do
+      peer.send(Message.Test(p2p.myId, line))
+
+    p2p.close()

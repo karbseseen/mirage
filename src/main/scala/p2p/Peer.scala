@@ -25,6 +25,7 @@ object Peer:
   case class Id(part1: Long, part2: Long)
 
   private[p2p] def send(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
+    println(s"$address <- $message")
     val data = ByteBuffer.wrap(ByteCodec.encode(message))
     channel.send(data, address)
 

@@ -8,8 +8,6 @@ import java.net.*
 import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
 import java.nio.{ByteBuffer, ByteOrder}
 import java.security.MessageDigest
-import java.util.concurrent.{CountDownLatch, Future}
-import java.util.concurrent.TimeUnit.{MINUTES, NANOSECONDS}
 import java.util.function.Consumer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
@@ -65,7 +63,7 @@ class P2p(val roomName: String) extends Tasks:
       key => key.channel match
         case channel: DatagramChannel if key.isReadable => receiveMessage(channel)
         case _ => (),
-      timeUntilNext.fold(1000L)(_ min 1000L),
+      timeUntilNext.map(_ + 10).fold(5000L)(_ min 5000L),
     )
 
   private def receiveMessage(channel: DatagramChannel): Unit =
@@ -74,10 +72,11 @@ class P2p(val roomName: String) extends Tasks:
       address <- Some(address).collect { case inet: InetSocketAddress => inet }
       message <- Try(ByteCodec.decode[Message](buffer.array, 0, buffer.position))
     do
-      if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
       handleMessage(message, address, channel)
 
   private def handleMessage(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
+    if (_myId == message.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
+
     val peer = peers.updateWith(message.senderId): foundPeer =>
       val now = System.currentTimeMillis
       val foundLatency = foundPeer.fold(0)(_.latency)

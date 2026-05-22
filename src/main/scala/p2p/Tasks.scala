@@ -17,7 +17,7 @@ abstract class Tasks private[p2p]:
 
   private val taskQueue = mutable.PriorityQueue.empty[Task](using Ordering.by(-_.time))
   private val closeLatch = CountDownLatch(1)
-  private var closed = false
+  @volatile private var closed = false
 
 
   def scheduleSingle(delay: Long)(task: => Unit): p2p.Task =

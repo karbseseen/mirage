@@ -1,65 +1,38 @@
 package core
 
-import config.{Language, Theme}
 import constant.Tr
 import core.main.MainApp
-import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.Pos
+import org.kordamp.ikonli.fluentui.{FluentUiRegularAL, FluentUiRegularMZ}
+import org.kordamp.ikonli.javafx.FontIcon
+import scalafx.Includes.jfxText2sfxText
+import scalafx.application.Platform.runLater
 import scalafx.scene.control.*
+import scalafx.scene.layout.{HBox, Priority, Region}
 import torrent.view.TorrentModal
 
 
-object MainMenu:
+class MainMenu extends HBox:
 
-  val addMenu: Menu =
-    val torrentAdd = new MenuItem:
+  private val addMenu = new Menu:
+    text <== Tr.add
+    graphic = FontIcon(FluentUiRegularAL.ADD_24)
+    items += new MenuItem:
       text <== Tr.torrent
       onAction = _ => MainApp.modal.show(TorrentModal.add)
-
-    val torrentCreate = new MenuItem:
+    items += new MenuItem:
       text <== Tr.file
       onAction = _ => MainApp.modal.show(TorrentModal.create)
 
-    new Menu:
-      text <== Tr.add
-      items = Seq(torrentAdd, torrentCreate)
+  private val space = new Region:
+    styleClass += "menu-bar"
+    hgrow = Priority.Always
 
+  private val settingsMenu = new Menu(null, FontIcon(FluentUiRegularMZ.SETTINGS_24)):
+    items += new MenuItem
+    onShowing = event =>
+      MainApp.modal.show(new MainSettings)
+      runLater(hide())
 
-  val settingsMenu: Menu =
-    val language = new Menu:
-      private val group = new ToggleGroup
-      text <== Tr.language
-      items = Language.values.map { language =>
-        new RadioMenuItem(language.name):
-          toggleGroup = group
-          if (language == Language.config()) selected = true
-          onAction = _ => Language.config() = language
-      }
-
-    val theme = new Menu:
-      private val group = new ToggleGroup
-      text <== Tr.theme
-      items = Theme.map.values.toList.sortBy(_.getName).map { theme =>
-        new RadioMenuItem(theme.getName):
-          toggleGroup = group
-          if (theme == Theme.config()) selected = true
-          onAction = _ => Theme.config() = theme
-      }
-
-    val update = new MenuItem:
-      text <== Tr.toUpdate
-      onAction = _ => new UpdateStage().show()
-
-    val clearToken = new MenuItem:
-      text <== Tr.clearToken
-      visible <== GithubToken.property.isNotNull
-      onAction = _ => GithubToken.clear(Some(MainApp.notifications))
-
-    new Menu:
-      text <== Tr.settings
-      items = Seq(language, theme, update, clearToken)
-
-
-  val value: MenuBar = new MenuBar:
-    menus = Seq(addMenu, settingsMenu)
-    alignmentInParent = Pos.TopCenter
+  private val leftMenu = new MenuBar { menus = Seq(addMenu) }
+  private val rightMenu = new MenuBar { menus = Seq(settingsMenu) }
+  children = Seq(leftMenu, space, rightMenu)

@@ -17,11 +17,13 @@ object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
-  lazy val root = new VBox(MainMenu.value, torrentView)
+  lazy val root = new VBox(new MainMenu, torrentView)
   lazy val modal = new ModalPane
   lazy val notifications = new NotificationBox
 
   def start(): Unit =
+    config.Theme
+    config.Language
     stage = new PrimaryStage:
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):

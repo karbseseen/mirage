@@ -1,0 +1,80 @@
+package core
+
+import atlantafx.base.controls.Tile
+import config.{Language, SingleTheme, Theme}
+import constant.{Constants, Tr, Translate}
+import core.main.MainApp
+import fx.ModalVBox
+import javafx.beans.InvalidationListener
+import javafx.util.StringConverter
+import org.kordamp.ikonli.fluentui.FluentUiFilledAL
+import org.kordamp.ikonli.javafx.FontIcon
+import scalafx.Includes.{jfxControl2sfx, jfxProperty2sfx}
+import scalafx.collections.ObservableBuffer
+import scalafx.geometry.Pos
+import scalafx.scene.control.{ChoiceBox, Label, Separator}
+import scalafx.scene.layout.VBox
+import scalafx.scene.text.Font
+
+import java.lang
+
+
+class MainSettings extends VBox with ModalVBox:
+
+  alignment = Pos.Center
+
+  children += new Label:
+    text <== Tr.settings
+    font = Font(Constants.headingSize)
+
+  children += space
+
+  children += choice(Tr.language):
+    new ChoiceBox(ObservableBuffer from Language.values):
+      value <==> Language.config
+      converter() = new StringConverter[Language]:
+        def toString(language: Language): String = language.name
+        def fromString(name: String): Language = Language.values.find(_.name == name).orNull
+
+  children += choice(Tr.theme):
+    new ChoiceBox(ObservableBuffer from Theme.values):
+      value <==> Theme.config
+
+  children += darknessChoice
+  Language.config.addListener(_ => children(4) = darknessChoice)
+  private def darknessChoice = choice(Tr.brightness):
+    new ChoiceBox(ObservableBuffer from Theme.Darkness.values):
+      disable <== Theme.config.map[lang.Boolean](_.isInstanceOf[SingleTheme])
+      Theme.config.subscribe: theme =>
+        if (!theme.isInstanceOf[SingleTheme]) value <==> Theme.Darkness.config
+        else if (Theme.config().asInstanceOf[SingleTheme].isDark)
+          value.unbind(Theme.Darkness.config)
+          value() = Theme.Darkness.Dark
+        else
+          value.unbind(Theme.Darkness.config)
+          value() = Theme.Darkness.Light
+      converter() = new StringConverter[Theme.Darkness]:
+        def toString(value: Theme.Darkness): String = value.name(Language.config())
+        def fromString(name: String): Theme.Darkness = Theme.Darkness.values.find(_.name(Language.config()) == name).orNull
+
+  children += new Separator
+
+  children += new Tile:
+    titleProperty <== Tr.toUpdate
+    setAction(FontIcon(FluentUiFilledAL.CHEVRON_RIGHT_24))
+    setActionHandler(() => UpdateStage().show())
+
+  children += new Tile:
+    titleProperty <== Tr.clearToken
+    setActionHandler(() => GithubToken.clear(Some(MainApp.notifications)))
+    this.visible <== GithubToken.property.isNotNull
+    this.managed <== this.visible
+
+
+  private def choice(name: Translate)(choiceBox: ChoiceBox[?]) =
+    new Tile:
+      titleProperty <== name
+      setAction(choiceBox)
+      setActionHandler: () =>
+        choiceBox.requestFocus()
+        choiceBox.showing = true

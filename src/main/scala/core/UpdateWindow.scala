@@ -1,6 +1,5 @@
 package core
 
-import atlantafx.base.controls.SelectableTextFlow
 import atlantafx.base.theme.Styles
 import constant.{Constants, Tr}
 import core.main.MainApp
@@ -19,12 +18,11 @@ import scalafx.scene.Scene
 import scalafx.scene.control.*
 import scalafx.scene.control.ScrollPane.ScrollBarPolicy
 import scalafx.scene.layout.*
-import scalafx.scene.paint.Color
 import scalafx.scene.text.{Font, Text, TextFlow}
 import scalafx.stage.{Modality, Stage}
 import util.*
 
-import java.io.{File, FileOutputStream, PrintWriter, StringWriter}
+import java.io.{File, FileOutputStream}
 import java.time.ZoneId
 import java.time.format.{DateTimeFormatter, FormatStyle}
 import scala.jdk.CollectionConverters.IterableHasAsScala

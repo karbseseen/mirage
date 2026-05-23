@@ -49,8 +49,9 @@ class P2p(val roomName: String) extends Tasks with Peers:
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
-  def sendToAll(data: ByteBuffer): Unit =
-    sockets.foreach(_.channel.send(data, multicastAddress))
+  def multicast(message: Message): Unit =
+    val data = ByteBuffer.wrap(ByteCodec.encode(message))
+    sockets.foreach(_.channel.send(data.rewind, multicastAddress))
 
 
   protected def loop(timeUntilNext: Option[Long]): Unit =
@@ -78,8 +79,9 @@ class P2p(val roomName: String) extends Tasks with Peers:
     val foundLatency = foundPeer.fold(0)(_.latency)
     val (latency, needPeer) = message match
       case announce: MulticastAnnounce =>
-        Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
-        pingTime(announce.senderId) = now
+        if (foundPeer.isEmpty)
+          Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
+          pingTime(announce.senderId) = now
         (foundLatency, foundPeer.nonEmpty)
       case ping: Ping =>
         Peer.send(Pong(myId, ping.senderId), address, channel)
@@ -88,7 +90,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
           .reduceOption((found, got) => (found * 7 + got) / 8)
           .getOrElse(0)
         (latency, ping.roomName == roomName && ping.cookie == Ping.cookie)
-      case pong: Pong => pingTime.remove(message.senderId)
+      case pong: Pong => pingTime.remove(pong.senderId)
         .map(pingTime => (now - pingTime).toInt)
         .filter(_ < Peers.PingWaitTime)
         .fold(foundLatency, false)(waitTime => ((foundLatency * 6 + waitTime) / 8, pong.receiverId == myId)) //current latency = waitTime / 2
@@ -97,7 +99,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
     val peer = foundPeer match
       case None if needPeer => Some(PeerImpl(message.senderId, this, now, latency, address, channel))
       case Some(peer) if needPeer => peer.update(now, latency, address, channel); Some(peer)
-      case Some(peer) if !needPeer => peer.cancel(); None
+      case Some(peer) if !needPeer => peer.kill(); None
       case _ => None
 
     for
@@ -131,10 +133,9 @@ class P2p(val roomName: String) extends Tasks with Peers:
       peer <- peerImpls.values
       if peer.channel == socket.channel
     do
-      peer.cancel()
+      peer.kill()
 
-    val ping = ByteBuffer.wrap(ByteCodec.encode[Message](MulticastAnnounce(myId, roomName, Ping.cookie)))
-    sockets.foreach(_.channel.send(ping, multicastAddress))
+    multicast(MulticastAnnounce(myId, roomName, Ping.cookie))
 
   protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit =
     if (this.hasActivePeers != hasActivePeers)

@@ -94,9 +94,11 @@ object Peers:
       lifecycleTask = newLifecycleTask
 
 
-    def cancel(): Unit =
+    def kill(): Unit =
       peers._peers -= id
-      if (active) peers.activePeerNum -= 1
+      if (active)
+        peers.activePeerNum -= 1
+        active = false
       pingTask.cancel()
       lifecycleTask.cancel()
 

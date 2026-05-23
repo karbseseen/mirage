@@ -164,7 +164,7 @@ public class Main {
     
     private String parseUrl(String rawUrl) {
         if (rawUrl.contains("-platform")) {
-            if (rawUrl.contains("javafx"))
+            if (rawUrl.contains("openjfx"))
                 return rawUrl.replaceAll("-platform", "-" + JavaPlatform.javafxPlatform);
             if (rawUrl.contains("jlibtorrent"))
                 return rawUrl.replaceAll("-platform", "-" + JavaPlatform.jlibtorrentPlatform);

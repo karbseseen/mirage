@@ -41,8 +41,6 @@ class P2p(val roomName: String) extends Tasks with Peers:
   def myId: Peer.Id = _myId
 
 
-  def start(): Unit = loopThread.start()
-
   def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       listOpt => Some(handler :: listOpt.getOrElse(Nil)) 

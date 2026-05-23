@@ -16,7 +16,7 @@ sealed trait Task:
 trait Tasks private[p2p]:
 
   private val taskQueue = mutable.PriorityQueue.empty[Task](using Ordering.by(-_.time))
-  private val closeLatch = CountDownLatch(1)
+  private val closeTasks = mutable.Buffer.empty[() => Unit]
   @volatile private var closed = false
 
 
@@ -30,18 +30,20 @@ trait Tasks private[p2p]:
   def schedulePeriodicAt(time: Long, period: Long)(task: => Unit): p2p.Task =
     PeriodicTask(task, time, period).also(taskQueue += _)
 
-  def close(): CountDownLatch =
-    closed = true
-    closeLatch
+  def start(): Unit = loopThread.start()
+  def stop(): Unit = closed = true
+  def scheduleAfterStop(task: => Unit): Unit = closeTasks += (() => task)
 
 
   protected def loop(timeUntilNext: Option[Long]): Unit
   protected def onClose(): Unit
 
-  protected val loopThread = Thread: () =>
+  private val loopThread = Thread: () =>
     while (!closed) loop(runAvailable())
     onClose()
-    closeLatch.countDown()
+    for task <- closeTasks do
+      try task()
+      catch case error: Throwable => error.printStackTrace()
 
   @tailrec private def runAvailable(): Option[Long] =
     val now = System.currentTimeMillis

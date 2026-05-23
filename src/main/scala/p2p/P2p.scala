@@ -164,6 +164,8 @@ class P2p(val roomName: String) extends Tasks with Peers:
     channel.join(multicastAddress.getAddress, interface)
     channel.register(selector, SelectionKey.OP_READ)
 
+  start()
+
 
 object P2p:
   private inline val InterfaceUpdatePeriodSmall = 5_000

@@ -41,6 +41,8 @@ class P2p(val roomName: String) extends Tasks with Peers:
   def myId: Peer.Id = _myId
 
 
+  def start(): Unit = loopThread.start()
+
   def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
     messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
       listOpt => Some(handler :: listOpt.getOrElse(Nil)) 
@@ -79,7 +81,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
     val foundLatency = foundPeer.fold(0)(_.latency)
     val (latency, needPeer) = message match
       case announce: MulticastAnnounce =>
-        if (foundPeer.isEmpty)
+        if (foundPeer.isEmpty && pingTime.get(announce.senderId).forall(now - _ > Peers.PingWaitTime))
           Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
           pingTime(announce.senderId) = now
         (foundLatency, foundPeer.nonEmpty)
@@ -97,8 +99,8 @@ class P2p(val roomName: String) extends Tasks with Peers:
       case _ => (foundLatency, foundPeer.nonEmpty)
 
     val peer = foundPeer match
-      case None if needPeer => Some(PeerImpl(message.senderId, this, now, latency, address, channel))
-      case Some(peer) if needPeer => peer.update(now, latency, address, channel); Some(peer)
+      case None if needPeer => Some(PeerImpl(message.senderId, this, latency, address, channel))
+      case Some(peer) if needPeer => peer.update(latency, address, channel); Some(peer)
       case Some(peer) if !needPeer => peer.kill(); None
       case _ => None
 
@@ -146,9 +148,6 @@ class P2p(val roomName: String) extends Tasks with Peers:
         else schedulePeriodic(0, InterfaceUpdatePeriodSmall)(updateInterfaces())
 
 
-  loopThread.start()
-
-
   private class MulticastSocket(val interface: NetworkInterface):
     val channel: DatagramChannel = DatagramChannel
       .open(StandardProtocolFamily.INET)
@@ -162,5 +161,5 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
 
 object P2p:
-  private inline val InterfaceUpdatePeriodSmall = 4_000
+  private inline val InterfaceUpdatePeriodSmall = 5_000
   private inline val InterfaceUpdatePeriodBig   = 20_000

@@ -29,6 +29,10 @@ object Peer:
     channel.send(data, address)
 
 
+trait PeerListener:
+  def onPeer(peer: Peer, added: Boolean): Unit
+
+
 trait Peers private[p2p] extends Tasks:
 
   protected val pingTime = mutable.Map.empty[Peer.Id, Long]
@@ -46,6 +50,14 @@ trait Peers private[p2p] extends Tasks:
     _activePeerNum = value
   protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit
 
+  private val listeners = mutable.Buffer.empty[PeerListener]
+  def addPeerListener(listener: PeerListener): Unit = listeners += listener
+  def removePeerListener(listener: PeerListener): Unit = listeners -= listener
+
+  def sendToAll(message: Message): Unit =
+    val data = ByteBuffer.wrap(ByteCodec.encode(message))
+    _peers.values.foreach(peer => peer.channel.send(data, peer.address))
+
   schedulePeriodic(5000 * 60, 5000 * 60):
     val minTime = System.currentTimeMillis - PingWaitTime
     pingTime.filterInPlace { case (_, time) => time > minTime }
@@ -61,7 +73,6 @@ object Peers:
   private[p2p] class PeerImpl(
     val id: Peer.Id,
     val p2p: P2p,
-    private var _lastSeen: Long,
     private var _latency: Int,
     private var _address: InetSocketAddress,
     private var _channel: DatagramChannel,
@@ -70,21 +81,24 @@ object Peers:
     private def peers: Peers = p2p
     private var active = true
 
-    peers._peers(id) = this
     peers.activePeerNum += 1
+    peers._peers.updateWith(id): oldPeer =>
+      oldPeer.foreach(_.kill())
+      Some(this)
+    peers.listeners.foreach(_.onPeer(this, added = true))
 
+    private var _lastSeen: Long = System.currentTimeMillis
     def lastSeen: Long = _lastSeen
     def latency: Int = _latency
     def address: InetSocketAddress = _address
     def channel: DatagramChannel = _channel
 
     def update(
-      lastSeen: Long,
       latency: Int,
       address: InetSocketAddress,
       channel: DatagramChannel,
     ): Unit =
-      this._lastSeen = lastSeen
+      this._lastSeen = System.currentTimeMillis
       this._latency  = latency
       this._address  = address
       this._channel  = channel
@@ -95,12 +109,16 @@ object Peers:
 
 
     def kill(): Unit =
-      peers._peers -= id
       if (active)
         peers.activePeerNum -= 1
         active = false
-      pingTask.cancel()
       lifecycleTask.cancel()
+      die()
+
+    private def die(): Unit =
+      peers._peers -= id
+      pingTask.cancel()
+      peers.listeners.foreach(_.onPeer(this, added = false))
 
 
     private var pingTask = newPingTask
@@ -112,6 +130,4 @@ object Peers:
     private def newLifecycleTask = p2p.scheduleSingleAt(lastSeen + ActiveTime):
       active = false
       peers.activePeerNum -= 1
-      lifecycleTask = p2p.scheduleSingleAt(lastSeen + LiveTime):
-        peers._peers -= id
-        pingTask.cancel()
+      lifecycleTask = p2p.scheduleSingleAt(lastSeen + LiveTime)(die())

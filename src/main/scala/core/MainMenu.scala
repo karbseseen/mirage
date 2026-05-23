@@ -4,29 +4,34 @@ import config.{Language, Theme}
 import constant.Tr
 import core.main.MainApp
 import scalafx.beans.BeanIncludes.jfxProperty2sfx
-import scalafx.geometry.Pos
 import scalafx.scene.control.*
+import scalafx.scene.layout.{HBox, Priority, Region}
 import torrent.view.TorrentModal
 
 
-object MainMenu:
+class MainMenu extends HBox:
 
-  val addMenu: Menu =
-    val torrentAdd = new MenuItem:
+  private val addMenu = new Menu:
+    text <== Tr.add
+
+    items += new MenuItem:
       text <== Tr.torrent
       onAction = _ => MainApp.modal.show(TorrentModal.add)
 
-    val torrentCreate = new MenuItem:
+    items += new MenuItem:
       text <== Tr.file
       onAction = _ => MainApp.modal.show(TorrentModal.create)
 
-    new Menu:
-      text <== Tr.add
-      items = Seq(torrentAdd, torrentCreate)
+
+  private val space = new Region:
+    styleClass += "menu-bar"
+    hgrow = Priority.Always
 
 
-  val settingsMenu: Menu =
-    val language = new Menu:
+  private val settingsMenu = new Menu:
+    text <== Tr.settings
+
+    items += new Menu:
       private val group = new ToggleGroup
       text <== Tr.language
       items = Language.values.map { language =>
@@ -36,7 +41,7 @@ object MainMenu:
           onAction = _ => Language.config() = language
       }
 
-    val theme = new Menu:
+    items += new Menu:
       private val group = new ToggleGroup
       text <== Tr.theme
       items = Theme.map.values.toList.sortBy(_.getName).map { theme =>
@@ -46,20 +51,19 @@ object MainMenu:
           onAction = _ => Theme.config() = theme
       }
 
-    val update = new MenuItem:
+    items += new MenuItem:
       text <== Tr.toUpdate
       onAction = _ => new UpdateStage().show()
 
-    val clearToken = new MenuItem:
+    items += new MenuItem:
       text <== Tr.clearToken
       visible <== GithubToken.property.isNotNull
       onAction = _ => GithubToken.clear(Some(MainApp.notifications))
 
-    new Menu:
-      text <== Tr.settings
-      items = Seq(language, theme, update, clearToken)
 
+  private val leftMenu = new MenuBar { menus = Seq(addMenu) }
+  private val rightMenu = new MenuBar { menus = Seq(settingsMenu) }
 
-  val value: MenuBar = new MenuBar:
-    menus = Seq(addMenu, settingsMenu)
-    alignmentInParent = Pos.TopCenter
+  maxWidth = Double.MaxValue
+  hgrow = Priority.Always
+  children = Seq(leftMenu, space, rightMenu)

@@ -78,31 +78,26 @@ class P2p(val roomName: String) extends Tasks with Peers:
     val now = System.currentTimeMillis
     val foundPeer = peerImpls.get(message.senderId)
 
-    val foundLatency = foundPeer.fold(0)(_.latency)
-    val (latency, needPeer) = message match
-
+    val (newLatencyX2, needPeer) = message match
       case announce: MulticastAnnounce =>
         if (foundPeer.isEmpty && pingTime.get(announce.senderId).forall(now - _ > Peers.PingWaitTime))
           Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
           pingTime(announce.senderId) = now
-        (foundLatency, foundPeer.nonEmpty)
-
+        (0, foundPeer.nonEmpty)
       case ping: Ping =>
         Peer.send(Pong(myId, ping.senderId), address, channel)
-        val latency = List(foundLatency, ping.latency)
-          .filter(_ > 0)
-          .reduceOption((found, got) => (found * 7 + got) / 8)
-          .getOrElse(0)
-        (latency, ping.roomName == roomName && ping.cookie == Ping.cookie)
-
+        (ping.latency * 2, ping.roomName == roomName && ping.cookie == Ping.cookie)
       case pong: Pong => pingTime.remove(pong.senderId)
         .map(pingTime => (now - pingTime).toInt)
         .filter(_ < Peers.PingWaitTime)
-        .fold(foundLatency, false)(waitTime => ((foundLatency * 6 + waitTime) / 8, pong.receiverId == myId)) //current latency = waitTime / 2
-
+        .fold(0, false)((_, pong.receiverId == myId))
       case bye: Bye => (0, false)
+      case _ => (0, foundPeer.nonEmpty)
 
-      case _ => (foundLatency, foundPeer.nonEmpty)
+    def latency = (newLatencyX2 :: foundPeer.map(_.latency).toList)
+      .filter(_ > 0)
+      .reduceOption((newX2, found) => (found * 6 + newX2) / 8)
+      .getOrElse(0)
 
     val peer = foundPeer match
       case None if needPeer => Some(PeerImpl(message.senderId, this, latency, address, channel))

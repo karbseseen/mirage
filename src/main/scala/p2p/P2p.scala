@@ -1,7 +1,7 @@
 package p2p
 
 import byte_codec.ByteCodec
-import p2p.Message.{MulticastAnnounce, Ping, Pong}
+import p2p.Message.{Bye, MulticastAnnounce, Ping, Pong}
 import p2p.P2p.*
 import p2p.Peers.PeerImpl
 
@@ -80,11 +80,13 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
     val foundLatency = foundPeer.fold(0)(_.latency)
     val (latency, needPeer) = message match
+
       case announce: MulticastAnnounce =>
         if (foundPeer.isEmpty && pingTime.get(announce.senderId).forall(now - _ > Peers.PingWaitTime))
           Peer.send(Ping(myId, roomName, Ping.cookie, 0), address, channel)
           pingTime(announce.senderId) = now
         (foundLatency, foundPeer.nonEmpty)
+
       case ping: Ping =>
         Peer.send(Pong(myId, ping.senderId), address, channel)
         val latency = List(foundLatency, ping.latency)
@@ -92,10 +94,14 @@ class P2p(val roomName: String) extends Tasks with Peers:
           .reduceOption((found, got) => (found * 7 + got) / 8)
           .getOrElse(0)
         (latency, ping.roomName == roomName && ping.cookie == Ping.cookie)
+
       case pong: Pong => pingTime.remove(pong.senderId)
         .map(pingTime => (now - pingTime).toInt)
         .filter(_ < Peers.PingWaitTime)
         .fold(foundLatency, false)(waitTime => ((foundLatency * 6 + waitTime) / 8, pong.receiverId == myId)) //current latency = waitTime / 2
+
+      case bye: Bye => (0, false)
+
       case _ => (foundLatency, foundPeer.nonEmpty)
 
     val peer = foundPeer match
@@ -112,6 +118,7 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
 
   protected def onClose(): Unit =
+    sendToAll(Bye(myId))
     selector.close()
     sockets.foreach(_.channel.close())
 

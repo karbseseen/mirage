@@ -110,8 +110,8 @@ object Peers:
 
     def kill(): Unit =
       if (active)
-        peers.activePeerNum -= 1
         active = false
+        peers.activePeerNum -= 1
       lifecycleTask.cancel()
       die()
 

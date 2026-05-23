@@ -13,9 +13,10 @@ trait MessageHandler[M <: Message]:
 
 object Message:
 
-  @Type(100) case class MulticastAnnounce(senderId: Peer.Id, roomName: String, cookie: Long) extends Message
-  @Type(101) case class Ping(senderId: Peer.Id, roomName: String, cookie: Long, latency: Int) extends Message
-  @Type(102) case class Pong(senderId: Peer.Id, receiverId: Peer.Id) extends Message
+  @Type(99) case class MulticastAnnounce(senderId: Peer.Id, roomName: String, cookie: Long) extends Message
+  @Type(98) case class Ping(senderId: Peer.Id, roomName: String, cookie: Long, latency: Int) extends Message
+  @Type(97) case class Pong(senderId: Peer.Id, receiverId: Peer.Id) extends Message
+  @Type(96) case class Bye(senderId: Peer.Id) extends Message
 
   object Ping:
     val cookie = 0x4777b31c02b707b5L

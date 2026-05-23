@@ -42,12 +42,14 @@ class P2p(val roomName: String) extends Tasks with Peers:
 
 
   def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
-    messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
-      listOpt => Some(handler :: listOpt.getOrElse(Nil)) 
+    threadSafe:
+      messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+        listOpt => Some(handler :: listOpt.getOrElse(Nil))
 
   def removeMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
-    messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
-      _.map(_.filter(_ != handler)).filter(_.nonEmpty)
+    threadSafe:
+      messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+        _.map(_.filter(_ != handler)).filter(_.nonEmpty)
 
   def multicast(message: Message): Unit =
     val data = ByteBuffer.wrap(ByteCodec.encode(message))

@@ -41,6 +41,12 @@ trait Tasks private[p2p]:
       if (closed) tryTask()
       else closeTasks += tryTask
 
+  protected def threadSafe(task: => Unit): Unit =
+    if (Thread.currentThread == loopThread) task
+    else alienTasks.synchronized:
+      alienTasks += SingleTask(task, System.currentTimeMillis)
+      hasAlienTask = true
+
   private def addTask(task: Task): Unit =
     if (Thread.currentThread == loopThread) taskQueue += task
     else alienTasks.synchronized:

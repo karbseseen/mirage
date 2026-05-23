@@ -51,12 +51,13 @@ trait Peers private[p2p] extends Tasks:
   protected def onHasActivePeerChanged(hasActivePeers: Boolean): Unit
 
   private val listeners = mutable.Buffer.empty[PeerListener]
-  def addPeerListener(listener: PeerListener): Unit = listeners += listener
-  def removePeerListener(listener: PeerListener): Unit = listeners -= listener
+  def addPeerListener   (listener: PeerListener): Unit = threadSafe(listeners += listener)
+  def removePeerListener(listener: PeerListener): Unit = threadSafe(listeners -= listener)
 
   def sendToAll(message: Message): Unit =
-    val data = ByteBuffer.wrap(ByteCodec.encode(message))
-    _peers.values.foreach(peer => peer.channel.send(data, peer.address))
+    threadSafe:
+      val data = ByteBuffer.wrap(ByteCodec.encode(message))
+      _peers.values.foreach(peer => peer.channel.send(data, peer.address))
 
   schedulePeriodic(5000 * 60, 5000 * 60):
     val minTime = System.currentTimeMillis - PingWaitTime

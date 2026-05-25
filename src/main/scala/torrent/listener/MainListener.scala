@@ -39,8 +39,9 @@ private[listener] class MainListener extends TorrentListener:
     Torrent.session.remove(event.handle)
 
   listen[MetadataReceivedAlert]: event =>
+    import TorrentFlags.*
     val handle = event.handle
-    handle.setFlags(TorrentFlags.STOP_WHEN_READY, TorrentFlags.AUTO_MANAGED or_ TorrentFlags.STOP_WHEN_READY)
+    handle.setFlags(STOP_WHEN_READY, STOP_WHEN_READY or_ UPLOAD_MODE or_ AUTO_MANAGED)
     map.get(handle.hash).foreach(_.metadataUpdate())
 
 

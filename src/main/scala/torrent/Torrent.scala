@@ -10,13 +10,15 @@ import scalafx.application.Platform
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
 import torrent.Hash.hash
+import torrent.Torrent.Known
 import torrent.listener.TorrentListener
 import torrent.view.TorrentView
 import util.{JavaUtil, also}
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import java.util.concurrent.{CompletableFuture, CountDownLatch, TimeUnit, TimeoutException}
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CompletableFuture, CountDownLatch, TimeUnit}
 import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
 
@@ -27,12 +29,10 @@ private object Torrent:
   TorrentListener.all.foreach(session.addListener)
   session.start()
 
-  private class Known(val needSave: Boolean)
-  private val knownTorrents = mutable.Map.empty[Hash, Known]
-
   val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
   directory.mkdir()
-  knownTorrents ++= directory.list.toList
+
+  private val restored = directory.list.toList
     .collect:
       case s"$name.torrent" => name
     .distinct
@@ -43,9 +43,21 @@ private object Torrent:
       else Try:
         val info = TorrentInfo(torrentFile)
         session.download(info, null, resumeFile, null, null, new torrent_flags_t)
-        info.hash
+        val known: Known = (torrent, _) =>
+          torrent.nextResumeSaveTime = System.currentTimeMillis + Random.nextLong(Constants.resumeSavePeriod)
+        info.hash -> known
       .toOption
-    .map(_ -> Known(needSave = false))
+
+
+  trait Known:
+    def onMetadata(torrent: Torrent, info: TorrentInfo): Unit
+  object Known:
+    val default: Known = (torrent, info) =>
+      torrent.handle.prioritizeFiles { Array.fill(info.numFiles)(Priority.IGNORE) }
+      torrent.nextResumeSaveTime = System.currentTimeMillis
+      Torrent.save(info)
+  val knownTorrents = AtomicReference(restored.toMap)
+
 
   val exitResumeDone = CountDownLatch(1)
   MainApp.shutdownLongHook:
@@ -77,16 +89,22 @@ private object Torrent:
         libtorrent.add_files(_, file.getAbsolutePath)
     val error = new error_code
     libtorrent.set_piece_hashes_ex(create, file.getParent, new set_piece_hashes_listener, error)
-    if (error.failed) {
-      println("error.failed")
+    if (error.failed)
       throw Exception(error.message)
-    }
 
     val info = TorrentInfo.bdecode(Vectors.byte_vector2bytes(create.generate.bencode))
     if (!info.isValid || info.numFiles != 1) throw Exception(Tr.addFileError.getValue)
 
-    knownTorrents.synchronized { knownTorrents(info.hash) = Known(needSave = true) }
+    val known: Known = (torrent, info) =>
+      save(info)
+      torrent.nextResumeSaveTime = System.currentTimeMillis
+    knownTorrents.updateAndGet(_ + (info.hash -> known))
     session.download(info, file.getParentFile, null, null, null, TorrentFlags.SEED_MODE)
+
+
+  private def save(info: TorrentInfo): Unit =
+    try Files.write(directory.toPath.resolve(s"${info.hash}.torrent"), info.bencode)
+    catch case error: Throwable => MainApp.showError(error)
 
 
   val all: ObservableBuffer[Torrent] = ObservableBuffer.empty
@@ -100,7 +118,7 @@ private class Torrent(val hash: Hash):
   /**Edit only in alert thread*/
   var nextResumeSaveTime: Long = Long.MaxValue
 
-  private val known = Torrent.knownTorrents.synchronized { Torrent.knownTorrents.remove(hash) }
+  private val known = Torrent.knownTorrents.getAndUpdate(_.removed(hash)).get(hash)
   private val initState = State(
     value = handle.status(new status_flags_t).state,
     paused = handle.isPaused,
@@ -115,38 +133,30 @@ private class Torrent(val hash: Hash):
   val upSpeed   = SimpleIntegerProperty(this, "upSpeed")
   val peerNum   = SimpleIntegerProperty(this, "peerNum")
 
-  def metadataUpdate(): Unit = metadataUpdateInner(init = false)
-  private def metadataUpdateInner(init: Boolean): Unit =
-    def ui(): Unit =
+
+  metadataUpdate()
+  def metadataUpdate(): Unit =
+    Option(handle.torrentFile).foreach(known.getOrElse(Known.default).onMetadata(this, _))
+    Platform.runLater:
       name.value = Option(handle.name).filter(_.nonEmpty).getOrElse(hash.toString)
       for info <- Option(handle.torrentFile) do
         size.value = info.totalSize
         if (TorrentView.selected.exists(_.torrent == this)) TorrentView.selectedExpr.invalidate()
-    if (init) ui() else Platform.runLater(ui())
 
-    for info <- Option(handle.torrentFile) do
-      if (state().isNew)
-        handle.prioritizeFiles { Array.tabulate(info.numFiles)(_ => Priority.IGNORE) }
-        nextResumeSaveTime = System.currentTimeMillis
-        save(info)
-      else
-        nextResumeSaveTime = System.currentTimeMillis + Random.nextLong(Constants.resumeSavePeriod)
-  private def save(info: TorrentInfo): Unit =
-    try Files.write(Torrent.directory.toPath.resolve(s"${info.hash}.torrent"), info.bencode)
-    catch case error: Throwable => MainApp.showError(error)
-  metadataUpdateInner(init = true)
-  known.filter(_.needSave).flatMap(_ => Option(handle.torrentFile)).foreach(save)
 
   private val readRequests = mutable.Map.empty[Int, CompletableFuture[Array[Byte]]]
+
   def putPieceRequest(piece: Int): CompletableFuture[Array[Byte]] =
     readRequests.synchronized:
       readRequests.getOrElseUpdate(piece, new CompletableFuture[Array[Byte]])
+
   def putPieceResponse(piece: Int)(data: => Array[Byte]): Unit =
     readRequests.synchronized:
       for future <- readRequests.remove(piece) do
         Try(data) match
           case Success(result) => future.complete(result)
           case Failure(error) => future.completeExceptionally(error)
+
   def cancelPieceRequests(): Unit =
     readRequests.synchronized:
       readRequests.values.foreach(_.cancel(true))

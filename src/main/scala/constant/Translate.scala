@@ -74,6 +74,7 @@ object Tr:
   val resetToken        = Translate("Reset token",                "Обновить токен")
   val resume            = Translate("Resume",                     "Продолжить")
   val retry             = Translate("Retry",                      "Попробовать еще раз")
+  val room              = Translate("Room",                       "Комната")
   val seeding           = Translate("Seeding",                    "Раздается")
   val selectCommit      = Translate("Select a commit",            "Выберите комит")
   val selectFiles       = Translate("Select files",               "Выберите файлы")

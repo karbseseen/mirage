@@ -24,6 +24,7 @@ object MainApp extends JFXApp3
   def start(): Unit =
     config.Theme
     config.Language
+    p2p.base.P2p
     stage = new PrimaryStage:
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):

@@ -6,13 +6,15 @@ import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.ModalVBox
 import javafx.beans.InvalidationListener
+import javafx.scene.input.KeyCode
 import javafx.util.StringConverter
 import org.kordamp.ikonli.fluentui.FluentUiFilledAL
 import org.kordamp.ikonli.javafx.FontIcon
+import p2p.base.P2p
 import scalafx.Includes.{jfxControl2sfx, jfxProperty2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.Pos
-import scalafx.scene.control.{ChoiceBox, Label, Separator}
+import scalafx.scene.control.{ChoiceBox, Label, Separator, TextField}
 import scalafx.scene.layout.VBox
 import scalafx.scene.text.Font
 
@@ -56,6 +58,17 @@ class MainSettings extends VBox with ModalVBox:
       converter() = new StringConverter[Theme.Darkness]:
         def toString(value: Theme.Darkness): String = value.name(Language.config())
         def fromString(name: String): Theme.Darkness = Theme.Darkness.values.find(_.name(Language.config()) == name).orNull
+
+  children += new Tile:
+    private val input = new TextField:
+      text() = P2p.roomName()
+      focused.subscribe(focus => if (!focus) P2p.roomName() = text())
+      onKeyPressed = event =>
+        if (event.getCode == KeyCode.ENTER)
+          MainSettings.this.requestFocus()
+    titleProperty <== Tr.room
+    setAction(input)
+    setActionHandler(() => input.requestFocus())
 
   children += new Separator
 

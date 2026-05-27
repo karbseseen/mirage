@@ -6,7 +6,8 @@ import uk.co.caprica.vlcj.player.base.{MediaPlayer, State}
 
 trait VlcMedia extends CallbackMedia:
   def getName: String
-  def shutdown(): Unit
+  def onStageShow(): Unit
+  def onStageHide(): Unit
 
 
 extension (player: MediaPlayer) private def isFinished =

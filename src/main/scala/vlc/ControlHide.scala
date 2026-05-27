@@ -6,6 +6,7 @@ import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.application.Platform.runLater
 import scalafx.scene.Cursor
+import scalafx.stage.WindowEvent
 import scalafx.util.Duration
 
 import java.lang
@@ -42,7 +43,7 @@ private def applyControlHide(stage: VlcStage): Unit =
   thread.setDaemon(true)
   thread.start()
 
-  stage.onHidden = _ => dieLatch.countDown()
+  stage.addEventHandler(WindowEvent.WindowHidden, _ => dieLatch.countDown())
   stage.root.onMouseMoved = _ =>
     if (animation.rate() < 0)
       animation.rate = 1

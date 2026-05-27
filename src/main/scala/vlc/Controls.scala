@@ -54,24 +54,25 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       if (pressed() && !valueChanging())
         if (player.isFinished) player.media.play(stage.media)
         player.controls.setTime(value.longValue)
+        stage.updateState(time = value.longValue, seek = true, send = true)
     valueChanging.addListener: (_,_,changing) =>
       if (changing)
-        wasPlaying = stage.isPlaying()
+        wasPlaying = player.status.isPlaying
         if (wasPlaying) player.controls.setPause(true)
       else
         if (player.isFinished) player.media.play(stage.media)
         else if (wasPlaying) player.controls.setPause(false)
         player.controls.setTime(value.longValue)
+        stage.updateState(pause = Some(!wasPlaying), time = value.longValue, seek = true, send = true)
 
+  val playPauseIcon: FontIcon = new FontIcon:
+    setStyle(fontIconStyle(28))
+    setIconCode(FluentUiFilledMZ.PLAY_48)
   val playPause: Button = new Button:
     padding = Insets(Constants.playerInset * 1.5)
     background <== hoverableBg(this)
-    graphic = new FontIcon:
-      setStyle(fontIconStyle(28))
-      iconCodeProperty <== stage.isPlaying.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
-    onAction = _ =>
-      if (player.isFinished) player.media.play(stage.media)
-      else player.controls.setPause(stage.isPlaying())
+    graphic = playPauseIcon
+    onAction = _ => stage.togglePause()
 
   val volume: HBox = new HBox:
     background <== hoverableBg(this)

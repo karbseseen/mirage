@@ -10,7 +10,7 @@ import util.JavaPlatform.OS
 
 
 class WakeLock:
-  private var locked = false
+  @volatile private var locked = false
 
   def lock(): Unit = WakeLockUnsafe.synchronized:
     if (!locked)

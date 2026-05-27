@@ -23,7 +23,7 @@ import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
 
 
-private object Torrent:
+object Torrent:
 
   val session = new SessionManager
   TorrentListener.all.foreach(session.addListener)
@@ -59,7 +59,7 @@ private object Torrent:
   val knownTorrents = AtomicReference(restored.toMap)
 
 
-  val exitResumeDone = CountDownLatch(1)
+  private[torrent] val exitResumeDone = CountDownLatch(1)
   MainApp.shutdownLongHook:
     session.pause()
     session.getTorrentHandles.foreach(_.saveResumeData())

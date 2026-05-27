@@ -25,6 +25,8 @@ object MainApp extends JFXApp3
     config.Theme
     config.Language
     p2p.base.P2p
+    p2p.RoomSync
+
     stage = new PrimaryStage:
       title <== Tr.appName
       scene = new Scene(new StackPane, 800, 500):

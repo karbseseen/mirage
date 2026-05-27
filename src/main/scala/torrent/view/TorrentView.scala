@@ -115,7 +115,7 @@ private val torrentFileTable = new AutoTreeView[TorrentNode]:
     value match
       case file: TorrentNode.File => row.onMouseClicked = event =>
         if (event.getClickCount == 2)
-          VlcStage(TorrentMedia(selectedExpr().torrent, file.index))
+          VlcStage.play(Some(TorrentMedia(selectedExpr().torrent, file.index)))
       case _ => row.onMouseClicked = null
   rowUnset(_.onMouseClicked = null)
 

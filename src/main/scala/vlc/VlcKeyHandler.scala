@@ -1,9 +1,7 @@
 package vlc
 
-import constant.Tr
 import javafx.event.EventHandler
 import javafx.scene.input.{KeyCode, KeyEvent}
-import uk.co.caprica.vlcj.player.base.Marquee
 
 
 private class VlcKeyHandler(stage: VlcStage) extends EventHandler[KeyEvent]:
@@ -15,13 +13,11 @@ private class VlcKeyHandler(stage: VlcStage) extends EventHandler[KeyEvent]:
       case KeyCode.SPACE          => stage.togglePause()
       case KeyCode.LEFT           => controls.skipTime(-10_000)
       case KeyCode.RIGHT          => if (event.isShiftDown) controls.nextFrame() else controls.skipTime(10_000)
-      case KeyCode.OPEN_BRACKET   => updateSpeed { ((math.round(player.status.rate * 10) - 1).toFloat / 10) max 0.3 }
-      case KeyCode.CLOSE_BRACKET  => updateSpeed { ((math.round(player.status.rate * 10) + 1).toFloat / 10) min 4 }
+      case KeyCode.OPEN_BRACKET   => updateSpeed { (math.round(player.status.rate * 10) - 1) max 3 }
+      case KeyCode.CLOSE_BRACKET  => updateSpeed { (math.round(player.status.rate * 10) + 1) min 40 }
     if (consume.nonEmpty) event.consume()
 
-  private def updateSpeed(value: Float): Unit =
-    controls.setRate(value)
-    player.marquee.set(Marquee.marquee
-      .text(s"${Tr.speed.get} = $value")
-      .location(50, 50)
-    )
+  private def updateSpeed(valueX10: Int): Unit =
+    if (controls.setRate(valueX10 / 10f))
+      stage.updateState(speedX10 = valueX10.toByte, send = true)
+      stage.showNewSpeedText(valueX10.toByte)

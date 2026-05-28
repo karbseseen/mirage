@@ -64,8 +64,16 @@ private val torrentTable = new AutoTableView[Torrent]:
       visible <== notNew
       onAction = _ => torrent.handle.forceReannounce()
     row.contextMenu = ContextMenu(playPause, delete, recheckFiles, reannounce)
+
+    Option(torrent.handle.torrentFile).filter(_.numFiles == 1) match
+      case Some(info) => row.onMouseClicked = event =>
+        if (event.getClickCount == 2)
+          VlcStage.play(Some(TorrentMedia(torrent, 0)))
+      case _ => row.onMouseClicked = null
+
   rowUnset: row =>
     row.contextMenu = null
+    row.onMouseClicked = null
 
   columns += new Column(Tr.state, _.state):
     comparator = Ordering.by(!(_: State).isNew).orElseBy(_.value.ordinal).orElseBy(!_.paused)

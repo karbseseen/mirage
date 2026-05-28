@@ -92,10 +92,18 @@ object Torrent:
     val create = create_torrent:
       file_storage().also:
         libtorrent.add_files(_, file.getAbsolutePath)
+
+    create.add_tracker("udp://tracker.ducks.party:1984/announce")
+    create.add_tracker("udp://ipv4announce.sktorrent.eu:6969/announce")
+    create.add_tracker("udp://tracker.torrent.eu.org:451/announce")
+    create.add_tracker("udp://open.demonii.com:1337/announce")
+    create.add_tracker("udp://seedpeer.net:6969/announce")
+    create.add_tracker("udp://tracker.bluefrog.pw:2710/announce")
+    create.add_tracker("udp://torrentclub.online:54123/announce")
+
     val error = new error_code
     libtorrent.set_piece_hashes_ex(create, file.getParent, new set_piece_hashes_listener, error)
-    if (error.failed)
-      throw Exception(error.message)
+    if (error.failed) throw Exception(error.message)
 
     val info = TorrentInfo.bdecode(Vectors.byte_vector2bytes(create.generate.bencode))
     if (!info.isValid || info.numFiles != 1) throw Exception(Tr.addFileError.getValue)

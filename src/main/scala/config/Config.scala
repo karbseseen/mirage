@@ -1,12 +1,13 @@
 package config
 
 import core.main.MainApp
-import javafx.beans.property.{Property, SimpleObjectProperty, SimpleStringProperty}
+import javafx.beans.property.{Property, SimpleBooleanProperty, SimpleObjectProperty, SimpleStringProperty}
 import org.virtuslab.yaml.Node.{MappingNode, ScalarNode}
 import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec, YamlDecoder, YamlEncoder}
 import util.{JavaUtil, printError}
 
 import java.io.File
+import java.lang
 import java.nio.file.Files
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -57,7 +58,14 @@ object Config:
     initValue.foreach(property.setValue)
 
 
+  implicit val javaBooleanCodec: YamlCodec[lang.Boolean] =
+    YamlCodec.make[Boolean].mapInvariant(lang.Boolean.valueOf)(_.booleanValue)
+
+
   class StringProp(bean: AnyRef, name: String, default: String = "") extends SimpleStringProperty(bean, name, default):
+    Config.register(this)
+
+  class BoolProp(bean: AnyRef, name: String, default: Boolean) extends SimpleBooleanProperty(bean, name, default):
     Config.register(this)
 
   class ObjectProp[T : YamlCodec](bean: AnyRef, name: String, default: T)

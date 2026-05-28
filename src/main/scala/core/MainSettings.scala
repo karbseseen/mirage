@@ -1,7 +1,7 @@
 package core
 
-import atlantafx.base.controls.Tile
-import config.{Language, SingleTheme, Theme}
+import atlantafx.base.controls.{Tile, ToggleSwitch}
+import config.{Conf, Language, SingleTheme, Theme}
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.ModalVBox
@@ -83,6 +83,16 @@ class MainSettings extends VBox with ModalVBox:
     this.visible <== GithubToken.property.isNotNull
     this.managed <== this.visible
 
+  children += new Separator
+
+  children += toggleSwitch(Tr.localDiscovery):
+    new ToggleSwitch:
+      selectedProperty <==> Conf.torrentLocalDiscovery
+
+  children += toggleSwitch(Tr.dhtDiscovery):
+    new ToggleSwitch:
+      selectedProperty <==> Conf.torrentDhtDiscovery
+
 
   private def choice(name: Translate)(choiceBox: ChoiceBox[?]) =
     new Tile:
@@ -91,3 +101,9 @@ class MainSettings extends VBox with ModalVBox:
       setActionHandler: () =>
         choiceBox.requestFocus()
         choiceBox.showing = true
+
+  private def toggleSwitch(name: Translate)(switch: ToggleSwitch) =
+    new Tile:
+      titleProperty <== name
+      setAction(switch)
+      setActionHandler(() => switch.fire())

@@ -2,10 +2,11 @@ package torrent
 
 import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.swig.*
+import config.Conf
 import constant.{Constants, Tr}
 import core.main.MainApp
 import javafx.beans.property.*
-import scalafx.Includes.{jfxLongProperty2sfx, jfxObjectProperty2sfx}
+import scalafx.Includes.jfxLongProperty2sfx
 import scalafx.application.Platform
 import scalafx.beans.property.PropertyIncludes.jfxStringProperty2sfx
 import scalafx.collections.ObservableBuffer
@@ -28,6 +29,10 @@ object Torrent:
   val session = new SessionManager
   TorrentListener.all.foreach(session.addListener)
   session.start()
+  Conf.torrentLocalDiscovery.subscribe: enable =>
+    session.applySettings(session.settings.also(_.setEnableLsd(enable)))
+  Conf.torrentDhtDiscovery.subscribe:
+    if (_) session.startDht() else session.stopDht()
 
   val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
   directory.mkdir()

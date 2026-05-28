@@ -45,7 +45,11 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
             stage.updateState(pause = Some(false), time = time, send = true)
 
   override def buffering(player: MediaPlayer, progress: Float): Unit =
-    (if (progress < 100) setBufferingUi else unsetBufferingUi).foreach(task => runLater(task()))
+    if (progress < 100)
+      val task = setBufferingUi(progress)
+      runLater(task())
+    else
+      unsetBufferingUi.foreach(task => runLater(task()))
 
   override def mediaPlayerReady(player: MediaPlayer): Unit =
     runLater:
@@ -90,11 +94,12 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
       case TrackType.AUDIO => stage.controls.audio
       case TrackType.TEXT => stage.controls.title
 
-  private def setBufferingUi: Option[() => Unit] =
-    Option.when(!isBuffering):
-      isBuffering = true
-      () =>
-        stage.loading.managed = true
+  private def setBufferingUi(progress: Float): () => Unit =
+    val bufferStart = !isBuffering
+    if (bufferStart) isBuffering = true
+    () =>
+      stage.loadingLabel.text = s"${progress.toInt}%"
+      if (bufferStart)
         stage.loading.visible = true
         stage.updateState(pause = Some(true), send = true)
         stage.startPauseTask: thisTask =>
@@ -108,7 +113,6 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
     Option.when(isBuffering):
       isBuffering = false
       () =>
-        stage.loading.managed = false
         stage.loading.visible = false
         stage.updateState(pause = Some(false), send = true)
         stage.player.controls.setPause(false)

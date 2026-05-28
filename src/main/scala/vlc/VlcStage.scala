@@ -12,6 +12,7 @@ import p2p.base.{P2p, Task}
 import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
+import scalafx.scene.control.Label
 import scalafx.scene.image.ImageView
 import scalafx.scene.layout.{Background, BackgroundFill, CornerRadii, StackPane}
 import scalafx.scene.paint.Color
@@ -82,6 +83,9 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
 
   private[vlc] val controls: Controls = new Controls(this)
 
+  private[vlc] val loadingLabel = new Label:
+    alignmentInParent = Pos.TopLeft
+    alignment = Pos.Center
   private[vlc] val loading: StackPane = new StackPane:
     private val rootSize = Bindings.createDoubleBinding(
       () => root.width() min root.height() min 750,
@@ -92,16 +96,26 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     maxHeight <== size
     alignmentInParent = Pos.Center
     visible = false
+    managed <== visible
+
     background = Background(Array(BackgroundFill(
       Color.White,
       CornerRadii(100, asPercent = true),
       Insets.Empty,
     )))
-    children += new ImageView("/vlc/loading.gif"):
+
+    private val image = new ImageView("/vlc/loading.gif"):
       private val size = rootSize * 0.125
       fitWidth <== size
       fitHeight <== size
       preserveRatio = true
+      alignmentInParent = Pos.Center
+
+    loadingLabel.translateY <== image.layoutY + image.fitHeight
+    loadingLabel.prefWidth <== this.width
+    loadingLabel.prefHeight <== this.height - loadingLabel.translateY
+
+    children = Seq(image, loadingLabel)
 
   scene = new Scene(root, 800, 600):
     content = imageView :: loading :: controls :: controls.extraParts

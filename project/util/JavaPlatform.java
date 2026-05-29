@@ -42,7 +42,7 @@ public class JavaPlatform {
             case X86_64     -> "x86_64";
             case Arm64      -> "arm64";
         };
-        jlibtorrentPlatform = libtorrentOs + "-" + libtorrentArch;
+        jlibtorrentPlatform = os == OS.Windows ? libtorrentOs : libtorrentOs + "-" + libtorrentArch;
 
         jlibtorrentExt = switch (os) {
             case Windows    -> ".dll";

@@ -1,10 +1,15 @@
 package util;
 
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
+import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.win32.StdCallLibrary;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.channels.FileChannel;
@@ -12,7 +17,6 @@ import java.nio.channels.FileLock;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.jar.Manifest;
 
 
@@ -93,13 +97,37 @@ public class JavaUtil {
 
 
     public static ArrayList<String> currentCmd() {
+        if (JavaPlatform.os == JavaPlatform.OS.Windows) return windowsCmd();
         ProcessHandle.Info info  = ProcessHandle.current().info();
         ArrayList<String> cmd = new ArrayList<>();
         cmd.add(info.command().orElseThrow());
         Collections.addAll(cmd, ProcessHandle.current().info().arguments().orElseThrow());
         return cmd;
     }
-    
+
+    private static ArrayList<String> windowsCmd() {
+        interface Kernel32 extends Library {
+            Kernel32 Instance = Native.load("kernel32", Kernel32.class);
+            Pointer GetCommandLineW();
+            Pointer LocalFree(Pointer hMem);
+        }
+        interface Shell32 extends StdCallLibrary {
+            Shell32 Instance = Native.load("shell32", Shell32.class);
+            Pointer CommandLineToArgvW(Pointer lpCmdLine, IntByReference pNumArgs);
+        }
+
+        Pointer cmd = Kernel32.Instance.GetCommandLineW();
+        IntByReference argc = new IntByReference();
+        Pointer argv = Shell32.Instance.CommandLineToArgvW(cmd, argc);
+
+        Pointer[] ptrs = argv.getPointerArray(0, argc.getValue());
+        ArrayList<String> args = new ArrayList<>(argc.getValue());
+        for (Pointer ptr : ptrs) args.add(ptr.getWideString(0));
+
+        Kernel32.Instance.LocalFree(argv);
+        return args;
+    }
+
     public static void startNewInstance(ArrayList<String> cmdList) throws IOException {
         String[] cmd = new String[cmdList.size()];
         for (int index = 0; index < cmdList.size(); index++)
@@ -108,6 +136,7 @@ public class JavaUtil {
         lock.release();
         Runtime.getRuntime().exec(cmd);
     }
+
     public static void startNewInstance() throws IOException { startNewInstance(currentCmd()); }
 
 }

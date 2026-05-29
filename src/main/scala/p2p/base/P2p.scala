@@ -121,7 +121,8 @@ object P2p extends Tasks with Peers with Messages:
 
     sockets = for
       interface <- NetworkInterface.getNetworkInterfaces.asScala.toList
-      if interface.isUp && !interface.isLoopback && !interface.isVirtual
+      if interface.isUp && !interface.isLoopback && !interface.isVirtual &&
+        interface.getInetAddresses.asScala.exists(_.isInstanceOf[Inet4Address])
       socket <- oldSockets.remove(interface).orElse:
         try Some(new MulticastSocket(interface))
         catch case error: Throwable => { error.printStackTrace(); None }
@@ -150,10 +151,12 @@ object P2p extends Tasks with Peers with Messages:
       .open(StandardProtocolFamily.INET)
       .setOption(StandardSocketOptions.SO_REUSEADDR, true)
       .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
-      .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
-      .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
     channel.configureBlocking(false)
-    channel.join(multicastAddress.getAddress, interface)
     channel.register(selector, SelectionKey.OP_READ)
+    if (interface.supportsMulticast)
+      channel.join(multicastAddress.getAddress, interface)
+      channel
+        .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
+        .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
 
   start()

@@ -34,7 +34,7 @@ object Torrent:
   Conf.torrentDhtDiscovery.subscribe:
     if (_) session.startDht() else session.stopDht()
 
-  val directory = File(JavaUtil.jarFile.getParentFile, "torrent")
+  val directory = File("torrent")
   directory.mkdir()
 
   private val restored = directory.list.toList

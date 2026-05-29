@@ -155,7 +155,8 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
 
 private class DownloadService(scene: UpdateScene, run: Run) extends UpdateService[Unit](scene):
   def call: Unit =
-    val tempFile = new File(JavaUtil.jarFile.getAbsolutePath + ".temp")
+    val jarFile = JavaUtil.getJarFile
+    val tempFile = new File(jarFile.getAbsolutePath + ".temp")
     try
       run.artifact.download { input =>
         Using(FileOutputStream(tempFile)) { input.transferTo(_) }
@@ -165,8 +166,8 @@ private class DownloadService(scene: UpdateScene, run: Run) extends UpdateServic
       throw error
     finally
       JavaUtil.lock.release()
-      JavaUtil.jarFile.delete()
-      tempFile.renameTo(JavaUtil.jarFile)
+      jarFile.delete()
+      tempFile.renameTo(jarFile)
   override def succeeded(): Unit =
     JavaUtil.startNewInstance()
     Platform.exit()

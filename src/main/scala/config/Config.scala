@@ -16,8 +16,7 @@ import scala.util.Try
 
 
 object Config:
-  private val fileName = "data.yaml"
-  private val file = new File(JavaUtil.jarFile.getParentFile, fileName)
+  private val file = File("data.yaml")
 
   private type Getter = () => Option[Node]
 
@@ -29,9 +28,9 @@ object Config:
     .to(mutable.Map)
 
   private def parseFile = for
-    yaml <- Try(Files.readString(file.toPath)).printError(_ => s"Couldn't read $fileName")
-    root <- yaml.asNode.toTry.printError(_ => s"Couldn't parse $fileName")
-    mapRoot <- Try(root).collect { case root: MappingNode => root }.printError(_ => s"Couldn't parse $fileName as map")
+    yaml <- Try(Files.readString(file.toPath)).printError(_ => s"Couldn't read ${file.getName}")
+    root <- yaml.asNode.toTry.printError(_ => s"Couldn't parse ${file.getName}")
+    mapRoot <- Try(root).collect { case root: MappingNode => root }.printError(_ => s"Couldn't parse ${file.getName} as map")
   yield parseMap(mapRoot)
 
   private val map = parseFile getOrElse mutable.Map.empty

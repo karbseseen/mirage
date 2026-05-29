@@ -18,20 +18,21 @@ import java.util.jar.Manifest;
 
 public class JavaUtil {
 
-    public static final File jarFile;
     public static final FileLock lock;
 
     static {
         try {
-            URI jarFilePath = JavaUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            jarFile = new File(jarFilePath);
-            
-            lock = FileChannel
-                .open(jarFile.toPath(), StandardOpenOption.WRITE)
-                .tryLock(0, 0, false);
-        } catch (URISyntaxException | IOException e) {
+            File lockFile = new File("lock");
+            lockFile.deleteOnExit();
+            FileChannel lockChannel = FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            lock = lockChannel.tryLock(0, 0, false);
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static File getJarFile() throws URISyntaxException {
+        return new File(JavaUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI());
     }
 
 
@@ -47,11 +48,11 @@ public class JavaUtil {
     }
 
 
-    static final LazyVal<File> tempFile = new LazyVal<>(() -> {
-        File file = new File(jarFile.getParentFile(), "lib/half-downloaded-lib.part");
+    static File tempFile() {
+        File file = new File( "lib/half-downloaded-lib.part");
         file.deleteOnExit();
         return file;
-    });
+    }
 
     public static void downloadWithProgress(
         InputStream input,
@@ -59,7 +60,7 @@ public class JavaUtil {
         Consumer<Long> onProgress,
         long progressPeriod
     ) throws IOException {
-        File partOutputFile = tempFile.get();
+        File partOutputFile = tempFile();
 
         try (FileOutputStream output = new FileOutputStream(partOutputFile)) {
             long totalRead = 0, lastProgressTime = 0;
@@ -108,23 +109,5 @@ public class JavaUtil {
         Runtime.getRuntime().exec(cmd);
     }
     public static void startNewInstance() throws IOException { startNewInstance(currentCmd()); }
-
-
-    public static class LazyVal<T> implements Supplier<T> {
-        Supplier<T> supplier;
-        T result;
-
-        public LazyVal(Supplier<T> supplier) {
-            this.supplier = supplier;
-        }
-
-        public T get() {
-            if (supplier != null) {
-                result = supplier.get();
-                supplier = null;
-            }
-            return result;
-        }
-    }
 
 }

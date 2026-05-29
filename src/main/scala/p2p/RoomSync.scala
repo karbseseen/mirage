@@ -132,7 +132,7 @@ object RoomSync:
             VlcStage.play(Some(TorrentMedia(torrent, state.fileIndex)), state.playerOptions)
 
       val confSaveDir = File(Conf.torrentSave())
-      val saveDir = if (confSaveDir.isDirectory) confSaveDir else JavaUtil.jarFile.getParentFile
+      val saveDir = if (confSaveDir.isDirectory) confSaveDir else File(".")
   
       Torrent.knownTorrents.updateAndGet(_ + (hash -> known))
       Torrent.add(String(message.magnet), saveDir)

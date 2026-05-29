@@ -71,8 +71,6 @@ public class Main {
 
 
     Out out = System.console() == null ? new CustomOut() : new StdOut();
-    File libtorrentFile = new File(JavaUtil.jarFile.getParentFile(),
-        "lib/jlibtorrent-" + JavaPlatform.jlibtorrentVersion + JavaPlatform.jlibtorrentExt);
     private Main() {}
 
     private boolean check(String[] args) throws Exception {
@@ -81,6 +79,9 @@ public class Main {
             return false;
         }
 
+        File jarDirectory = JavaUtil.getJarFile().getParentFile();
+        File libtorrentFile = new File(jarDirectory,
+            "lib/jlibtorrent-" + JavaPlatform.jlibtorrentVersion + JavaPlatform.jlibtorrentExt);
         System.setProperty("jlibtorrent.jni.path", libtorrentFile.getAbsolutePath());
 
         for (String arg : args)
@@ -91,7 +92,6 @@ public class Main {
         Attributes attrs = manifest.getMainAttributes();
         boolean needRestart = false;
 
-        File jarDirectory = JavaUtil.jarFile.getParentFile();
         String[] classPaths = attrs.getValue("Class-Path").split(" ");
         String[] classUrls = attrs.getValue("Class-Urls").split(" ");
         if (classPaths.length > classUrls.length) throw new RuntimeException("Invalid manifest");

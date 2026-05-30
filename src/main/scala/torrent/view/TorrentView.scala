@@ -35,6 +35,9 @@ private val torrentTable = new AutoTableView[Torrent]:
   styleClass -= Styles.BORDERED
   items = Torrent.all
 
+  placeholder = new Label:
+    text <== Tr.clickAddButton
+
   rowSet: (row, torrent) =>
     val notNew = torrent.state.map(!_.isNew: lang.Boolean)
     val playPause = new MenuItem:

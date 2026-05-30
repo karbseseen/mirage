@@ -41,6 +41,7 @@ object Tr:
   val chooseMediaFile   = Translate("Choose a media file",        "Выберите медиа файл")
   val chooseTorrentFile = Translate("Choose a Torrent file",      "Выберите торрент файл")
   val clearToken        = Translate("Clear Github token",         "Удалить Github токен")
+  val clickAddButton    = Translate("You should click the 'Add' button", "Вам стоит нажать на кнопку 'Добавить'")
   val createToken       = Translate("You can create it here",     "Его можно создать здесь")
   val dark              = Translate("Dark",                       "Темная")
   val date              = Translate("Date",                       "Дата")

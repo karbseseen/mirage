@@ -30,7 +30,7 @@ object MainApp extends JFXApp3
     stage = new PrimaryStage:
       title <== Tr.appName
       icons.addAll(fx.getIconImages)
-      scene = new Scene(new StackPane, 800, 500):
+      scene = new Scene(new StackPane):
         content = Seq[Node](MainApp.root, modal, notifications)
 
   /**Thread-safe*/

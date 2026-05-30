@@ -30,6 +30,7 @@ import java.util.function.UnaryOperator
 class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Stage:
 
   title = media.getName
+  icons.addAll(fx.getIconImages)
   fullScreenExitHint = ""
 
   private val factory = new MediaPlayerFactory

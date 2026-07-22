@@ -1,5 +1,6 @@
 package p2p.base
 
+import core.TaskQueue.*
 import p2p.base.Message.Ping
 import p2p.base.Peers.*
 
@@ -27,7 +28,7 @@ trait PeerListener:
   def onPeer(peer: Peer, added: Boolean): Unit
 
 
-trait Peers private[p2p] extends Tasks with Messages:
+trait Peers private[p2p] extends Messages:
 
   @volatile private var _peers = Map.empty[Peer.Id, PeerImpl]
   protected def peerImpls: Map[Peer.Id, PeerImpl] = _peers
@@ -37,11 +38,9 @@ trait Peers private[p2p] extends Tasks with Messages:
   private var _activePeerNum = 0
   private def activePeerNum: Int = _activePeerNum
   private def activePeerNum_=(value: Int): Unit =
-    val hadActive = hasActivePeers
+    val hadActivePeers = hasActivePeers
     _activePeerNum = value
-    val hasActive = hasActivePeers
-    if (hadActive != hasActive)
-      onHasActivePeerChanged()
+    if (hadActivePeers != hasActivePeers) onHasActivePeerChanged()
   protected def onHasActivePeerChanged(): Unit
 
   private val pingTime = mutable.Map.empty[Peer.Id, Queue[Long]]
@@ -133,14 +132,14 @@ object Peers:
 
 
     private var pingTask = newPingTask
-    private def newPingTask = P2p.schedulePeriodicAt(lastSeen + MinPingPeriod, MinPingPeriod):
+    private def newPingTask = schedulePeriodicAt(lastSeen + MinPingPeriod, MinPingPeriod):
       val now = System.currentTimeMillis
       send(Ping(P2p._roomName, latency))
       peers.putPingTime(id, now)
       lastPingTime = now
 
     private var lifecycleTask: Task = newLifecycleTask
-    private def newLifecycleTask = P2p.scheduleSingleAt(lastSeen + ActiveTime):
+    private def newLifecycleTask = scheduleSingleAt(lastSeen + ActiveTime):
       active = false
       peers.activePeerNum -= 1
-      lifecycleTask = P2p.scheduleSingleAt(lastSeen + LiveTime)(die())
+      lifecycleTask = scheduleSingleAt(lastSeen + LiveTime)(die())

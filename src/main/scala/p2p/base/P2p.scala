@@ -1,23 +1,23 @@
 package p2p.base
 
 import config.Config
+import core.TaskQueue.*
 import p2p.base.Message.{Bye, MulticastAnnounce, Ping, Pong}
 import p2p.base.P2p.*
 import p2p.base.Peers.PeerImpl
 import scalafx.Includes.jfxProperty2sfx
 
 import java.net.*
-import java.nio.channels.{DatagramChannel, SelectionKey, Selector}
+import java.nio.channels.{DatagramChannel, SelectionKey}
 import java.nio.{ByteBuffer, ByteOrder}
 import java.security.MessageDigest
-import java.util.function.Consumer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 
 
-object P2p extends Tasks with Peers with Messages:
+object P2p extends Peers with Messages:
 
   private inline val InterfaceUpdatePeriodSmall = 5_000
   private inline val InterfaceUpdatePeriodBig   = 20_000
@@ -26,7 +26,6 @@ object P2p extends Tasks with Peers with Messages:
   private[p2p] var _roomName = roomName()
   private var multicastAddress = getMulticastAddress(_roomName)
 
-  private val selector: Selector = Selector.open
   private var sockets: List[MulticastSocket] = Nil
 
   private val buffer = ByteBuffer.allocate(2048)
@@ -36,14 +35,12 @@ object P2p extends Tasks with Peers with Messages:
 
 
   roomName.addListener: (_, _, roomName) =>
-    scheduleSingleAt(0, wakeup = true):
+    scheduleSingleAt(0):
       _roomName = roomName
       multicastAddress = getMulticastAddress(roomName)
       sockets.foreach(_.channel.close())
       sockets = Nil
-      val hadActivePeers = hasActivePeers
       peerImpls.values.foreach(_.kill())
-      if (!hadActivePeers) onHasActivePeerChanged() //To make updateInterfaces run right after
 
   private def getMulticastAddress(roomName: String) =
     val roomBytes = ByteBuffer
@@ -58,19 +55,11 @@ object P2p extends Tasks with Peers with Messages:
     InetSocketAddress(InetAddress.getByAddress(ipv4), port)
 
 
-  protected def wakeup(): Unit = selector.wakeup()
-  protected def onClose(): Unit = sendToAll(Bye)
-
-  protected def loop(timeUntilNext: Option[Long]): Unit =
-    selector.select(
-      key => key.channel match
-        case channel: DatagramChannel if key.isReadable => receiveMessage(channel)
-        case _ => (),
-      timeUntilNext.map(_ + 10).fold(5000L)(_ min 5000L),
-    )
+  onClose(sendToAll(Bye))
 
   private def receiveMessage(channel: DatagramChannel): Unit =
     val address = channel.receive(buffer.rewind)
+    if (address == null) return
     for
       address <- Some(address).collect { case inet: InetSocketAddress => inet }
       message <- Try(buffer.decode)
@@ -152,11 +141,9 @@ object P2p extends Tasks with Peers with Messages:
       .setOption(StandardSocketOptions.SO_REUSEADDR, true)
       .bind(InetSocketAddress("0.0.0.0", multicastAddress.getPort))
     channel.configureBlocking(false)
-    channel.register(selector, SelectionKey.OP_READ)
+    register(channel, SelectionKey.OP_READ)(receiveMessage(channel))
     if (interface.supportsMulticast)
       channel.join(multicastAddress.getAddress, interface)
       channel
         .setOption(StandardSocketOptions.IP_MULTICAST_IF, interface)
         .setOption(StandardSocketOptions.IP_MULTICAST_LOOP, false)
-
-  start()

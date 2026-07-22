@@ -2,6 +2,7 @@ package p2p.base
 
 import byte_codec.ByteCodec.{CompactBytes, CompactUInt, CompactULong}
 import byte_codec.{ByteCodec, Discriminator as Msg}
+import core.TaskQueue
 import p2p.RoomSync
 import torrent.Hash
 
@@ -49,7 +50,7 @@ object Message:
   object Ping:
     val cookie = 0x4777b31c02b707b5L
 
-trait Messages private[p2p] extends Tasks:
+trait Messages private[p2p]:
   def myId: Peer.Id
 
   protected case class MessageHolder(senderId: Peer.Id, message: Message)
@@ -69,11 +70,11 @@ trait Messages private[p2p] extends Tasks:
     messageHandlers.getOrElse(cls, Nil)
 
   def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
-    threadSafe:
+    TaskQueue.threadSafe:
       messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
         listOpt => Some(handler :: listOpt.getOrElse(Nil))
 
   def removeMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
-    threadSafe:
+    TaskQueue.threadSafe:
       messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
         _.map(_.filter(_ != handler)).filter(_.nonEmpty)

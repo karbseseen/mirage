@@ -2,13 +2,14 @@ package vlc
 
 import byte_codec.ByteCodec.CompactULong
 import constant.Tr
+import core.TaskQueue.{Task, schedulePeriodic}
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.geometry.Rectangle2D
 import javafx.scene.input.KeyEvent
 import p2p.RoomSync
 import p2p.base.Message.PlayerState
-import p2p.base.{P2p, Task}
+import p2p.base.P2p
 import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -170,7 +171,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
 
   def startPauseTask(task: Task => Unit): Unit =
     class TaskHolder:
-      val pauseTask: Task = P2p.schedulePeriodic(MinTimeSyncPeriod, MinTimeSyncPeriod)(task(pauseTask))
+      val pauseTask: Task = schedulePeriodic(MinTimeSyncPeriod, MinTimeSyncPeriod)(task(pauseTask))
     pauseTask.foreach(_.cancel())
     pauseTask = Some(TaskHolder().pauseTask)
 

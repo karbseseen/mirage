@@ -3,8 +3,9 @@ package p2p
 import byte_codec.ByteCodec.{CompactUInt, CompactULong}
 import com.frostwire.jlibtorrent.{AddTorrentParams, TorrentFlags}
 import config.Conf
+import core.TaskQueue.{Task, scheduleSingle}
 import p2p.base.Message.{PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
-import p2p.base.{MessageHandler, P2p, Task}
+import p2p.base.{MessageHandler, P2p}
 import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
 import torrent.Hash.hash
@@ -92,7 +93,7 @@ object RoomSync:
         def updateWaitTask(delay: Long): Unit =
           waitTask.foreach(_.cancel())
           waitTask = Some:
-            P2p.scheduleSingle(delay):
+            scheduleSingle(delay):
               if (VlcStage.instance.contains(stage))
                 player.controls.play()
           player.controls.setPause(true)

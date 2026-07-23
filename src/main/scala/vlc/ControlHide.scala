@@ -1,6 +1,7 @@
 package vlc
 
 import constant.Constants
+import core.TaskQueue.{ScheduledTask, scheduleSingleAt}
 import scalafx.Includes.jfxScene2sfx
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
@@ -10,7 +11,6 @@ import scalafx.stage.WindowEvent
 import scalafx.util.Duration
 
 import java.lang
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 
 private def applyControlHide(stage: VlcStage): Unit =
@@ -25,28 +25,27 @@ private def applyControlHide(stage: VlcStage): Unit =
   controls.translateY <== controls.opacity.map[lang.Number]: opacity =>
     (1 - opacity.doubleValue) * controls.height()
 
-  val dieLatch = CountDownLatch(1)
+  var task: Option[ScheduledTask] = None
+  var actualTime = Long.MaxValue
 
-  val thread = Thread: () =>
-    def await(func: => Unit) =
-      try { func; true }
-      catch case _: InterruptedException => false
-    while
-      while !await(dieLatch.await(Constants.playerControlHideTimeout, TimeUnit.MILLISECONDS)) do ()
-      if (!(controls :: controls.extraParts).exists(_.hover()))
+  def createTask(): Unit =
+    task = Some:
+      scheduleSingleAt(actualTime):
         runLater:
-          if (animation.rate() > 0)
-            animation.rate = -1
-            animation.play()
-      !await(dieLatch.await())
-    do ()
-  thread.setDaemon(true)
-  thread.start()
+          if (task.exists(_.time == actualTime))
+            task = None
+            if (animation.rate() > 0 && !(controls :: controls.extraParts).exists(_.hover()))
+              animation.rate = -1
+              animation.play()
+          else
+            createTask()
 
-  stage.addEventHandler(WindowEvent.WindowHidden, _ => dieLatch.countDown())
+  stage.addEventHandler(WindowEvent.WindowHidden, _ => task.foreach(_.cancel()))
   stage.root.onMouseMoved = _ =>
     if (animation.rate() < 0)
       animation.rate = 1
       animation.play()
       stage.scene().cursor = Cursor.Default
-    thread.interrupt()
+
+    actualTime = System.currentTimeMillis + Constants.playerControlHideTimeout
+    if (task.isEmpty) createTask()

@@ -1,12 +1,13 @@
 package vlc
 
 import atlantafx.base.controls.ProgressSliderSkin
-import constant.{Constants, Tr}
+import constant.Tr
 import fx.AutoBg.+
 import fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.beans.binding.StringBinding
 import javafx.beans.property.{SimpleBooleanProperty, SimpleIntegerProperty}
+import javafx.scene.paint.Stop
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ}
 import org.kordamp.ikonli.javafx.FontIcon
@@ -20,25 +21,25 @@ import scalafx.scene.Node
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Button, Slider}
 import scalafx.scene.layout.*
-import scalafx.scene.paint.Color
+import scalafx.scene.paint.{Color, LinearGradient}
 import scalafx.scene.text.Font
 import scalafx.util.Duration
 import uk.co.caprica.vlcj.player.base.TrackDescription
+import vlc.Controls.*
 
 import scala.jdk.CollectionConverters.*
 import scala.math.Integral.Implicits.infixIntegralOps
 
 
-private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
+private class Controls(stage: VlcStage) extends VBox:
 
   import stage.player
 
-  padding = Insets(Constants.playerInset)
   alignmentInParent = Pos.BottomCenter
   maxHeight = Region.UsePrefSize
 
-  private val bgColor       = Color.gray(0.12, 0.75)
-  private val bgHoverColor  = Color.gray(1, 0.1)
+  private val bgColor       = Color.gray(0.12, 0.72)
+  private val bgHoverColor  = Color.gray(1, 0.12)
   private val staticBg      = AutoBg.fill(bgColor, CornerRadii(99999))
   private val staticHoverBg = staticBg + AutoBg.fill(bgHoverColor, CornerRadii(99999))
   private def hoverableBg(node: Node) = node.hover.map(if (_) staticHoverBg else staticBg)
@@ -49,6 +50,12 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
   val seek: Slider = new Slider:
     private var wasPlaying = false
     hgrow = Priority.Always
+    padding = AutoInsets(left = inset, right = inset)
+    margin = AutoInsets(top = shortInset)
+    background = Background fill new LinearGradient(
+      0.5, 0, 0.5, 1,
+      stops = Seq(Stop(0.2, Color.Transparent), Stop(0.8, Color.Black.opacity(backgroundOpacity))),
+    )
     skin = ProgressSliderSkin(this)
     value.addListener: (_,_,value) =>
       if (pressed() && !valueChanging())
@@ -69,7 +76,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     setStyle(fontIconStyle(28))
     setIconCode(FluentUiFilledMZ.PLAY_48)
   val playPause: Button = new Button:
-    padding = Insets(Constants.playerInset * 1.5)
+    padding = Insets(longInset)
     background <== hoverableBg(this)
     graphic = playPauseIcon
     onAction = _ => stage.togglePause()
@@ -77,9 +84,9 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
   val volume: HBox = new HBox:
     background <== hoverableBg(this)
     alignment = Pos.CenterLeft
+    padding = AutoInsets(right = longInset)
 
     private val slider = new Slider(0, 100, 100):
-      margin = AutoInsets(right = Constants.playerInset)
       value.addListener { (_,_,value) => player.audio.setVolume(value.intValue) }
       hgrow = Priority.Always
       skin = ProgressSliderSkin(this)
@@ -117,7 +124,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       animation.play()
 
   val time: Button = new Button:
-    padding = Insets(Constants.playerInset)
+    padding = Insets(inset)
     font = Font(15)
     textFill = Color.White
     background <== hoverableBg(this)
@@ -159,7 +166,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     trackIcon(audio, FluentUiFilledMZ.MUSIC_NOTE_24),
     trackIcon(title, FluentUiFilledAL.CLOSED_CAPTION_24),
   ):
-    padding = AutoInsets(left = Constants.playerInset, right = Constants.playerInset)
+    padding = AutoInsets(left = inset, right = inset)
     maxHeight = Region.UsePrefSize
     background = staticBg
 
@@ -167,7 +174,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     managed <== visible
 
   val crop: Button = new Button:
-    padding = Insets(Constants.playerInset)
+    padding = Insets(inset)
     background <== hoverableBg(this)
     graphic = new FontIcon:
       setStyle(fontIconStyle(24))
@@ -183,7 +190,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       animation.play()
 
   val expand: Button = new Button:
-    padding = Insets(Constants.playerInset)
+    padding = Insets(inset)
     background <== hoverableBg(this)
     graphic = new FontIcon:
       setStyle(fontIconStyle(24))
@@ -191,8 +198,10 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     onAction = _ => stage.fullScreen = !stage.fullScreen()
 
 
-  private val bottomRow = new HBox(Constants.playerInset, playPause, volume, time, space, tracks, crop, expand):
+  private val bottomRow = new HBox(inset, playPause, volume, time, space, tracks, crop, expand):
     alignment = Pos.Center
+    padding = Insets(left = inset, right = inset, top = shortInset, bottom = shortInset)
+    background = Background fill Color.Black.opacity(backgroundOpacity)
 
   children = Seq(seek, bottomRow)
 
@@ -241,10 +250,10 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
       text = getTracks.asScala.find(_.id == vlcId).fold("???")(_.description)
       id = vlcId.toString
       padding = Insets(
-        left    = Constants.playerInset * 2.5,
-        right   = Constants.playerInset * 2.5,
-        top     = Constants.playerInset,
-        bottom  = Constants.playerInset,
+        left    = inset * 2.5,
+        right   = inset * 2.5,
+        top     = inset,
+        bottom  = inset,
       )
       background <== Bindings.createObjectBinding(
         () => if (!hover()) null else AutoBg.fill(
@@ -264,7 +273,7 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
   private def trackIcon(control: TrackControl, icon: Ikon) =
     object iconPane extends StackPane:
       val enable: BooleanBinding = hover || control.hover
-      padding = Insets(Constants.playerInset)
+      padding = Insets(inset)
       background <== enable.map(if (_) staticHoverBg else null)
       children += new FontIcon:
         setStyle(fontIconStyle(24))
@@ -302,3 +311,10 @@ private class Controls(stage: VlcStage) extends VBox(Constants.playerInset):
     iconPane.managed <== iconPane.visible
 
     iconPane
+
+
+object Controls:
+  private inline val shortInset         = 6.0
+  private inline val inset              = 8.0
+  private inline val longInset          = 12.0
+  private inline val backgroundOpacity  = 0.22

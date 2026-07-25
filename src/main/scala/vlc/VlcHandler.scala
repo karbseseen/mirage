@@ -114,6 +114,6 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
       isBuffering = false
       () =>
         stage.loading.visible = false
-        stage.updateState(pause = Some(false), send = true)
-        stage.player.controls.setPause(false)
+        if (stage.player.status.isPlaying)
+          stage.updateState(pause = Some(false), send = true)
     

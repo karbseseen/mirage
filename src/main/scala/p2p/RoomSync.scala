@@ -5,7 +5,7 @@ import com.frostwire.jlibtorrent.{AddTorrentParams, TorrentFlags}
 import config.Conf
 import core.TaskQueue.{Task, scheduleSingle}
 import p2p.base.Message.{PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
-import p2p.base.{MessageHandler, P2p}
+import p2p.base.{MessageHandler, P2p, Peer}
 import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
 import torrent.Hash.hash
@@ -29,7 +29,9 @@ object RoomSync:
 
 
   private def playerSyncHandler: MessageHandler[PlayerState] = (peerState, peer) =>
+    if (VlcStage.instance.forall(!_.isBuffering)) playerSyncHandle(peerState, peer)
 
+  private def playerSyncHandle(peerState: PlayerState, peer: Peer): Unit =
     enum Change:
       case No, File, Player
     var change: Change = Change.No
@@ -98,16 +100,15 @@ object RoomSync:
                 player.controls.play()
           player.controls.setPause(true)
 
-        if (!stage.isBuffering)
-          if (!oldState.pause && peerState.pause && pauseDiff <= 0) player.controls.setPause(true)
-          else if (oldState.pause && !peerState.pause && pauseDiff < 0) player.controls.setPause(false)
+        if (!oldState.pause && peerState.pause && pauseDiff <= 0) player.controls.setPause(true)
+        else if (oldState.pause && !peerState.pause && pauseDiff < 0) player.controls.setPause(false)
 
         if (seekDiff <= 0)
           val peerTime = peerState.time + (if (peerState.pause) 0 else peer.latency)
           val timeDiff = player.status.time - peerTime
           if (seekDiff < 0 || timeDiff > 0) math.abs(timeDiff) match
             case diff if diff < AcceptTimeDiff => ()
-            case diff if diff < WaitTimeDiff => if (!peerState.pause && !stage.isBuffering) updateWaitTask(diff - 100)
+            case diff if diff < WaitTimeDiff => if (!peerState.pause) updateWaitTask(diff - 75)
             case _ => player.controls.setTime(peerTime)
 
         if (speedDiff <= 0)

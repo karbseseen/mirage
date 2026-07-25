@@ -21,6 +21,7 @@ import scalafx.stage.{Stage, WindowEvent}
 import torrent.Hash
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
+import uk.co.caprica.vlcj.media.VideoTrackInfo
 import uk.co.caprica.vlcj.player.base.Marquee
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import vlc.VlcStage.MinTimeSyncPeriod
@@ -37,7 +38,9 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
   private val factory = new MediaPlayerFactory
   val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
   private var pauseTask = Option.empty[Task]
+
   private val eventHandler = VlcHandler(this)
+  def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
   def isBuffering: Boolean = eventHandler.isBuffering
 
   media.onStageShow()
@@ -52,7 +55,6 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     background = Background.fill(Color.Black)
     onMouseClicked = event => if (event.getClickCount == 2) fullScreen = !fullScreen()
 
-  private[vlc] val videoSize = SimpleObjectProperty(this, "videoSize", (1.0, 1.0))
   private[vlc] val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
   private[vlc] val imageView: ImageView = new ImageView:
     fitWidth <== root.width
@@ -61,7 +63,8 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     player.videoSurface.set(ImageViewVideoSurface(this))
     viewport <== Bindings.createObjectBinding(
       () =>
-        val (videoWidth, videoHeight) = videoSize.get
+        val (videoWidth, videoHeight) = Option(videoTrack.get).fold(1.0, 1.0):
+          video => (video.width.toDouble, video.height.toDouble)
         val videoRatio = videoWidth / videoHeight
         val windowRatio = root.width() / root.height()
         if (videoRatio > windowRatio)
@@ -80,7 +83,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
             videoWidth,
             videoHeight * (1 - videoCropCoef.get) + videoCropHeight * videoCropCoef.get,
           ),
-      videoSize, videoCropCoef, root.width, root.height
+      videoTrack, videoCropCoef, root.width, root.height
     )
 
   private[vlc] val controls: Controls = new Controls(this)

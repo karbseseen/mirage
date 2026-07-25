@@ -1,5 +1,6 @@
 package vlc
 
+import javafx.beans.property.SimpleObjectProperty
 import javafx.stage.WindowEvent
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import p2p.RoomSync
@@ -7,7 +8,7 @@ import p2p.base.Message.PlayerState
 import p2p.base.P2p
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
-import uk.co.caprica.vlcj.media.{Meta, TrackType}
+import uk.co.caprica.vlcj.media.{Meta, TrackType, VideoTrackInfo}
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
 import util.WakeLock
 import vlc.VlcStage.MinTimeSyncPeriod
@@ -17,10 +18,13 @@ import scala.jdk.CollectionConverters.*
 
 private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
+  val videoTrack = SimpleObjectProperty(this, "videoTrack", null: VideoTrackInfo)
   @volatile var isBuffering = false
+
   private var length = 0L
   private var lastTimeSync = 0L
   private val wakeLock = new WakeLock
+
 
   stage.addEventHandler(WindowEvent.WINDOW_HIDDEN, _ => wakeLock.unlock())
 
@@ -85,7 +89,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
       tracksControl(trackType).foreach(_.selectedId() = id)
       if (trackType == TrackType.VIDEO)
         for video <- player.media.info.videoTracks.asScala.find(_.id == id)
-          do stage.videoSize() = (video.width, video.height)
+          do videoTrack() = video
 
 
   private def tracksControl(trackType: TrackType) =

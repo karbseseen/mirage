@@ -17,11 +17,14 @@ import java.lang
 
 
 private sealed abstract class TorrentNode(val name: String) extends SelfProperty:
+  val tree: TreeItem[TorrentNode] = TreeItem(this)
+
   def include: ReadOnlyObjectProperty[? <: FolderInclude]
   def toggleInclude(): Unit
 
   private val _doneBytes = SimpleLongProperty(this, "doneBytes")
   protected def doneBytes: LongProperty = _doneBytes
+
   def progress: FloatBinding
 
 
@@ -37,9 +40,10 @@ private object TorrentNode:
     override val progress: FloatBinding = doneBytes.divide(size.toFloat)
 
 
-  class Folder private[TorrentNode] (name: String, children: ObservableBuffer[jfxsc.TreeItem[TorrentNode]])
-    extends TorrentNode(name):
+  class Folder private[TorrentNode] (name: String, initChildren: List[TorrentNode]) extends TorrentNode(name):
     import Folder.*
+
+    tree.children = initChildren.map(_.tree)
 
     private val mutableInclude: SimpleObjectProperty[FolderInclude] = SimpleObjectProperty(this, "include", Include.No)
     def include: ReadOnlyObjectProperty[FolderInclude] = mutableInclude
@@ -49,7 +53,8 @@ private object TorrentNode:
         val priorities = selected.torrent.handle.filePriorities
         allFiles.foreach(file => priorities(file.index) = priority)
         selected.torrent.handle.prioritizeFiles(priorities)
-    private def allFiles: List[File] = children.toList.flatMap:
+
+    private def allFiles: List[File] = tree.children.toList.flatMap:
       _.getValue match
         case file: File => Some(file)
         case folder: Folder => folder.allFiles
@@ -75,8 +80,8 @@ private object TorrentNode:
 
     private val childCount = SimpleIntegerProperty(this, "childCount")
 
-    applyDiff { children.diffSum(nodeDiff(_, AddListener)) }
-    children.onChange: (_, changes) =>
+    applyDiff { tree.children.diffSum(nodeDiff(_, AddListener)) }
+    tree.children.onChange: (_, changes) =>
       val diff = changes.diffSum:
         case ObservableBuffer.Add(_, added) => added.diffSum(nodeDiff(_, AddListener))
         case ObservableBuffer.Remove(_, removed) => -removed.diffSum(nodeDiff(_, RemoveListener))
@@ -134,10 +139,8 @@ private object TorrentNode:
       val preChild = it.foldLeft[PreChild](PreFile(file)) { case (child, prefix) => PreFolder(prefix, child) }
       (preChild, file)
 
-    val tree: TreeItem[TorrentNode] = data.map(_._1).toTree
+    val folder: Folder = data.map(_._1).toFolder("")
     val files: IArray[TorrentNode.File] = data.map(_._2).toIArray
-
-    tree.value = Folder("", tree.children)
 
     def setPriorities(priorities: Array[Priority]): Unit =
       for (file, priority) <- files zip priorities do
@@ -164,13 +167,10 @@ private object TorrentNode:
   private trait PreChild
   private case class PreFile(file: TorrentNode.File) extends PreChild
   private case class PreFolder(name: String, child: PreChild) extends PreChild
-  extension (preChildren: List[PreChild]) private def toTree: TreeItem[TorrentNode] =
+  extension (preChildren: List[PreChild]) private def toFolder(name: String): Folder =
     val (files, preFolders) = preChildren.partitionMap:
-      case PreFile(file) => Left(TreeItem[TorrentNode](file))
+      case PreFile(file) => Left(file)
       case folder: PreFolder => Right(folder)
-    val folders = preFolders.groupMap(_.name)(_.child).map: (name, preChildren) =>
-      val subTree = preChildren.toTree
-      subTree.value = TorrentNode.Folder(name, subTree.children)
-      subTree
-    val children = folders.toList.sortBy(_.value().name) ::: files.sortBy(_.value().name)
-    new TreeItem[TorrentNode].also(_.children = children)
+    val folders = preFolders.groupMap(_.name)(_.child).map((name, preChildren) => preChildren.toFolder(name))
+    val children = folders.toList.sortBy(_.name) ::: files.sortBy(_.name)
+    Folder(name, children)

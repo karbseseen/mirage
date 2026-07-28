@@ -177,15 +177,15 @@ val torrentView = new AutoSplitPane:
       oldSelected <- Option(oldSelectedNullable)
       oldNode <- oldSelected.node
     do
-      expanded(oldSelected.torrent.hash) = Expanded(oldNode.tree)
+      expanded(oldSelected.torrent.hash) = Expanded(oldNode.folder.tree)
     for
       newSelected <- selected
       newNode <- newSelected.node
       expanded <- expanded.remove(newSelected.torrent.hash)
     do
-      expanded.apply(newNode.tree)
+      expanded.apply(newNode.folder.tree)
 
-    val root = selected.flatMap(_.node).map(_.tree).orNull
+    val root = selected.flatMap(_.node).map(_.folder.tree).orNull
     torrentFileTable.root = root
     if (root == null && hasFiles)
       items -= torrentFileTable
@@ -211,7 +211,7 @@ val torrentView = new AutoSplitPane:
       torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
   private var startButton: Option[Button] = None
   private val selectedState = selectedExpr.flatMap(_.torrent.state)
-  private val selectedInclude = selectedExpr.flatMap(_.node.map(_.tree.value().include).orNull)
+  private val selectedInclude = selectedExpr.flatMap(_.node.map(_.folder.include).orNull)
   private val selectedListener: InvalidationListener = _ =>
     val canStart = Option(selectedState()).exists(_.isFileSelect) &&
       !Option(selectedInclude()).contains(TorrentNode.Include.No)

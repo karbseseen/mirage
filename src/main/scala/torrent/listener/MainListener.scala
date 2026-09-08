@@ -3,9 +3,10 @@ package torrent.listener
 import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.alerts.*
 import com.frostwire.jlibtorrent.swig.libtorrent_errors
-import constant.Constants
+import constant.{Constants, Tr}
 import core.main.MainApp
-import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx}
+import fx.PropertyInterpolation.b
+import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx, jfxTreeItem2sfx}
 import scalafx.application.Platform
 import torrent.*
 import torrent.Hash.hash
@@ -43,6 +44,23 @@ private[listener] class MainListener extends TorrentListener:
     val handle = event.handle
     handle.setFlags(STOP_WHEN_READY, STOP_WHEN_READY or_ UPLOAD_MODE or_ AUTO_MANAGED)
     map.get(handle.hash).foreach(_.metadataUpdate())
+
+
+  listen[FileRenameFailedAlert]: event =>
+    MainApp.showError(b"${Tr.cantRename} ${event.handle.torrentFile.files.fileName(event.getIndex)}")
+
+  listen[FileRenamedAlert]: event =>
+    forTorrentUi(event.handle.hash): torrent =>
+      if (TorrentView.selected.exists(_.torrent == torrent))
+        TorrentView.selectedExpr.invalidate()
+        TorrentView.selected.flatMap(_.fileTable).foreach: fileTable =>
+          val tree = fileTable.node.files(event.index).tree
+          Iterator.iterate(tree)(_.parent())
+            .drop(1)
+            .takeWhile(_ != null)
+            .foreach(_.expanded() = true)
+          fileTable.scrollTo(fileTable.getRow(tree))
+          fileTable.selectionModel().select(tree)
 
 
   listen[StateChangedAlert]: event =>

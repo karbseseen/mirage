@@ -6,7 +6,7 @@ import com.sun.javafx.binding.MappedBinding
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
 import fx.PropertyInterpolation.b
-import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView}
+import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView, mapBinding}
 import javafx.beans.InvalidationListener
 import javafx.beans.binding.{ObjectBinding, StringExpression}
 import javafx.beans.property.SimpleLongProperty
@@ -18,7 +18,6 @@ import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
-import torrent.view.TorrentView.Selected
 import torrent.{Hash, State, Torrent, TorrentMedia, TorrentNode}
 import vlc.VlcStage
 
@@ -28,7 +27,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 
-private val torrentTable = new AutoTableView[Torrent]:
+private object TorrentTable extends AutoTableView[Torrent]:
   def tableName: String = "torrent-root"
 
   styleClass ++= Seq(Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
@@ -107,28 +106,29 @@ private val torrentTable = new AutoTableView[Torrent]:
     cellText(_.intValue.toString)
 
 
-private val selectedExpr =
-  val selectedItem = torrentTable.selectionModel.flatMap(_.selectedItemProperty)
-  MappedBinding(selectedItem, torrent =>
-    if (!torrent.handle.isValid) null
-    else Selected(torrent, Option(torrent.handle.torrentFile).map(_ => TorrentNode.Root(torrent.handle)))
-  )
-
-
-private val torrentFileTable = new AutoTreeView[TorrentNode]:
+private object TorrentFileTable
+private class TorrentFileTable(torrent: Torrent, val node: TorrentNode.Root) extends AutoTreeView[TorrentNode]:
   def tableName: String = "torrent-file"
 
   styleClass ++= Seq(Styles.DENSE, Styles.STRIPED, Tweaks.EDGE_TO_EDGE)
   styleClass -= Styles.BORDERED
+  root = node.folder.tree
   showRoot = false
+  userData = TorrentFileTable
 
-  rowSet: (row, value) =>
-    value match
-      case file: TorrentNode.File => row.onMouseClicked = event =>
-        if (event.getClickCount == 2)
-          VlcStage.play(Some(TorrentMedia(selectedExpr().torrent, file.index)))
-      case _ => row.onMouseClicked = null
-  rowUnset(_.onMouseClicked = null)
+  private def rowUnset(row: IndexedCell[TorrentNode]): Unit =
+    row.onMouseClicked = null
+    row.contextMenu = null
+  rowUnset(rowUnset(_))
+  rowSet:
+    case (row, file: TorrentNode.File) => row.onMouseClicked = event =>
+      if (event.getClickCount == 2)
+        VlcStage.play(Some(TorrentMedia(torrent, file.index)))
+      val rename = new MenuItem:
+        text <== Tr.rename
+        onAction = _ => MainApp.modal.show(TorrentModal.renameFile(torrent, file.index))
+      row.contextMenu = ContextMenu(rename)
+    case (row, _) => rowUnset(row)
 
   columns += new Column(Tr.naming, selfProp):
     treeColumn = this
@@ -161,15 +161,26 @@ private val torrentFileTable = new AutoTreeView[TorrentNode]:
     cellTextBind(value => sizeExpression(value.doubleValue, Tr.Size.allList))
 
 
-val torrentView = new AutoSplitPane:
+object TorrentView extends AutoSplitPane:
+
+  private[torrent] class Selected(val torrent: Torrent, _node: Option[TorrentNode.Root]):
+    val fileTable: Option[TorrentFileTable] = _node.map(TorrentFileTable(torrent, _))
+    def node: Option[TorrentNode.Root] = fileTable.map(_.node)
+  private[torrent] def selected: Option[Selected] = Option(selectedExpr())
+  private[torrent] val selectedExpr: ObjectBinding[Selected] = TorrentTable.selectionModel
+    .flatMap(_.selectedItemProperty)
+    .mapBinding: torrent =>
+      if (!torrent.handle.isValid) null
+      else Selected(torrent, Option(torrent.handle.torrentFile).map(_ => TorrentNode.Root(torrent.handle)))
+
   override def splitName: String = "torrent"
 
   vgrow = Priority.Always
   orientation = Orientation.Vertical
-  items += torrentTable
+  items += TorrentTable
 
   private val expanded = mutable.Map.empty[Hash, Expanded]
-  private var hasFiles = false
+
   selectedExpr.subscribe: (oldSelectedNullable, newSelectedNullable) =>
     val selected = Option(newSelectedNullable)
 
@@ -178,6 +189,7 @@ val torrentView = new AutoSplitPane:
       oldNode <- oldSelected.node
     do
       expanded(oldSelected.torrent.hash) = Expanded(oldNode.folder.tree)
+
     for
       newSelected <- selected
       newNode <- newSelected.node
@@ -185,23 +197,17 @@ val torrentView = new AutoSplitPane:
     do
       expanded.apply(newNode.folder.tree)
 
-    val root = selected.flatMap(_.node).map(_.folder.tree).orNull
-    torrentFileTable.root = root
-    if (root == null && hasFiles)
-      items -= torrentFileTable
-      hasFiles = false
-    else if (root != null && !hasFiles)
-      items += torrentFileTable
-      hasFiles = true
+    items.removeIf(_.getUserData == TorrentFileTable)
+    selected.flatMap(_.fileTable).foreach(items += _)
 
   private def createStartButton(torrent: Torrent) = new Button:
     styleClass += Styles.ACCENT
     alignmentInParent = Pos.TopLeft
     translateX = Constants.inset
     translateY <== Bindings.createDoubleBinding(
-      () => torrentTable.localToScene(0.0, torrentTable.getHeight).y - this.getHeight - Constants.inset,
-      torrentTable.localToSceneTransformProperty,
-      torrentTable.height,
+      () => TorrentTable.localToScene(0.0, TorrentTable.getHeight).y - this.getHeight - Constants.inset,
+      TorrentTable.localToSceneTransformProperty,
+      TorrentTable.height,
       this.height,
     )
     text <== b"${Tr.letsGo}!"
@@ -225,14 +231,6 @@ val torrentView = new AutoSplitPane:
         this.startButton = None
   selectedState.addListener(selectedListener)
   selectedInclude.addListener(selectedListener)
-
-
-private[torrent] object TorrentView:
-  class Selected(val torrent: Torrent, val node: Option[TorrentNode.Root])
-  @volatile private var _selected: Option[Selected] = None
-  def selected: Option[Selected] = _selected
-  def selectedExpr: ObjectBinding[Selected] = torrent.view.selectedExpr
-  selectedExpr.addListener { (_, _, value) => _selected = Option(value) }
 
 
 private trait SpeedColumn:

@@ -5,19 +5,22 @@ import atlantafx.base.theme.Styles
 import constant.{Tr, Translate}
 import core.MainMenu
 import fx.{NotificationBox, PopupNotification}
+import javafx.beans.property.StringPropertyBase
+import javafx.beans.property.adapter.JavaBeanStringProperty
+import javafx.beans.value as jfxbv
 import scalafx.Includes.{jfxControl2sfx, jfxStringProperty2sfx}
 import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.application.{JFXApp3, Platform}
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
-import torrent.view.torrentView
+import torrent.view.TorrentView
 
 
 object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
-  lazy val root = new VBox(new MainMenu, torrentView)
+  lazy val root = new VBox(new MainMenu, TorrentView)
   lazy val modal = new ModalPane
   lazy val notifications = new NotificationBox
 
@@ -34,13 +37,12 @@ object MainApp extends JFXApp3
         content = Seq[Node](MainApp.root, modal, notifications)
 
   /**Thread-safe*/
-  def showError(message: String | Translate): Unit =
-    val eitherMessage = message match
-      case str: String => Left(str)
-      case tr: Translate => Right(tr)
+  def showError(text: String | jfxbv.ObservableValue[String]): Unit =
     Platform.runLater:
-      notifications.children += new PopupNotification(eitherMessage.left.toOption.orNull):
-        eitherMessage.foreach(this.message <== _)
+      notifications.children += new PopupNotification:
+        text match
+          case str: String => message = str
+          case observable: jfxbv.ObservableValue[String] => message <== observable
         styleClass += Styles.DANGER
   /**Thread-safe*/
   def showError(error: Throwable): Unit = showError(error.getMessage)

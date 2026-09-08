@@ -10,7 +10,7 @@ import fx.{ModalBox, ModalVBox}
 import scalafx.Includes.{jfxBooleanBinding2sfx, jfxStringProperty2sfx, observableList2ObservableBuffer}
 import scalafx.geometry.Pos
 import scalafx.scene.control.{Button, Label, TextField}
-import scalafx.scene.layout.{GridPane, HBox, Priority, VBox}
+import scalafx.scene.layout.*
 import scalafx.scene.text.Font
 import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{DirectoryChooser, FileChooser}
@@ -185,3 +185,59 @@ object TorrentModal:
 
     new VBox(label, ModalBox.space, buttons) with ModalVBox:
       alignment = Pos.Center
+
+
+  def renameFile(torrent: Torrent, index: Int): ModalBox =
+    val initValue = torrent.handle.torrentFile.files.fileName(index)
+    val origValue = torrent.handle.torrentFile.origFiles.fileName(index)
+    val fileNameRegex = """^[a-zA-Z0-9!@#$%^&{}\[\]()_+\-=,.~'` ]{1,200}$""".r
+
+    val label = new Label:
+      text <== Tr.fileNewName
+      font = Font(Constants.headingSize)
+      alignment = Pos.Center
+      prefWidth = Double.MaxValue
+
+    val input = new TextField:
+      text = initValue
+      hgrow = Priority.Always
+
+    val defaultButton = new Button:
+      text <== Tr.default
+      onAction = _ => input.text = origValue
+      disable <== input.text.isEqualTo(origValue)
+
+    val cancelButton = new Button:
+      styleClass ++= Seq(Styles.DANGER, Styles.BUTTON_OUTLINED)
+      text <== Tr.cancel
+      onAction = _ => MainApp.modal.hide(true)
+
+    val buttonSpace = new Region:
+      hgrow = Priority.Always
+
+    val saveButton = new Button:
+      styleClass ++= Seq(Styles.ACCENT)
+      text <== Tr.save
+      onAction = _ =>
+        val initPath = Paths.get(torrent.handle.torrentFile.files.filePath(index))
+        val newPath = initPath.getParent match
+          case null => input.text()
+          case parentPath => parentPath.resolve(input.text()).toString
+        torrent.handle.renameFile(index, newPath)
+        MainApp.modal.hide(true)
+
+    input.text.subscribe: text =>
+      val valid = Some(text).filter(_ != initValue).map(fileNameRegex.matches)
+      input.pseudoClassStateChanged(Styles.STATE_DANGER, valid.exists(!_))
+      saveButton.disable = valid.forall(!_)
+
+    new VBox(
+      label,
+      ModalBox.space,
+      defaultButton,
+      ModalBox.spacing,
+      input,
+      ModalBox.spacing,
+      HBox(cancelButton, buttonSpace, saveButton),
+    ) with ModalVBox:
+      maxWidth = 700

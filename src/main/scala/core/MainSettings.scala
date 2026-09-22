@@ -11,10 +11,12 @@ import javafx.util.StringConverter
 import org.kordamp.ikonli.fluentui.FluentUiFilledAL
 import org.kordamp.ikonli.javafx.FontIcon
 import p2p.base.P2p
-import scalafx.Includes.{jfxControl2sfx, jfxProperty2sfx}
+import p2p.phone.Phone
+import scalafx.Includes.{jfxControl2sfx, jfxObjectProperty2sfx, jfxProperty2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.Pos
-import scalafx.scene.control.{ChoiceBox, Label, Separator, TextField}
+import scalafx.scene.control.{CheckBox, ChoiceBox, Label, Separator, TextField}
+import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.VBox
 import scalafx.scene.text.Font
 
@@ -69,6 +71,19 @@ class MainSettings extends VBox with ModalVBox:
     titleProperty <== Tr.room
     setAction(input)
     setActionHandler(() => input.requestFocus())
+
+  children += new Separator
+
+  children += new Tile:
+    private val input = new CheckBox:
+      selected <== Phone.enableEncoder
+      this.addEventFilter(MouseEvent.MousePressed, _.consume())
+      onMouseClicked = _ => Phone.enableEncoderCounter = Phone.enableEncoderCounter.inc
+    titleProperty <== Tr.encodeCall
+    setAction(input)
+    setActionHandler: () =>
+      input.requestFocus()
+      input.onMouseClicked().handle(null)
 
   children += new Separator
 

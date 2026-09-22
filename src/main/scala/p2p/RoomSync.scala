@@ -4,7 +4,7 @@ import byte_codec.ByteCodec.{CompactUInt, CompactULong}
 import com.frostwire.jlibtorrent.{AddTorrentParams, TorrentFlags}
 import config.Conf
 import core.TaskQueue.{Task, scheduleSingle}
-import p2p.base.Message.{PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
+import p2p.base.Message.{Counter, PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
 import p2p.base.{MessageHandler, P2p, Peer}
 import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
@@ -20,7 +20,7 @@ import java.util.function.UnaryOperator
 
 object RoomSync:
 
-  val mergedState = AtomicReference(PlayerState(hash = Hash.empty, fileIndex = -1, fileCounter = 0))
+  val mergedState = AtomicReference(PlayerState(hash = Hash.empty, fileIndex = -1, fileCounter = Counter.zero))
   private var waitTask = Option.empty[Task]
 
   P2p.addMessageHandler(playerSyncHandler)
@@ -39,12 +39,8 @@ object RoomSync:
 
     val oldState = mergedState.getAndUpdate: myState =>
 
-      inline def counterDiff(getCounter: PlayerState => Byte) =
-        (getCounter(myState), getCounter(peerState)) match
-          case (0, 0) => 0
-          case (0, _) => -1
-          case (_, 0) => 1
-          case (myCounter, peerCounter) => (myCounter - peerCounter).toByte.toInt
+      inline def counterDiff(inline getCounter: PlayerState => Counter) =
+        getCounter(myState) compare getCounter(peerState)
 
       inline def getMax[T](diff: Int, getter: PlayerState => T, ifNull: => PlayerState = myState) =
         getter:

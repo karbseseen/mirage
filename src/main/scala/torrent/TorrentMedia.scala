@@ -55,12 +55,12 @@ class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCal
   def onStageShow(): Unit =
     RoomSync.mergedState.updateAndGet: state =>
       if (state.hash == torrent.hash && state.fileIndex.toInt == fileIndex) state
-      else PlayerState(hash = torrent.hash, fileIndex = fileIndex, fileCounter = PlayerState.count(state.fileCounter))
+      else PlayerState(hash = torrent.hash, fileIndex = fileIndex, fileCounter = state.fileCounter.inc)
 
   def onStageHide(): Unit =
     torrent.cancelPieceRequests()
     RoomSync.mergedState.updateAndGet: state =>
-      PlayerState(hash = Hash.empty, fileIndex = -1, fileCounter = PlayerState.count(state.fileCounter))
+      PlayerState(hash = Hash.empty, fileIndex = -1, fileCounter = state.fileCounter.inc)
 
 
   private def read(buffer: Pointer, bufferSize: Int): Int =

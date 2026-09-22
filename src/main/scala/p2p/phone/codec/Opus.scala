@@ -1,22 +1,24 @@
-package p2p.phone
-
+package p2p.phone.codec
 
 import core.main.MainApp
 import org.freedesktop.dbus.errors.InvalidMethodArgument
 import org.lwjgl.util.opus.Opus.*
+import p2p.phone.{codec, frameSize, sampleRate}
 import util.also
 
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.language.implicitConversions
 
 
-private class Encoder:
+class OpusEncoder extends Encoder:
   private val input = ByteBuffer.allocateDirect(frameSize * 4).order(ByteOrder.nativeOrder).asFloatBuffer
   private val output = ByteBuffer.allocateDirect(4000).order(ByteOrder.nativeOrder)
   private val native = opus_encoder_create(sampleRate, 1, OPUS_APPLICATION_VOIP, output.asIntBuffer)
+
   output.getInt(0).checkOpusError
   native.also(native => MainApp.cleaner.register(this, () => opus_encoder_destroy(native)))
   opus_encoder_ctl(native, OPUS_SET_INBAND_FEC(1)).checkOpusError
+  opus_encoder_ctl(native, OPUS_SET_VBR_CONSTRAINT(0)).checkOpusError
 
   def encode(data: Array[Float]): Array[Byte] =
     if (data.length != input.limit)
@@ -29,17 +31,20 @@ private class Encoder:
     opus_encoder_ctl(native, OPUS_SET_PACKET_LOSS_PERC(percentage)).checkOpusError
 
 
-class Decoder:
+class OpusDecoder extends Decoder:
   private val input = ByteBuffer.allocateDirect(4000).order(ByteOrder.nativeOrder)
   private val output = ByteBuffer.allocateDirect(frameSize * 4).order(ByteOrder.nativeOrder).asFloatBuffer
   private val native = opus_decoder_create(sampleRate, 1, input.asIntBuffer)
+
   input.getInt(0).checkOpusError
   native.also(native => MainApp.cleaner.register(this, () => opus_decoder_destroy(native)))
 
   def decode(data: Array[Byte], fec: Boolean): Array[Float] =
     decodeInner(input.limit(data.length).put(0, data), fec)
+
   def decodeMissing: Array[Float] =
     decodeInner(null, false)
+
   private def decodeInner(input: ByteBuffer, fec: Boolean) =
     val size = opus_decode_float(native, input, output, frameSize, if (fec) 1 else 0).checkOpusError
     if (size != frameSize)

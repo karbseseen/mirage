@@ -125,7 +125,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
         stage.startPauseTask: thisTask =>
           if (isBuffering)
             val state = RoomSync.mergedState.updateAndGet: state =>
-              if (state.pause) state else state.copy(pauseCounter = PlayerState.count(state.pauseCounter))
+              if (state.pause) state else state.copy(pauseCounter = state.pauseCounter.inc)
             P2p.sendToAll(state)
           else thisTask.cancel()
 

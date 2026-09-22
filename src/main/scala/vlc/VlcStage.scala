@@ -9,7 +9,7 @@ import javafx.beans.property.*
 import javafx.geometry.Rectangle2D
 import javafx.scene.input.KeyEvent
 import p2p.RoomSync
-import p2p.base.Message.PlayerState
+import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
 import scalafx.Includes.jfxNumberBinding2sfx
@@ -155,16 +155,16 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     seek: Boolean = false,
     send: Boolean,
   ): PlayerState =
-    inline def count(counter: Byte, condition: Boolean): Byte =
-      if (condition) PlayerState.count(counter) else counter
+    extension (counter: Counter) inline def incIf(condition: Boolean): Counter =
+      if (condition) counter.inc else counter
     val newState = RoomSync.mergedState.updateAndGet: oldState =>
       if (oldState.hash eq Hash.empty) oldState
       else oldState.copy(
         time          = time,
         speedX10      = if (speedX10 > 0) speedX10 else oldState.speedX10,
-        seekCounter   = count(oldState.seekCounter, seek),
-        speedCounter  = count(oldState.speedCounter, speedX10 > 0 && speedX10 != oldState.speedX10),
-        pauseCounter  = count(oldState.pauseCounter, pause.exists(_ != oldState.pause)),
+        seekCounter   = oldState.seekCounter.incIf(seek),
+        speedCounter  = oldState.speedCounter.incIf(speedX10 > 0 && speedX10 != oldState.speedX10),
+        pauseCounter  = oldState.pauseCounter.incIf(pause.exists(_ != oldState.pause)),
       )
     if (!newState.pause) pauseTask.foreach(_.cancel())
     if (send && (newState.hash ne Hash.empty)) P2p.sendToAll(newState)

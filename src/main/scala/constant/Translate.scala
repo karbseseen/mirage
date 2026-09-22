@@ -1,6 +1,6 @@
 package constant
 
-import config.{Config, Language}
+import config.Language
 import javafx.beans.property as jfxbp
 
 import java.util.function.Consumer
@@ -53,6 +53,7 @@ object Tr:
   val download          = Translate("Download",                   "Загрузка")
   val downloading       = Translate("Downloading",                "Загрузка")
   val downloadingMeta   = Translate("Downloading metadata",       "Загрузка метаданных")
+  val encodeCall        = Translate("Encode voice call",          "Кодировать звонок")
   val enterMagnet       = Translate("Enter magnet link",          "Введите магнитную ссылку")
   val file              = Translate("File",                       "Файл")
   val fileNewName       = Translate("File new name",              "Новое имя файла")
@@ -109,6 +110,15 @@ object Tr:
   val yepWithFiles      = Translate("Yep, with files",            "Да, вместе с файлами")
   val yepWithoutFiles   = Translate("Yep, without files",         "Да, без файлов")
 
+  val microphoneError = Translate(
+    "Couldn't initialize microphone",
+    "Не получилось запустить микрофон",
+  )
+  val speakerError = Translate(
+    "Couldn't play call sound",
+    "Не получилось воспроизвести звук в звонке",
+  )
+
   object Size:
     val b   = Translate("B",  "Б")
     val kb  = Translate("KB", "КБ")
@@ -122,13 +132,3 @@ object Tr:
     val mb  = Translate("MB/s", "МБ/с")
     val gb  = Translate("GB/s", "ГБ/с")
     val allList: List[Translate] = List(b, kb, mb, gb)
-
-  val microphoneError   = Translate(
-    "Couldn't initialize microphone",
-    "Не получилось запустить микрофон",
-  )
-
-  val speakerError   = Translate(
-    "Couldn't play call sound",
-    "Не получилось воспроизвести звук в звонке",
-  )

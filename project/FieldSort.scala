@@ -5,7 +5,6 @@ import scala.collection.compat.{toOptionCompanionExtension, toTraversableLikeExt
 
 
 object FieldSort {
-  private val fieldStartRegex = "^ {2}(val|object)".r
 
   private case class Entry(sourceFileName: String, objectName: String)
   private val entries = List(
@@ -13,19 +12,34 @@ object FieldSort {
     Entry("constant/Constants.scala", "Constants"),
   )
 
-  private implicit class EitherGet[T](either: Either[T, T]) {
-    def get: T = either.fold(identity, identity)
-  }
+  private sealed trait LineBegin
+  private case object Val extends LineBegin
+  private case object Obj extends LineBegin
 
-  private def processLines(lines: List[String]) =  {
-    val (short, long) = lines
-      .foldLeft(List.empty[Either[String, String]]) { case (acc, line) =>
+  private def prependEmptyLine(lines: List[String]): List[String] =
+    lines match {
+      case head :: tail => (System.lineSeparator + head) :: tail
+      case Nil => Nil
+    }
+
+  private def processLines(lines: List[String]) = {
+    val groupedLines = lines
+      .foldLeft { List.empty[(LineBegin, List[String])] } { case (acc, line) =>
         if (line.isEmpty) acc
-        else if (fieldStartRegex.findFirstMatchIn(line).nonEmpty) Left(line) :: acc
-        else Right(acc.head.get + System.lineSeparator + line) :: acc.tail
+        else if (line.startsWith("  val"))    (Val, line :: Nil) :: acc
+        else if (line.startsWith("  object")) (Obj, line :: Nil) :: acc
+        else acc.head.copy(_2 = line :: acc.head._2) :: acc.tail
       }
-      .partitionMap(identity)
-    short.sorted ::: long.sorted.map(System.lineSeparator + _)
+      .groupMap
+        { case (begin, lines) => (begin, lines.lengthCompare(1) > 0) }
+        { case (begin, lines) => lines.reverse.mkString(System.lineSeparator) }
+
+    val valShort  = groupedLines.getOrElse((Val, false), Nil).sorted
+    val valLong   = groupedLines.getOrElse((Val, true), Nil).sorted
+    val objShort  = groupedLines.getOrElse((Obj, false), Nil).sorted
+    val objLong   = groupedLines.getOrElse((Obj, true), Nil).sorted.map(System.lineSeparator + _)
+
+    valShort ::: prependEmptyLine(valLong) ::: prependEmptyLine(objShort) ::: objLong
   }
 
   private def processEntry(entry: Entry, source: File): Set[File] = {

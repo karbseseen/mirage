@@ -4,12 +4,14 @@ import byte_codec.ByteCodec.CompactUInt
 import p2p.base.Message.{PhoneData, PhoneMetadata}
 import p2p.base.Peer
 import p2p.phone.Jitter.SingleJitter
+import scalafx.Includes.jfxObjectProperty2sfx
 import util.also
 
-import java.nio.FloatBuffer
+import java.nio.{ByteBuffer, FloatBuffer}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.compiletime.uninitialized
+import scala.language.implicitConversions
 
 
 private class Jitter:
@@ -32,11 +34,12 @@ private object Jitter:
   private inline val AvgCoef = 0.08f
   private inline val KillAfter = 10
 
-  private class Packet(message: PhoneData) extends Comparable[Packet]:
-    val index: Int = message.index
-    val data: Array[Byte] = message.data
+  private class Packet(val message: PhoneData) extends Comparable[Packet]:
     val time: Long = System.currentTimeMillis
-    def compareTo(other: Packet): Int = other.index - index
+    inline def index: Int = message.index
+    def compareTo(other: Packet): Int = other.index - this.index
+  private object Packet:
+    implicit inline def toMessage(packet: Packet): PhoneData = packet.message
 
   private class SingleJitter(peer: Peer):
     private var readIndex = -QueueMaxSize
@@ -48,7 +51,7 @@ private object Jitter:
     private var packetAvgWait = frameDuration.toFloat
     private var packetAvgWaitNegDiffSqr = 0f
 
-    private var decoder: Decoder = uninitialized
+    private var decoder: codec.Decoder = new codec.DummyDecoder
     private var frame = FloatBuffer.allocate(0)
 
     def alive: Boolean = readIndex > -KillAfter
@@ -76,7 +79,7 @@ private object Jitter:
 
       statTotal += 1
       if (statTotal == metaSendPeriod / frameDuration)
-        peer.send(PhoneMetadata(statLoss * 100 / statTotal))
+        peer.send(PhoneMetadata(statLoss * 100 / statTotal, Phone.enableEncoderCounter))
         statLoss = 0
         statTotal = 0
 
@@ -98,20 +101,23 @@ private object Jitter:
           readIndex = packet.index
           dequeue()
           queue = queue.filter(data => (data.index - readIndex).abs <= QueueMaxSize)
-          decoder = new Decoder
-          decoder.decode(packet.data, fec = false)
+          decode(packet, fec = false)
         case Some(packet) if packet.index < readIndex =>
           dequeue(System.currentTimeMillis + (packet.index - readIndex) * frameDuration)
           decodeNext
         case Some(packet) if packet.index == readIndex =>
           dequeue()
-          decoder.decode(packet.data, fec = false)
+          decode(packet, fec = false)
         case Some(packet) if packet.index == readIndex + 1 =>
-          decoder.decode(packet.data, fec = true)
+          decode(packet, fec = true)
         case packetOpt =>
-          if (packetOpt.isEmpty && readIndex >= 0) readIndex = -1
+          if (packetOpt.isEmpty && readIndex >= 0) readIndex = -QueueMaxSize
           statLoss += 1
           decoder.decodeMissing
+
+    private def decode(packet: Packet, fec: Boolean) =
+      decoder = codec.ensureOpus(decoder, enable = packet.enableEncoderCounter.toBoolean)
+      decoder.decode(packet.data, fec)
 
     private def dequeue(now: Long = System.currentTimeMillis): Unit =
       val wait = now - queue.dequeue().time

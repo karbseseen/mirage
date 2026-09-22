@@ -7,7 +7,9 @@ import scala.util.{Failure, Success, Try}
 
 
 extension [T](any: T)
-  inline def also(func: T => Unit): T =
+  inline def let[U](inline func: T => U): U =
+    func(any)
+  inline def also(inline func: T => Unit): T =
     func(any)
     any
 

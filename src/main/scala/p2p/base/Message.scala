@@ -45,6 +45,9 @@ object Message:
   @Msg(101) case class TorrentMagnetRequest(hash: Hash) extends Message
   @Msg(102) case class TorrentMagnetResponse(hash: Hash, magnet: CompactBytes) extends Message
 
+  @Msg(103) case class PhoneData(index: CompactUInt, data: Array[Byte]) extends Message
+  @Msg(104) case class PhoneMetadata(packetLoss: CompactUInt) extends Message
+
   object MulticastAnnounce:
     val cookie = 0xa0763626f5735cd2L
   object Ping:
@@ -69,10 +72,11 @@ trait Messages private[p2p]:
   protected def getMessageHandlers(cls: Class[? <: Message]): List[MessageHandler[? <: Message]] =
     messageHandlers.getOrElse(cls, Nil)
 
-  def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
+  def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): MessageHandler[M] =
     TaskQueue.threadSafe:
       messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
         listOpt => Some(handler :: listOpt.getOrElse(Nil))
+    handler
 
   def removeMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
     TaskQueue.threadSafe:

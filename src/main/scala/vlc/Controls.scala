@@ -2,6 +2,7 @@ package vlc
 
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.Tr
+import core.main.MainApp
 import fx.AutoBg.+
 import fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
@@ -9,8 +10,9 @@ import javafx.beans.binding.StringBinding
 import javafx.beans.property.{SimpleBooleanProperty, SimpleIntegerProperty}
 import javafx.scene.paint.Stop
 import org.kordamp.ikonli.Ikon
-import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ}
+import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ, FluentUiRegularMZ}
 import org.kordamp.ikonli.javafx.FontIcon
+import p2p.phone.Phone
 import scalafx.Includes.{jfxBackground2sfx, jfxInsets2sfx, jfxNode2sfx, jfxParent2sfx, jfxProperty2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
@@ -123,6 +125,16 @@ private class Controls(stage: VlcStage) extends VBox:
       animation.setRate(if (expand) 1 else -1)
       animation.play()
 
+  val microphone: Button = new Button:
+    padding = Insets(inset)
+    background <== hoverableBg(this)
+    graphic = new FontIcon:
+      setStyle(fontIconStyle(24))
+      iconCodeProperty <==
+        stage.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
+    onAction = _ =>
+      stage.phone.microphoneEnabled() = !stage.phone.microphoneEnabled()
+
   val time: Button = new Button:
     padding = Insets(inset)
     font = Font(15)
@@ -198,7 +210,7 @@ private class Controls(stage: VlcStage) extends VBox:
     onAction = _ => stage.fullScreen = !stage.fullScreen()
 
 
-  private val bottomRow = new HBox(inset, playPause, volume, time, space, tracks, crop, expand):
+  private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, crop, expand):
     alignment = Pos.Center
     padding = Insets(left = inset, right = inset, top = shortInset, bottom = shortInset)
     background = Background fill Color.Black.opacity(backgroundOpacity)

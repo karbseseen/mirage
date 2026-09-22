@@ -60,8 +60,8 @@ trait Peers private[p2p] extends Messages:
     result
 
   private val listeners = mutable.Buffer.empty[PeerListener]
-  def addPeerListener   (listener: PeerListener): Unit = threadSafe(listeners += listener)
-  def removePeerListener(listener: PeerListener): Unit = threadSafe(listeners -= listener)
+  def addPeerListener   (listener: PeerListener): PeerListener = { threadSafe(listeners += listener); listener }
+  def removePeerListener(listener: PeerListener): PeerListener = { threadSafe(listeners -= listener); listener }
 
   def sendToAll(message: Message): Unit =
     val data = message.encode

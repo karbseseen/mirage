@@ -3,6 +3,7 @@ package vlc
 import byte_codec.ByteCodec.CompactULong
 import constant.Tr
 import core.TaskQueue.{Task, schedulePeriodic}
+import core.main.MainApp
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.geometry.Rectangle2D
@@ -10,6 +11,7 @@ import javafx.scene.input.KeyEvent
 import p2p.RoomSync
 import p2p.base.Message.PlayerState
 import p2p.base.P2p
+import p2p.phone.Phone
 import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
@@ -43,6 +45,8 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
   def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
   def isBuffering: Boolean = eventHandler.isBuffering
 
+  val phone: Phone = new Phone
+
   media.onStageShow()
   player.events.addMediaPlayerEventListener(eventHandler)
   onHiding = _ =>
@@ -50,6 +54,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     player.release()
     factory.release()
     pauseTask.foreach(_.cancel())
+    phone.close()
 
   private[vlc] val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)
@@ -134,14 +139,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
 
   def togglePause(): Unit =
     if (player.isFinished) player.media.play(media)
-    else
-      val setPause = player.status.isPlaying
-      player.controls.setPause(setPause)
-      updateState(pause = Some(setPause), send = true)
-      if (setPause) startPauseTask: thisTask =>
-        val state = RoomSync.mergedState.get
-        if (state.pause) P2p.sendToAll(state)
-        else thisTask.cancel()
+    else player.controls.setPause(player.status.isPlaying)
 
   def showNewSpeedText(speedX10: Byte): Unit =
     player.marquee.set:

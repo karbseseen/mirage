@@ -4,7 +4,6 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.stage.WindowEvent
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import p2p.RoomSync
-import p2p.base.Message.PlayerState
 import p2p.base.P2p
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
@@ -23,6 +22,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
   private var length = 0L
   private var lastTimeSync = 0L
+  private var microphoneWasEnabled = false
   private val wakeLock = new WakeLock
 
 
@@ -69,11 +69,27 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
     runLater:
       stage.controls.playPauseIcon.setIconCode(FluentUiFilledMZ.PAUSE_48)
 
+      stage.controls.microphone.disable() = true
+      microphoneWasEnabled = stage.phone.microphoneEnabled()
+      stage.phone.microphoneEnabled() = false
+
+      stage.updateState(pause = Some(false), send = true)
+
   override def paused(player: MediaPlayer): Unit =
     wakeLock.unlock()
     runLater:
       stage.controls.playPauseIcon.setIconCode(FluentUiFilledMZ.PLAY_48)
-      val state = stage.updateState(pause = Some(true), send = false)
+
+      stage.controls.microphone.disable() = false
+      if (microphoneWasEnabled)
+        microphoneWasEnabled = false
+        stage.phone.microphoneEnabled() = true
+
+      stage.updateState(pause = Some(true), send = true)
+      stage.startPauseTask: thisTask =>
+        val state = RoomSync.mergedState.get
+        if (state.pause) P2p.sendToAll(state)
+        else thisTask.cancel()
 
   override def stopped(player: MediaPlayer): Unit =
     wakeLock.unlock()
@@ -120,4 +136,3 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
         stage.loading.visible = false
         if (stage.player.status.isPlaying)
           stage.updateState(pause = Some(false), send = true)
-    

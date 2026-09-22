@@ -122,3 +122,13 @@ object Tr:
     val mb  = Translate("MB/s", "МБ/с")
     val gb  = Translate("GB/s", "ГБ/с")
     val allList: List[Translate] = List(b, kb, mb, gb)
+
+  val microphoneError   = Translate(
+    "Couldn't initialize microphone",
+    "Не получилось запустить микрофон",
+  )
+
+  val speakerError   = Translate(
+    "Couldn't play call sound",
+    "Не получилось воспроизвести звук в звонке",
+  )

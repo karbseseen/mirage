@@ -6,7 +6,7 @@ import constant.Constants
 import core.main.MainApp
 import org.freedesktop.ScreenSaver
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
-import util.JavaPlatform.OS
+import util.SystemInfo.OS
 
 
 class WakeLock:
@@ -35,7 +35,7 @@ object WakeLockUnsafe:
 
   private[util] def lockUnsync(): Unit =
     if (lockCount == 0)
-      unlockImpl = JavaPlatform.os match
+      unlockImpl = SystemInfo.os match
         case OS.Windows => windows
         case OS.MacOS => macOs
         case OS.Linux => linuxDbus orElse linuxSystemd

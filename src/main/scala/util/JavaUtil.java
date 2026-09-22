@@ -97,7 +97,7 @@ public class JavaUtil {
 
 
     public static ArrayList<String> currentCmd() {
-        if (JavaPlatform.os == JavaPlatform.OS.Windows) return windowsCmd();
+        if (SystemInfo.os == SystemInfo.OS.Windows) return windowsCmd();
         ProcessHandle.Info info  = ProcessHandle.current().info();
         ArrayList<String> cmd = new ArrayList<>();
         cmd.add(info.command().orElseThrow());

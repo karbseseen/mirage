@@ -1,3 +1,4 @@
+import _root_.util.LibInfo
 import sbt.*
 import sbt.Keys.*
 
@@ -11,8 +12,6 @@ object ManifestClassPath {
       "https://dl.frostwire.com/maven",
     ).map(_.replace(".", "\\.")).mkString("|")
     val urlRegex = s"(?:$urlPrefixRegex)/(.+)".r
-
-    val platformRegex = "-(?:windows|macosx-x86_64|macosx-arm64|linux-x86_64|linux-arm64|win|mac|linux)".r
 
     val providedUrls = update.value.configuration(Provided).toList
       .flatMap(_.modules)
@@ -32,7 +31,11 @@ object ManifestClassPath {
     implicit val optStrOrdering: Ordering[Option[String]] = Ordering.by { _.fold(1 -> "")(0 -> _) }
     val paths = pathsUnsorted.sorted
 
-    def toManifest(paths: Seq[String]) = paths.map(platformRegex.replaceAllIn(_, "-platform")).mkString(" ")
+    def toManifest(paths: Seq[String]) = paths.map { path =>
+      LibInfo.values
+        .find(lib => path.contains(lib.urlKeyword))
+        .fold(path)(lib => path.replace("-" + lib.platform, "-platform"))
+    }.mkString(" ")
 
     Package.ManifestAttributes(
       "Class-Path" -> toManifest(paths.flatMap(_._1)),

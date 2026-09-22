@@ -4,7 +4,8 @@ import sbt.Keys.*
 
 object ShareCode {
   private def paths = List(
-    "util/JavaPlatform.java",
+    "util/SystemInfo.java",
+    "util/LibInfo.java",
   )
 
   lazy val task = Def.task[Seq[File]] {

@@ -4,13 +4,9 @@ import byte_codec.ByteCodec.CompactUInt
 import p2p.base.Message.{PhoneData, PhoneMetadata}
 import p2p.base.Peer
 import p2p.phone.Jitter.SingleJitter
-import scalafx.Includes.jfxObjectProperty2sfx
-import util.also
 
-import java.nio.{ByteBuffer, FloatBuffer}
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.compiletime.uninitialized
 import scala.language.implicitConversions
 
 
@@ -30,9 +26,10 @@ private class Jitter:
 
 private object Jitter:
 
-  private inline val QueueMaxSize = 14
-  private inline val AvgCoef = 0.08f
+  private inline val QueueMaxSize = 18
+  private inline val AvgCoef = 0.07f
   private inline val KillAfter = 10
+  private inline val NormalSpeed = 1.03f
 
   private class Packet(val message: PhoneData) extends Comparable[Packet]:
     val time: Long = System.currentTimeMillis
@@ -46,13 +43,11 @@ private object Jitter:
     private var statLoss, statTotal = 0
 
     private var queue = mutable.PriorityQueue.empty[Packet]
-    private var queueAvgSize = QueueMaxSize * 0.5f
-    private var queueAvgSizeDiffNegSqr = 0f
     private var packetAvgWait = frameDuration.toFloat
     private var packetAvgWaitNegDiffSqr = 0f
 
     private var decoder: codec.Decoder = new codec.DummyDecoder
-    private var frame = FloatBuffer.allocate(0)
+    private var wsola: Option[Wsola] = None
 
     def alive: Boolean = readIndex > -KillAfter
 
@@ -60,21 +55,30 @@ private object Jitter:
       queue.enqueue(Packet(data))
       if (queue.size > QueueMaxSize) queue.dequeue()
 
-    def get: Array[Float] =
-      get(FloatBuffer.allocate(frameSize))
+    @tailrec final def get: Array[Float] =
+      wsola match
+        case None =>
+          val (data, speed) = decodeNext
+          if (speed == NormalSpeed) data
+          else
+            val wsola = Wsola(1200, 800)
+            wsola.speed = speed
+            wsola.put(data)
+            this.wsola = Some(wsola)
+            get
+        case Some(wsola) if wsola.speed == NormalSpeed && wsola.available + 400 < frameSize =>
+          this.wsola = None
+          wsola.flush(frameSize)
+        case Some(wsola) if wsola.available < frameSize =>
+          val (data, speed) = decodeNext
+          wsola.speed = speed
+          wsola.put(data)
+          get
+        case Some(wsola) =>
+          wsola.get(frameSize)
 
-    @tailrec private def get(data: FloatBuffer): Array[Float] =
-      if (data.remaining < frame.remaining) frame.limit(data.remaining)
-      data.put(frame)
-      frame.limit(frame.capacity)
-      if (data.remaining == 0)
-        data.array
-      else
-        frame = FloatBuffer.wrap(nextFrame)
-        get(data)
-
-    private def nextFrame: Array[Float] =
-      val data = decodeNext
+    private def decodeNext =
+      val data = decodeNext2
       readIndex += (if (readIndex >= 0) 1 else -1)
 
       statTotal += 1
@@ -83,19 +87,17 @@ private object Jitter:
         statLoss = 0
         statTotal = 0
 
-      val queueSizeDiff = queue.size - queueAvgSize
-      if (queueSizeDiff < 0)
-        queueAvgSizeDiffNegSqr += (queueSizeDiff * queueSizeDiff - queueAvgSizeDiffNegSqr) * AvgCoef
-      queueAvgSize += (queue.size - queueAvgSize) * AvgCoef
-
-      val queueMinAvgSize = queueAvgSize - math.sqrt(queueAvgSizeDiffNegSqr).toFloat
       val packetMinAvgWait = packetAvgWait - math.sqrt(packetAvgWaitNegDiffSqr).toFloat
+      val speed = packetMinAvgWait.toInt / 10 match
+        case p if p < 7 => NormalSpeed
+        case 7          => wsola.fold(NormalSpeed)(_.speed min 1.2f)
+        case 8 | 9      => 1.2f
+        case 10         => wsola.fold(1.2f)(_.speed max 1.2f)
+        case _          => 1.4f
 
-      if (queueMinAvgSize < 1.5f) changeSpeed(data, if (queueMinAvgSize < 0.5f) 0.8f else 0.9f)
-      else if (packetMinAvgWait > 65) changeSpeed(data, if (packetMinAvgWait > 90) 1.25f else 1.111111f)
-      else data
+      (data, speed)
 
-    @tailrec private def decodeNext: Array[Float] =
+    @tailrec private def decodeNext2: Array[Float] =
       queue.headOption match
         case Some(packet) if (packet.index - readIndex + queue.size).abs > QueueMaxSize =>
           readIndex = packet.index
@@ -104,7 +106,7 @@ private object Jitter:
           decode(packet, fec = false)
         case Some(packet) if packet.index < readIndex =>
           dequeue(System.currentTimeMillis + (packet.index - readIndex) * frameDuration)
-          decodeNext
+          decodeNext2
         case Some(packet) if packet.index == readIndex =>
           dequeue()
           decode(packet, fec = false)
@@ -125,13 +127,3 @@ private object Jitter:
       if (waitDiff < 0)
         packetAvgWaitNegDiffSqr += (waitDiff * waitDiff - packetAvgWaitNegDiffSqr) * AvgCoef
       packetAvgWait += (wait - packetAvgWait) * AvgCoef
-
-    private def changeSpeed(input: Array[Float], speed: Float) =
-      val sonic = Sonic(sampleRate, 1)
-      sonic.setSpeed(speed)
-      sonic.writeFloatToStream(input, input.length)
-      sonic.flushStream()
-
-      val newLength = sonic.samplesAvailable
-      new Array[Float](newLength).also:
-        sonic.readFloatFromStream(_, newLength)

@@ -20,6 +20,8 @@ object MainApp extends JFXApp3
   with UnixLocale
   with OnShutDown
 :
+  System.setProperty("jna.encoding", "UTF8")
+
   val cleaner: Cleaner = Cleaner.create
 
   lazy val root = new VBox(new MainMenu, TorrentView)

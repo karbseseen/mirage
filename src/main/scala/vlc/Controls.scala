@@ -325,7 +325,7 @@ private class Controls(stage: VlcStage) extends VBox:
     iconPane
 
 
-object Controls:
+private object Controls:
   private inline val shortInset         = 6.0
   private inline val inset              = 8.0
   private inline val longInset          = 12.0

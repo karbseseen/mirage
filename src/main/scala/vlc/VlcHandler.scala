@@ -5,25 +5,29 @@ import javafx.stage.WindowEvent
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import p2p.RoomSync
 import p2p.base.P2p
-import scalafx.Includes.jfxProperty2sfx
+import scalafx.Includes.{jfxProperty2sfx, jfxScene2sfx, observableList2ObservableBuffer}
 import scalafx.application.Platform.runLater
+import scalafx.scene.Node
 import uk.co.caprica.vlcj.media.{Meta, TrackType, VideoTrackInfo}
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
-import util.WakeLock
+import util.{WakeLock, also}
 import vlc.VlcStage.MinTimeSyncPeriod
+import vlc.loading.Impl
 
 import scala.jdk.CollectionConverters.*
 
 
 private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
-  val videoTrack = SimpleObjectProperty(this, "videoTrack", null: VideoTrackInfo)
-  @volatile var isBuffering = false
-
   private var length = 0L
   private var lastTimeSync = 0L
   private var microphoneWasEnabled = false
   private val wakeLock = new WakeLock
+  private var loading: Option[Node] = None
+
+  val videoTrack = SimpleObjectProperty(this, "videoTrack", null: VideoTrackInfo)
+  @volatile private var _isBuffering = false
+  def isBuffering: Boolean = _isBuffering
 
 
   stage.addEventHandler(WindowEvent.WINDOW_HIDDEN, _ => wakeLock.unlock())
@@ -116,9 +120,8 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
   private def setBufferingUi(progress: Float): () => Unit =
     val bufferStart = !isBuffering
-    if (bufferStart) isBuffering = true
+    if (bufferStart) _isBuffering = true
     () =>
-      stage.loadingLabel.text = s"${progress.toInt}%"
       if (bufferStart)
         stage.loading.visible = true
         stage.updateState(pause = Some(true), send = true)
@@ -131,7 +134,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
   private def unsetBufferingUi: Option[() => Unit] =
     Option.when(isBuffering):
-      isBuffering = false
+      _isBuffering = false
       () =>
         stage.loading.visible = false
         if (stage.player.status.isPlaying)

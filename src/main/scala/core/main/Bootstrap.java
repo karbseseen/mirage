@@ -84,7 +84,7 @@ public class Bootstrap {
 
     private boolean check() throws Exception {
         if (JavaUtil.lock == null) {
-            out.print("Mirage is already running");
+            out.print(JavaUtil.appName + " is already running");
             return false;
         }
 

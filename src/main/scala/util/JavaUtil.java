@@ -22,6 +22,7 @@ import java.util.jar.Manifest;
 
 public class JavaUtil {
 
+    public static final String appName = "Mirror";
     public static final FileLock lock;
 
     static {
@@ -48,7 +49,7 @@ public class JavaUtil {
                 if (Objects.equals(manifest.getMainAttributes().getValue("Implementation-Title"), "mirage"))
                     return manifest;
             }
-        throw new RuntimeException("Mirage manifest not found");
+        throw new RuntimeException(appName + " manifest not found");
     }
 
 

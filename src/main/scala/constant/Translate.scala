@@ -33,7 +33,6 @@ object Tr:
   val addFileError      = Translate("Couldn't add file",          "Не удалось добавить файл")
   val addTorrent        = Translate("Add torrent",                "Добавить торрент")
   val any               = Translate("Any",                        "Все что угодно")
-  val appName           = Translate("Mirage",                     "Мираж")
   val audio             = Translate("Audio",                      "Аудио")
   val branch            = Translate("Branch",                     "Ветка")
   val brightness        = Translate("Brightness",                 "Яркость")

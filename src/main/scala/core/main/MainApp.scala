@@ -2,7 +2,7 @@ package core.main
 
 import atlantafx.base.controls.ModalPane
 import atlantafx.base.theme.Styles
-import constant.{Tr, Translate}
+import constant.Constants
 import core.MainMenu
 import fx.{NotificationBox, PopupNotification}
 import javafx.beans.value as jfxbv
@@ -35,7 +35,7 @@ object MainApp extends JFXApp3
     p2p.RoomSync
 
     stage = new PrimaryStage:
-      title <== Tr.appName
+      title = Constants.appName
       icons.addAll(fx.getIconImages)
       scene = new Scene(new StackPane):
         content = Seq[Node](MainApp.root, modal, notifications)

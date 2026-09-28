@@ -1,13 +1,14 @@
 package constant
 
 import javafx.util.Duration
+import util.JavaUtil
 
 
 object Constants:
   val animationCloseAfter: Duration = Duration.millis(7500)
   val animationDuration: Duration = Duration.millis(250)
-  val appName = "Mirage"
-  val createTokenLink = "https://github.com/settings/personal-access-tokens/new?name=Mirage&expires_in=365"
+  val appName: String = JavaUtil.appName
+  val createTokenLink = s"https://github.com/settings/personal-access-tokens/new?name=$appName&expires_in=365"
   val createTokenLinkText = "https://github.com/settings/personal-access-tokens/new"
   val defaultColumnWidth = 150
   val githubToken = "Github personal access token"

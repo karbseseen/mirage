@@ -58,10 +58,11 @@ object P2p extends Peers with Messages:
   onClose(sendToAll(Bye))
 
   private def receiveMessage(channel: DatagramChannel): Unit =
-    val address = channel.receive(buffer.rewind)
-    if (address == null) return
     for
-      address <- Some(address).collect { case inet: InetSocketAddress => inet }
+      address <- Iterator
+        .continually(channel.receive(buffer.rewind))
+        .takeWhile(_ != null)
+        .collect { case inet: InetSocketAddress => inet }
       message <- Try(buffer.decode)
     do
       handleMessage(message, address, channel)

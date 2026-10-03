@@ -62,7 +62,7 @@ object TaskQueue:
         _.attachment match
           case task: Task => task.run()
           case _ => (),
-        timeUntilNext.fold(5000L)(t => (t + 5) min 5000L),
+        timeUntilNext.fold(5000L)(_ min 5000L),
       )
     for closeTask <- closeTasks.get.reverse do
       if (!closeTask.isCancelled)

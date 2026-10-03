@@ -6,6 +6,7 @@ import p2p.phone.WebRtcAec.Chunker
 import util.also
 
 import java.nio.FloatBuffer
+import scala.compiletime.uninitialized
 
 
 private class WebRtcAec:
@@ -31,11 +32,11 @@ private class WebRtcAec:
 
     (echoControl, playBuffer, cancelBuffer)
 
-  private val recordChunker, playChunker = new Chunker:
-    private val buffer = FloatBuffer.allocate(sampleRate / 100)
-    protected def createBuffer: FloatBuffer = buffer.position(0)
-  private val resultChunker = new Chunker:
-    protected def createBuffer: FloatBuffer = FloatBuffer.allocate(frameSize)
+  private val recordChunker, playChunker: Chunker =
+    val buffer = FloatBuffer.allocate(sampleRate / 100)
+    () => buffer.position(0)
+  private val resultChunker: Chunker =
+    () => FloatBuffer.allocate(frameSize)
 
   def putPlay(data: Array[Float]): Unit =
     playChunker.chunk(data).foreach: playChunk =>
@@ -54,9 +55,10 @@ private class WebRtcAec:
 private object WebRtcAec:
 
   private abstract class Chunker:
-    protected def createBuffer: FloatBuffer
-    private var buffer = createBuffer
+    protected def createBuffer(): FloatBuffer
+    private var buffer: FloatBuffer = uninitialized
     def chunk(data: Array[Float]): Iterator[Array[Float]] =
+      if (buffer == null) buffer = createBuffer()
       val input = FloatBuffer.wrap(data)
       val infinite = Iterator.continually:
         if (input.remaining >= buffer.remaining)
@@ -64,7 +66,7 @@ private object WebRtcAec:
           buffer.put(input)
           input.limit(input.capacity)
           val array = buffer.array
-          buffer = createBuffer
+          buffer = createBuffer()
           Some(array)
         else
           buffer.put(input)

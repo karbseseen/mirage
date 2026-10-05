@@ -2,6 +2,8 @@ package core
 
 import atlantafx.base.theme.Styles
 import constant.{Constants, Tr}
+import core.boot.JarUpdater
+import core.boot.JarUpdater.deleteFileArgPrefix
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
@@ -25,6 +27,8 @@ import util.*
 import java.io.{File, FileOutputStream}
 import java.time.ZoneId
 import java.time.format.{DateTimeFormatter, FormatStyle}
+import java.util.jar.{Attributes, Manifest}
+import java.util.zip.ZipEntry
 import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.Using
@@ -38,6 +42,7 @@ private[core] class UpdateStage extends Stage:
   initModality(Modality.WindowModal)
   initOwner(MainApp.stage.scene.value.getWindow)
   scene = new UpdateScene
+  icons.addAll(fx.getIconImages)
 
 
 private class UpdateScene extends Scene(new StackPane, 600, 400):
@@ -66,7 +71,6 @@ private class UpdateScene extends Scene(new StackPane, 600, 400):
       onMouseClicked = _ => MainApp.hostServices.showDocument(Constants.createTokenLink)
     val textFlow = new TextFlow(text, link.delegate)
 
-    val x = content
     mainView = new ScrollPane:
       padding = Insets(Constants.inset)
       hbarPolicy = ScrollBarPolicy.Never
@@ -117,6 +121,7 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
       .groupMapReduce(_.value.getHeadCommit.getId)(identity)(_ max _)
       .values
       .toSeq
+      .sorted(using runOrdering.reverse)
 
   override def succeeded(): Unit =
     val table = new AutoTableView[Run]:
@@ -154,20 +159,56 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
 
 
 private class DownloadService(scene: UpdateScene, run: Run) extends UpdateService[Unit](scene):
+
+  private val thisJar = JavaUtil.getJarFile
+  private val newJar = File(thisJar.getAbsolutePath + ".temp")
+  private val updaterJar =
+    val updaterJarNamePrefix = thisJar.getName match
+      case s"$prefix.jar" => prefix
+      case name           => name
+    File(thisJar.getParentFile, s"$updaterJarNamePrefix-updater.jar")
+
   def call: Unit =
-    val jarFile = JavaUtil.getJarFile
-    val tempFile = new File(jarFile.getAbsolutePath + ".temp")
-    try
-      run.artifact.download { input =>
-        Using(FileOutputStream(tempFile)) { input.transferTo(_) }
-      }
+    try work()
     catch case error: Exception =>
-      tempFile.delete()
+      newJar.delete()
+      updaterJar.delete()
       throw error
-    finally
-      JavaUtil.lock.release()
-      jarFile.delete()
-      tempFile.renameTo(jarFile)
+
   override def succeeded(): Unit =
-    JavaUtil.startNewInstance()
     Platform.exit()
+
+  private def work(): Unit =
+    run.artifact.download: input =>
+      Using(FileOutputStream(newJar)):
+        input.transferTo(_)
+
+    val updateCls = classOf[JarUpdater].getName
+    val updaterPath = updateCls.replace('.', '/') + ".class"
+
+    val manifest = new Manifest
+    manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
+    manifest.getMainAttributes.put(Attributes.Name.MAIN_CLASS, updateCls)
+
+    Using.resources(
+      getClass.getResourceAsStream("/" + updaterPath),
+      FileOutputStream(updaterJar).jar(manifest),
+    ): (input, output) =>
+      if (input == null) throw NullPointerException(s"Couldn't find source $updaterPath")
+      output.putNextEntry(new ZipEntry(updaterPath))
+      input.transferTo(output)
+
+    val currentCmd = CurrentCmd()
+    val updaterCmd =
+      currentCmd.head ::
+      "-jar" ::
+      updaterJar.getAbsolutePath ::
+      JarUpdater.getMyPid ::
+      thisJar.getAbsolutePath ::
+      newJar.getAbsolutePath ::
+      currentCmd :::
+      s"$deleteFileArgPrefix${updaterJar.getAbsolutePath}" ::
+      Nil
+
+    MainApp.shutdownHook:
+      Runtime.getRuntime.exec(updaterCmd.toArray)

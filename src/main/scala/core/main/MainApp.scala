@@ -16,10 +16,8 @@ import torrent.view.TorrentView
 import java.lang.ref.Cleaner
 
 
-object MainApp extends JFXApp3
-  with UnixLocale
-  with OnShutDown
-:
+object MainApp extends JFXApp3 with OnShutDown:
+  setUnixLocale()
   System.setProperty("jna.encoding", "UTF8")
 
   val cleaner: Cleaner = Cleaner.create

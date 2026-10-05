@@ -1,7 +1,7 @@
 package util
 
-import java.io.{BufferedInputStream, InputStream, PrintStream}
-import java.util.jar.JarInputStream
+import java.io.{BufferedInputStream, InputStream, OutputStream, PrintStream}
+import java.util.jar.{JarInputStream, JarOutputStream}
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
@@ -33,3 +33,8 @@ extension [T](it: Iterable[T])
 extension(input: InputStream)
   def buffered = new BufferedInputStream(input)
   def jar = new JarInputStream(input)
+
+extension(output: OutputStream)
+  def jar = JarOutputStream(output)
+  def jar(manifest: java.util.jar.Manifest) = JarOutputStream(output, manifest)
+  

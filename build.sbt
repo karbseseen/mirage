@@ -4,13 +4,13 @@ import _root_.util.LibInfo._
 ThisBuild / version := "0.1"
 ThisBuild / scalaVersion := "3.8.2"
 lazy val root = (project in file(".")).settings(name := "mirage")
-Compile / mainClass := Some("core.main.Bootstrap")
+Compile / mainClass := Some("core.boot.Bootstrap")
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-Compile / packageBin / packageOptions += ManifestClassPath.task.value
 Compile / compile := (Compile / compile).dependsOn(FieldSort.task).value
 Compile / sourceGenerators += ShareCode.task.taskValue
+Compile / resourceGenerators += LibUrlGen.task.taskValue
 
 lazy val fieldSort = taskKey[Unit]("FieldSort")
 fieldSort := FieldSort.task.value

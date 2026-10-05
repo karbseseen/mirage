@@ -26,51 +26,12 @@ public class Bootstrap {
         static final String depsOk = "no-dep-check";
     }
 
-    private interface Out {
-        void print(String line, boolean isTemp);
-        default void print(String line) { print(line, false); }
-        default void close() {}
-    }
-    private static class StdOut implements Out {
-        @Override public void print(String line, boolean isTemp) {
-            System.out.print(line + (isTemp ? "\r" : System.lineSeparator()));
-        }
-    }
-    private static class CustomOut implements Out {
-        private boolean overrideLastLine = false;
-        DefaultListModel<String> model = null;
-        JFrame frame = null;
-        @Override public void print(String line, boolean isTemp) {
-            if (model == null) {
-                model = new DefaultListModel<>();
-
-                JList<String> list = new JList<>(model);
-                list.setBackground(new Color(32, 0, 32));
-                list.setForeground(new Color(205, 205, 205));
-                list.setFont(new Font(Font.DIALOG, Font.BOLD, 15));
-
-                frame = new JFrame();
-                frame.add(new JScrollPane(list));
-                frame.setSize(1200, 400);
-                frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-                frame.setVisible(true);
-            }
-            if (overrideLastLine) model.setElementAt(line, model.size() - 1);
-            else model.addElement(line);
-            overrideLastLine = isTemp;
-        }
-        public void close() {
-            if (frame != null) frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-        }
-    }
-
-
     public static void main(String[] args) throws Exception {
         if (new Bootstrap(args).check()) MainApp.main(args);
     }
 
 
-    final Out out = System.console() == null ? new CustomOut() : new StdOut();
+    final Out out = Out.create();
     final File jarDirectory = JavaUtil.getJarFile().getParentFile();
     final LibInfo[] libs;
     final boolean depsOk;
@@ -84,7 +45,7 @@ public class Bootstrap {
 
     private boolean check() throws Exception {
         if (JavaUtil.lock == null) {
-            out.print(JavaUtil.appName + " is already running");
+            out.println(JavaUtil.appName + " is already running");
             return false;
         }
 
@@ -172,9 +133,9 @@ public class Bootstrap {
     }
 
     private void downloadAndPrint(String url, InputStream input, File destination, long totalSize) throws IOException {
-        Consumer<Long> print = totalRead -> out.print(url + " - " + (totalRead * 100 / totalSize) + "%", true);
+        Consumer<Long> print = totalRead -> out.printTemp(url + " - " + (totalRead * 100 / totalSize) + "%");
         JavaUtil.downloadWithProgress(input, destination, print);
-        out.print(url + " - Done", false);
+        out.println(url + " - Done");
     }
 
     class ParsedUrl {

@@ -1,4 +1,4 @@
-package core.main;
+package core.boot;
 
 import javax.swing.*;
 import java.awt.*;

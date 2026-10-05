@@ -41,31 +41,14 @@ public class JavaUtil {
     }
 
 
-    public static Manifest getManifest() throws IOException {
-        Enumeration<URL> manifests = Thread.currentThread().getContextClassLoader().getResources("META-INF/MANIFEST.MF");
-        while (manifests.hasMoreElements())
-            try (InputStream input = manifests.nextElement().openStream()) {
-                Manifest manifest = new Manifest(input);
-                if (Objects.equals(manifest.getMainAttributes().getValue("Implementation-Title"), "mirage"))
-                    return manifest;
-            }
-        throw new RuntimeException(appName + " manifest not found");
-    }
-
-
-    static File tempFile() {
-        File file = new File( "lib/half-downloaded-lib.part");
-        file.deleteOnExit();
-        return file;
-    }
-
     public static void downloadWithProgress(
         InputStream input,
         File outputFile,
         Consumer<Long> onProgress,
         long progressPeriod
     ) throws IOException {
-        File partOutputFile = tempFile();
+        File partOutputFile = new File( "lib/half-downloaded-lib.part");
+        partOutputFile.deleteOnExit();
 
         try (FileOutputStream output = new FileOutputStream(partOutputFile)) {
             long totalRead = 0, lastProgressTime = 0;

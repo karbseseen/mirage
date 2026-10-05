@@ -11,6 +11,7 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 Compile / packageBin / packageOptions += ManifestClassPath.task.value
 Compile / compile := (Compile / compile).dependsOn(FieldSort.task).value
 Compile / sourceGenerators += ShareCode.task.taskValue
+Compile / resourceGenerators += LibUrlGen.task.taskValue
 
 lazy val fieldSort = taskKey[Unit]("FieldSort")
 fieldSort := FieldSort.task.value

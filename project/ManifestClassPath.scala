@@ -39,7 +39,6 @@ object ManifestClassPath {
 
     Package.ManifestAttributes(
       "Class-Path" -> toManifest(paths.flatMap(_._1)),
-      "Class-Urls" -> toManifest(paths.map(_._2)),
     )
   }
 }

@@ -4,20 +4,13 @@ import util.JavaUtil;
 import util.LibInfo;
 import util.SystemInfo;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.WindowEvent;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
-import java.util.jar.Attributes;
 import java.util.jar.JarInputStream;
-import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
 
@@ -49,21 +42,14 @@ public class Bootstrap {
             return false;
         }
 
-        Manifest manifest = JavaUtil.getManifest();
-        Attributes attrs = manifest.getMainAttributes();
-
-        String[] classPaths = attrs.getValue("Class-Path").split(" ");
-        String[] classUrls = attrs.getValue("Class-Urls").split(" ");
-        if (classPaths.length > classUrls.length) throw new RuntimeException("Invalid manifest");
-
         if (depsOk) {
-            for (int index = classPaths.length; index < classUrls.length; index++)
-                new ParsedUrl(classUrls[index]).setProperty();
+            for (String rawUrl : readResourceLines("/libUrlSpecial.txt"))
+                new NativeDependency(rawUrl).setProperty();
         } else {
-            for (int index = 0; index < classPaths.length; index++)
-                ensureJar(classUrls[index], classPaths[index]);
-            for (int index = classPaths.length; index < classUrls.length; index++)
-                ensureNativeLibrary(classUrls[index]);
+            for (String rawUrl : readResourceLines("/libUrl.txt"))
+                ensureJar(rawUrl);
+            for (String rawUrl : readResourceLines("/libUrlSpecial.txt"))
+                ensureNativeLibrary(rawUrl);
             ensureBundledLibrary("portaudio");
             if (SystemInfo.os == SystemInfo.OS.Windows) ensureBundledLibrary("libwinpthread-1");
         }
@@ -77,33 +63,38 @@ public class Bootstrap {
         return !needRestart;
     }
 
-    private void ensureJar(String rawUrl, String path) throws IOException, URISyntaxException {
-        File destination = new File(jarDirectory, path);
-        if (destination.isFile()) return;
+    private List<String> readResourceLines(String resource) throws IOException {
+        var input1 = getClass().getResourceAsStream(resource);
+        if (input1 == null) throw new MissingResourceException(resource + " not found", getClass().getName(), resource);
+        var input2 = new InputStreamReader(input1);
+        var input3 = new BufferedReader(input2);
+        try (input3) {
+            return input3.readAllLines();
+        }
+    }
+
+    private void ensureJar(String rawUrl) throws IOException, URISyntaxException {
+        Dependency dependency = new JarDependency(rawUrl);
+        if (dependency.file.isFile()) return;
         needRestart = true;
 
-        File directory = destination.getParentFile();
-        if (directory != null) {
-            directory.mkdirs();
-            if (!directory.isDirectory())
-                throw new RuntimeException("Couldn't create " + directory);
-        }
+        File directory = dependency.file.getParentFile();
+        if (directory != null && !directory.isDirectory() && !directory.mkdirs())
+            throw new RuntimeException("Couldn't create " + directory);
 
-        String url = new ParsedUrl(rawUrl).value;
-        URLConnection connection = new URI(url).toURL().openConnection();
+        URLConnection connection = new URI(dependency.url).toURL().openConnection();
         try (BufferedInputStream input = new BufferedInputStream(connection.getInputStream())) {
-            downloadAndPrint(url, input, destination, connection.getContentLengthLong());
+            downloadAndPrint(dependency.url, input, dependency.file, connection.getContentLengthLong());
         }
     }
 
     private void ensureNativeLibrary(String rawUrl) throws IOException, URISyntaxException {
-        ParsedUrl parsed = new ParsedUrl(rawUrl);
-        if (parsed.lib == null) throw new RuntimeException("Invalid extra url: " + rawUrl);
-        parsed.setProperty();
-        String url = parsed.value;
-        if (parsed.nativeLibFile.isFile()) return;
+        NativeDependency dependency = new NativeDependency(rawUrl);
+        if (dependency.lib == null) throw new RuntimeException("Invalid special url: " + rawUrl);
+        dependency.setProperty();
+        if (dependency.file.isFile()) return;
 
-        var input1 = new URI(url).toURL().openStream();
+        var input1 = new URI(dependency.url).toURL().openStream();
         var input2 = new BufferedInputStream(input1);
         var input3 = new JarInputStream(input2);
         try (var input = input3) {
@@ -114,8 +105,8 @@ public class Bootstrap {
                 .takeWhile(Objects::nonNull)
                 .filter(e -> e.getName().endsWith(SystemInfo.sharedLibExt))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Couldn't find appropriate file in " + parsed.lib.urlKeyword + " platform jar"));
-            downloadAndPrint(url, input, parsed.nativeLibFile, entry.getSize());
+                .orElseThrow(() -> new RuntimeException("Couldn't find appropriate file in " + dependency.lib.urlKeyword + " platform jar"));
+            downloadAndPrint(dependency.url, input, dependency.file, entry.getSize());
         }
     }
 
@@ -138,35 +129,60 @@ public class Bootstrap {
         out.println(url + " - Done");
     }
 
-    class ParsedUrl {
-        final String value;
+    private sealed abstract class Dependency {
         final LibInfo lib;
-        final File nativeLibFile;
+        final String url;
+        final File file;
 
-        ParsedUrl(String rawUrl) {
-            if (rawUrl.contains("-platform"))
-                for (LibInfo lib : libs)
-                    if (rawUrl.contains(lib.urlKeyword)) {
-                        value = rawUrl.replaceAll("-platform", "-" + lib.platform);
-                        this.lib = lib;
-                        nativeLibFile = getNativeLibFile();
-                        return;
-                    }
-            value = rawUrl;
-            lib = null;
-            nativeLibFile = getNativeLibFile();
+        Dependency(String rawUrl) {
+            lib = findLib(rawUrl);
+            url = (lib == null) ? rawUrl : rawUrl.replaceAll("-platform", "-" + lib.platform);
+            file = getFile();
         }
 
-        private File getNativeLibFile() {
+        private LibInfo findLib(String rawUrl) {
+            for (LibInfo lib : libs)
+                if (rawUrl.contains(lib.urlKeyword))
+                    return lib;
+            return null;
+        }
+
+        protected abstract File getFile();
+    }
+
+    private final class JarDependency extends Dependency {
+        JarDependency(String rawUrl) {
+            super(rawUrl);
+        }
+
+        private static final String[] urlPrefixes = {
+            "https://repo1.maven.org/maven2/",
+            "https://dl.frostwire.com/maven/",
+        };
+
+        @Override protected File getFile() {
+            for (String prefix : urlPrefixes)
+                if (url.startsWith(prefix))
+                    return new File(jarDirectory, "lib/" + url.substring(prefix.length()));
+            throw new RuntimeException("Invalid jar url: " + url);
+        }
+    }
+
+    private final class NativeDependency extends Dependency {
+        NativeDependency(String rawUrl) {
+            super(rawUrl);
+        }
+
+        @Override protected File getFile() {
             if (lib == null) return null;
-            String[] urlParts = value.split("/");
+            String[] urlParts = url.split("/");
             String version = urlParts[urlParts.length - 2];
             return new File(jarDirectory, "lib/" + lib.urlKeyword + "-" + version + SystemInfo.sharedLibExt);
         }
 
         void setProperty() {
-            if (lib.property != null) System.setProperty(lib.property, nativeLibFile.getAbsolutePath());
+            if (lib != null && lib.property != null && file != null)
+                System.setProperty(lib.property, file.getAbsolutePath());
         }
     }
-
 }

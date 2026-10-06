@@ -2,7 +2,6 @@ package core
 
 import atlantafx.base.theme.Styles
 import constant.{Constants, Tr}
-import core.boot.Launcher
 import core.main.MainApp
 import fx.PropertyInterpolation.b
 import fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
@@ -158,17 +157,11 @@ private class DownloadService(scene: UpdateScene, run: Run) extends UpdateServic
   def call: Unit =
     val jarFile = JavaUtil.getJarFile
     val tempFile = new File(jarFile.getAbsolutePath + ".temp")
-
     try
       run.artifact.download: input =>
         Using(FileOutputStream(tempFile)):
           input.transferTo(_)
-
-      Launcher.restart = true
-      Launcher.runAfterClassLoaderClose: () =>
-        jarFile.delete()
-        tempFile.renameTo(jarFile)
-
+      System.setProperty("updateJarPath", tempFile.getAbsolutePath)
     catch case error: Exception =>
       tempFile.delete()
       throw error

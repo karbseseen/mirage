@@ -66,7 +66,6 @@ private class UpdateScene extends Scene(new StackPane, 600, 400):
       onMouseClicked = _ => MainApp.hostServices.showDocument(Constants.createTokenLink)
     val textFlow = new TextFlow(text, link.delegate)
 
-    val x = content
     mainView = new ScrollPane:
       padding = Insets(Constants.inset)
       hbarPolicy = ScrollBarPolicy.Never
@@ -117,6 +116,7 @@ private class InfoService(scene: UpdateScene, token: String) extends UpdateServi
       .groupMapReduce(_.value.getHeadCommit.getId)(identity)(_ max _)
       .values
       .toSeq
+      .sorted(using runOrdering.reverse)
 
   override def succeeded(): Unit =
     val table = new AutoTableView[Run]:

@@ -98,7 +98,7 @@ class Bootstrap extends DependencyFactory {
         urls[urls.length - 1] = JavaUtil.getJarFileURL();
 
         jars = natives = null;
-        ClassLoader loader = new URLClassLoader(urls, null);
+        ClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
         Thread.currentThread().setContextClassLoader(loader);
         Method mainApp = loader
             .loadClass("core.main.MainApp")

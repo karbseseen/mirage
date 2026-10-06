@@ -13,6 +13,7 @@ import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
 import scalafx.Includes.jfxNumberBinding2sfx
+import scalafx.Includes.jfxProperty2sfx
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
 import scalafx.scene.control.Label
@@ -34,7 +35,6 @@ import java.util.function.UnaryOperator
 
 class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Stage:
 
-  title = media.getName
   icons.addAll(fx.getIconImages)
   fullScreenExitHint = ""
 
@@ -45,6 +45,13 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
   private val eventHandler = VlcHandler(this)
   def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
   def isBuffering: Boolean = eventHandler.isBuffering
+
+  private[vlc] val defaultTitle = SimpleStringProperty(this, "defaultTitle", media.getName)
+  val customTitle = SimpleStringProperty(this, "customTitle", "")
+  title <== Bindings.createStringBinding(
+    () => if (customTitle().isBlank) defaultTitle() else customTitle(),
+    defaultTitle, customTitle
+  )
 
   val phone: Phone = new Phone
 

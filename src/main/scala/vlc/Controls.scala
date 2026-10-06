@@ -2,7 +2,6 @@ package vlc
 
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.Tr
-import core.main.MainApp
 import fx.AutoBg.+
 import fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
@@ -12,7 +11,6 @@ import javafx.scene.paint.Stop
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ, FluentUiRegularMZ}
 import org.kordamp.ikonli.javafx.FontIcon
-import p2p.phone.Phone
 import scalafx.Includes.{jfxBackground2sfx, jfxInsets2sfx, jfxNode2sfx, jfxParent2sfx, jfxProperty2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
@@ -178,7 +176,6 @@ private class Controls(stage: VlcStage) extends VBox:
     trackIcon(audio, FluentUiFilledMZ.MUSIC_NOTE_24),
     trackIcon(title, FluentUiFilledAL.CLOSED_CAPTION_24),
   ):
-    padding = AutoInsets(left = inset, right = inset)
     maxHeight = Region.UsePrefSize
     background = staticBg
 
@@ -318,7 +315,7 @@ private class Controls(stage: VlcStage) extends VBox:
       animation.setRate(if (enable) 1 else -1)
       animation.play()
 
-    iconPane.visible = children.size > 1
+    iconPane.visible = false
     control.children.onChange((children, _) => iconPane.visible = children.size > 1)
     iconPane.managed <== iconPane.visible
 

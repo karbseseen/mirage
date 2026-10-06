@@ -63,7 +63,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
     runLater:
       Option(player.media.meta.get(Meta.TITLE))
         .filter(title => !title.isBlank && title != "imem://")
-        .foreach(stage.title = _)
+        .foreach(stage.defaultTitle() = _)
       player.marquee.enable(true)
       val speedX10 = (player.status.rate * 10).toByte
       if (speedX10 != 10) stage.showNewSpeedText(speedX10)

@@ -34,8 +34,10 @@ object Message:
     fileCounter: Counter,
     time: CompactULong    = 0,
     speedX10: Byte        = 10,
+    title: String         = "",
     seekCounter: Counter  = 0,
     speedCounter: Counter = 0,
+    titleCounter: Counter = 0,
     pauseCounter: Counter = 0,
   ) extends Message:
     inline def pause: Boolean = pauseCounter.toBoolean

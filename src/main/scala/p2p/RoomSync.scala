@@ -8,6 +8,7 @@ import p2p.base.Message.{Counter, PlayerState, TorrentMagnetRequest, TorrentMagn
 import p2p.base.{MessageHandler, P2p, Peer}
 import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
+import scalafx.beans.BeanIncludes.jfxStringProperty2sfx
 import torrent.Hash.hash
 import torrent.{Hash, Torrent, TorrentMedia}
 import util.JavaUtil
@@ -35,22 +36,24 @@ object RoomSync:
     enum Change:
       case No, File, Player
     var change: Change = Change.No
-    var fileCounterDiff, seekDiff, speedDiff, pauseDiff = 0
+    var fileCounterDiff, seekDiff, speedDiff, titleDiff, pauseDiff = 0
 
     val oldState = mergedState.getAndUpdate: myState =>
 
       inline def counterDiff(inline getCounter: PlayerState => Counter) =
         getCounter(myState) compare getCounter(peerState)
 
-      inline def getMax[T](diff: Int, getter: PlayerState => T, ifNull: => PlayerState = myState) =
+      inline def getMax[T](inline diff: Int, inline getter: PlayerState => T, inline useMyStateOnNull: Boolean = true) =
         getter:
           if (diff > 0) myState
           else if (diff < 0) peerState
-          else ifNull
+          else if (useMyStateOnNull) myState
+          else peerState
 
       fileCounterDiff = counterDiff(_.fileCounter)
       seekDiff        = counterDiff(_.seekCounter)
       speedDiff       = counterDiff(_.speedCounter)
+      titleDiff       = counterDiff(_.titleCounter)
       pauseDiff       = counterDiff(_.pauseCounter)
 
       val fileCmp =
@@ -69,10 +72,12 @@ object RoomSync:
         change = Change.Player
         peerState.copy(
           fileCounter   = getMax(fileCounterDiff, _.fileCounter),
-          time          = getMax(seekDiff,        _.time),
+          time          = getMax(seekDiff,        _.time,       myState.time < peerState.time),
+          speedX10      = getMax(speedDiff,       _.speedX10,   myState.speedX10 < peerState.speedX10),
+          title         = getMax(titleDiff,       _.title,      myState.title.hashCode < peerState.title.hashCode),
           seekCounter   = getMax(seekDiff,        _.seekCounter),
-          speedX10      = getMax(speedDiff,       _.speedX10, if (myState.speedX10 < peerState.speedX10) myState else peerState),
           speedCounter  = getMax(speedDiff,       _.speedCounter),
+          titleCounter  = getMax(titleDiff,       _.titleCounter),
           pauseCounter  = getMax(pauseDiff,       _.pauseCounter),
         )
 
@@ -111,6 +116,9 @@ object RoomSync:
           if (speedDiff < 0 || oldState.speedX10 > peerState.speedX10)
             player.controls.setRate(peerState.speedX10 / 10f)
             stage.showNewSpeedText(peerState.speedX10)
+
+        if (titleDiff <= 0) runLater:
+          stage.customTitle() = peerState.title
 
 
   private def magnetRequestHandler: MessageHandler[TorrentMagnetRequest] = (message, peer) =>

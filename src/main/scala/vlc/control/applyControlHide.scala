@@ -1,4 +1,4 @@
-package vlc
+package vlc.control
 
 import constant.Constants
 import core.TaskQueue.{ScheduledTask, scheduleSingleAt}
@@ -9,13 +9,14 @@ import scalafx.application.Platform.runLater
 import scalafx.scene.Cursor
 import scalafx.stage.WindowEvent
 import scalafx.util.Duration
+import vlc.VlcStage
 
 import java.lang
 
 
-private def applyControlHide(stage: VlcStage): Unit =
+private def applyControlHide(controls: Controls): Unit =
 
-  import stage.controls
+  import controls.stage
 
   val animation = new FadeTransition(Duration(200), controls):
     fromValue = 0

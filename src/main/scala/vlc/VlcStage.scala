@@ -3,7 +3,6 @@ package vlc
 import byte_codec.ByteCodec.CompactULong
 import constant.Tr
 import core.TaskQueue.{Task, schedulePeriodic}
-import core.main.MainApp
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.geometry.Rectangle2D
@@ -12,13 +11,10 @@ import p2p.RoomSync
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
-import scalafx.Includes.jfxNumberBinding2sfx
 import scalafx.Includes.jfxProperty2sfx
-import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
-import scalafx.scene.control.Label
 import scalafx.scene.image.ImageView
-import scalafx.scene.layout.{Background, BackgroundFill, CornerRadii, StackPane}
+import scalafx.scene.layout.{Background, StackPane}
 import scalafx.scene.paint.Color
 import scalafx.stage.{Stage, WindowEvent}
 import torrent.Hash
@@ -28,6 +24,7 @@ import uk.co.caprica.vlcj.media.VideoTrackInfo
 import uk.co.caprica.vlcj.player.base.Marquee
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import vlc.VlcStage.MinTimeSyncPeriod
+import vlc.control.Controls
 import vlc.loading.Loading
 
 import java.util.function.UnaryOperator
@@ -105,8 +102,6 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
   scene = new Scene(root, 800, 600):
     content = imageView :: loading :: controls :: controls.extraParts
     this.addEventFilter(KeyEvent.KEY_PRESSED, VlcKeyHandler(VlcStage.this))
-
-  applyControlHide(this)
 
   show()
   player.media.play(media, playerOptions*)

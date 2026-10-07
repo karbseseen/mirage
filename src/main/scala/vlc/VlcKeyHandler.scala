@@ -11,8 +11,8 @@ private class VlcKeyHandler(stage: VlcStage) extends EventHandler[KeyEvent]:
   def handle(event: KeyEvent): Unit =
     val consume = Some(event.getCode).collect:
       case KeyCode.SPACE          => stage.togglePause()
-      case KeyCode.OPEN_BRACKET   => updateSpeed { (math.round(player.status.rate * 10) - 1) max 3 }
-      case KeyCode.CLOSE_BRACKET  => updateSpeed { (math.round(player.status.rate * 10) + 1) min 40 }
+      case KeyCode.OPEN_BRACKET   => stage.updateSpeed((player.status.rate - 0.1f) max 0.3f,  send = true)
+      case KeyCode.CLOSE_BRACKET  => stage.updateSpeed((player.status.rate + 0.1f) min 4f,    send = true)
       case KeyCode.LEFT if seekSingleFrame(event) =>
         for video <- Option(stage.videoTrack.get) do
           controls.skipTime(-1000L * video.frameRateBase / video.frameRate - 1)
@@ -22,8 +22,3 @@ private class VlcKeyHandler(stage: VlcStage) extends EventHandler[KeyEvent]:
     if (consume.nonEmpty) event.consume()
 
   private def seekSingleFrame(event: KeyEvent) = event.isShiftDown && !player.status.isPlaying
-
-  private def updateSpeed(valueX10: Int): Unit =
-    if (controls.setRate(valueX10 / 10f))
-      stage.updateState(speedX10 = valueX10.toByte, send = true)
-      stage.showNewSpeedText(valueX10.toByte)

@@ -9,3 +9,6 @@ inline def loop(from: Int, until: Int, step: Int = 1)(inline func: Int => Unit):
 
 inline def loop(count: Int)(inline func: Int => Unit): Unit =
   loop(0, count)(func)
+
+inline def listIf[T](inline condition: Boolean)(inline value: => T) =
+  if (condition) value :: Nil else Nil

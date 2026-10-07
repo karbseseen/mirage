@@ -8,7 +8,7 @@ import uk.co.caprica.vlcj.player.base.TrackDescription
 import scala.jdk.CollectionConverters.*
 
 
-private abstract class FloatingTracks extends FloatingMenu:
+private abstract class FloatingTracks(using FloatingMenu.Parent) extends FloatingMenu:
 
   val selectedId = SimpleIntegerProperty(this, "selectedId", -1)
 
@@ -39,4 +39,6 @@ private abstract class FloatingTracks extends FloatingMenu:
     label.text = getTracks.asScala.find(_.id == vlcId).fold("???")(_.description)
     selectIcon.visible <== selectedId.isEqualTo(vlcId)
     id = vlcId.toString
-    onMouseClicked = _ => onSelect(vlcId)
+    onMouseClicked = event =>
+      onSelect(vlcId)
+      event.consume()

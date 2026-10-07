@@ -20,7 +20,6 @@ object Constants:
   val modalPadding = 15.0
   val modalSpace = 50.0
   val modalWidth = 500.0
-  val playerControlHideTimeout = 3000L    //milliseconds
   val playerSimultaneousBytes: Int = 1024 * 1024 * 32
   val playerSimultaneousTime: Int = 10_000
   val prioritizeFirstBytes: Int = 1024 * 1024 * 32

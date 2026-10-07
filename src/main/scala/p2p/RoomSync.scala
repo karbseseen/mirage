@@ -11,7 +11,7 @@ import scalafx.application.Platform.runLater
 import scalafx.beans.BeanIncludes.jfxStringProperty2sfx
 import torrent.Hash.hash
 import torrent.{Hash, Torrent, TorrentMedia}
-import util.JavaUtil
+import util.{JavaUtil, listIf}
 import vlc.VlcStage
 
 import java.io.File
@@ -112,13 +112,12 @@ object RoomSync:
             case diff if diff < WaitTimeDiff => if (!peerState.pause) updateWaitTask(diff - 75)
             case _ => player.controls.setTime(peerTime)
 
-        if (speedDiff <= 0)
-          if (speedDiff < 0 || oldState.speedX10 > peerState.speedX10)
-            player.controls.setRate(peerState.speedX10 / 10f)
-            stage.showNewSpeedText(peerState.speedX10)
-
-        if (titleDiff <= 0) runLater:
-          stage.customTitle() = peerState.title
+        val uiTasks =
+          listIf(speedDiff < 0 || speedDiff == 0 && oldState.speedX10 > peerState.speedX10)
+            { () => stage.updateSpeed(peerState.speedX10 / 10f) } :::
+          listIf(titleDiff < 0 || titleDiff == 0 && oldState.title.hashCode > peerState.title.hashCode)
+            { () => stage.customTitle() = peerState.title }
+        if (uiTasks.nonEmpty) runLater { uiTasks.foreach(_()) }
 
 
   private def magnetRequestHandler: MessageHandler[TorrentMagnetRequest] = (message, peer) =>

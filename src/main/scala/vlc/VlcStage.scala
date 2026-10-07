@@ -11,7 +11,7 @@ import p2p.RoomSync
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
-import scalafx.Includes.jfxProperty2sfx
+import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.scene.Scene
 import scalafx.scene.image.ImageView
 import scalafx.scene.layout.{Background, StackPane}
@@ -111,12 +111,17 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     if (player.isFinished) player.media.play(media)
     else player.controls.setPause(player.status.isPlaying)
 
-  def showNewSpeedText(speedX10: Byte): Unit =
-    player.marquee.set:
-      Marquee.marquee
-        .text(s"${Tr.speed.get} = ${speedX10 / 10f}")
-        .location(50, 50)
-        .timeout(2500)
+  def updateSpeed(value: Float, send: Boolean = false): Unit =
+    val x10 = (value * 10).round
+    val rounded = x10 / 10f
+    if (player.controls.setRate(rounded))
+      controls.speedMenu.setSpeed(rounded)
+      if (send) updateState(speedX10 = x10.toByte, send = true)
+      if (!controls.speedMenu.showing()) player.marquee.set:
+        Marquee.marquee
+          .text(s"${Tr.speed.get} = $rounded")
+          .location(50, 50)
+          .timeout(2500)
 
   def updateState(
     pause: Option[Boolean] = None,
@@ -125,7 +130,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     seek: Boolean = false,
     send: Boolean,
   ): PlayerState =
-    extension (counter: Counter) inline def incIf(condition: Boolean): Counter =
+    extension (counter: Counter) inline def incIf(inline condition: Boolean): Counter =
       if (condition) counter.inc else counter
     val newState = RoomSync.mergedState.updateAndGet: oldState =>
       if (oldState.hash eq Hash.empty) oldState

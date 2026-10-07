@@ -13,6 +13,7 @@ import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxProperty2sfx}
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.{BooleanBinding, BooleanExpression}
 import scalafx.geometry.{Insets, Pos}
+import scalafx.scene.Node
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Button, Slider}
 import scalafx.scene.layout.*
@@ -22,6 +23,13 @@ import scalafx.util.Duration
 import vlc.{VlcStage, isFinished}
 
 import scala.math.Integral.Implicits.infixIntegralOps
+
+
+private trait ControlsBase:
+  protected val stage: VlcStage
+  protected def restartAutoHide(timeout: Long = autoHideTimeout): Unit
+  protected def menus: collection.Seq[FloatingMenu]
+  def extraParts: List[Node] = menus.map(_.holder).toList
 
 
 private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with AutoHide:
@@ -145,17 +153,18 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       (audioMenu, FluentUiFilledMZ.MUSIC_NOTE_24),
       (titleMenu, FluentUiFilledAL.CLOSED_CAPTION_24),
     ).map: (floating: FloatingTracks, icon: Ikon) =>
-      new StackPane with FloatingMenu.Control:
+      new Button with FloatingMenu.Control:
         bindMenu(floating, Controls.this)
         padding = Insets(inset)
         background <== menuHover.map(if (_) staticBgHover else null)
-        children += IconView(icon, 24)
+        graphic = IconView(icon, 24)
 
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
   val settings: Button = new Button with FloatingMenu.Control:
     bindMenu(settingsMenu, Controls.this)
+    bindMenu(speedMenu, Controls.this)
     padding = Insets(inset)
     background <== menuHover.map(if (_) staticHoveredBg else staticBg)
     graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)

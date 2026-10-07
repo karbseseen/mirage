@@ -2,14 +2,17 @@ package vlc.control
 
 import fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import javafx.beans.property.SimpleBooleanProperty
-import scalafx.Includes.{jfxBackground2sfx, jfxObservableValue2sfx, jfxParent2sfx, jfxProperty2sfx}
+import org.kordamp.ikonli.fluentui.FluentUiFilledAL
+import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxObservableValue2sfx, jfxParent2sfx, jfxProperty2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.Bindings
 import scalafx.collections.ObservableBuffer
+import scalafx.delegate.AlignmentDelegate
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.control.Button
-import scalafx.scene.layout.{Region, StackPane, VBox}
+import scalafx.scene.Node
+import scalafx.scene.control.Label
+import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Rectangle
 import scalafx.util.Duration
@@ -76,14 +79,17 @@ private object FloatingMenu:
     def bindMenu(menu: FloatingMenu, controls: Controls): Unit =
       menu.bindControl(this, controls)
 
-  class Item extends Button:
+  trait Item extends Region with AlignmentDelegate[?]:
     maxWidth = Double.MaxValue
-    textFill = Color.White
     alignment = Pos.CenterLeft
-    padding = Insets(
-      left = inset * 2.5,
-      right = inset * 2.5,
-      top = inset,
-      bottom = inset,
-    )
     background <== hover.map(if (_) AutoBg.fill(bgHoverColor) else null)
+
+  class SelectableItem extends HBox(inset * 2.5) with Item:
+    padding = Insets(inset)
+    val label: Label = new Label:
+      textFill = Color.White
+      hgrow = Priority.Always
+      maxWidth = Double.MaxValue
+    val selectIcon: IconView = new IconView(FluentUiFilledAL.CHECKMARK_16, 17):
+      managed <== visible
+    children = Seq[Node](label, selectIcon)

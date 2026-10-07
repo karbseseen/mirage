@@ -1,7 +1,6 @@
 package vlc.control
 
 import atlantafx.base.controls.ProgressSliderSkin
-import constant.Tr
 import fx.AutoInsets
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.beans.binding.StringBinding
@@ -14,20 +13,18 @@ import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxProperty2sfx}
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.{BooleanBinding, BooleanExpression}
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.Node
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Button, Slider}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.{Color, LinearGradient}
 import scalafx.scene.text.Font
 import scalafx.util.Duration
-import uk.co.caprica.vlcj.player.base.TrackDescription
 import vlc.{VlcStage, isFinished}
 
 import scala.math.Integral.Implicits.infixIntegralOps
 
 
-private[vlc] class Controls(val stage: VlcStage) extends VBox:
+private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with AutoHide:
   import stage.player
 
   alignmentInParent = Pos.BottomCenter
@@ -58,9 +55,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox:
         player.controls.setTime(value.longValue)
         stage.updateState(pause = Some(!wasPlaying), time = value.longValue, seek = true, send = true)
 
-  val playPauseIcon: FontIcon = new FontIcon:
-    setStyle(fontIconStyle(28))
-    setIconCode(FluentUiFilledMZ.PLAY_48)
+  val playPauseIcon: FontIcon = IconView(FluentUiFilledMZ.PLAY_48, 28)
   val playPause: Button = new Button:
     padding = Insets(longInset)
     background <== hoverableBg(this)
@@ -80,8 +75,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox:
     private val button = new Button:
       background = Background.Empty
       onAction = _ => slider.value() = if (slider.value() > 0) 0 else 100
-      graphic = new FontIcon:
-        setStyle(fontIconStyle(24))
+      graphic = new IconView(24):
         iconCodeProperty <== slider.value.map: d =>
           val i = d.intValue
           if (i <= 0)       FluentUiFilledMZ.SPEAKER_NONE_24
@@ -112,8 +106,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox:
   val microphone: Button = new Button:
     padding = Insets(inset)
     background <== hoverableBg(this)
-    graphic = new FontIcon:
-      setStyle(fontIconStyle(24))
+    graphic = new IconView(24):
       iconCodeProperty <==
         stage.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
     onAction = _ =>
@@ -143,22 +136,6 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox:
   private val space = new Region:
     hgrow = Priority.Always
 
-  val videoMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.video.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.video.setTrack(vlcId)
-
-  val audioMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.audio.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.audio.setTrack(vlcId)
-
-  val titleMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.subpictures.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.subpictures.setTrack(vlcId)
-    override def removeItem(vlcId: Int): Unit = if (vlcId != -1) super.removeItem(vlcId)
-    children += new TrackItem(-1) { text <== Tr.noSubtitles }
-
-  def extraParts: List[Node] = List(videoMenu, audioMenu, titleMenu).map(_.holder)
-
   val tracks: HBox = new HBox:
     maxHeight = Region.UsePrefSize
     background = staticBg
@@ -172,43 +149,29 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox:
         bindMenu(floating, Controls.this)
         padding = Insets(inset)
         background <== menuHover.map(if (_) staticBgHover else null)
-        children += new FontIcon:
-          setStyle(fontIconStyle(24))
-          setIconCode(icon)
+        children += IconView(icon, 24)
 
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
-  val crop: Button = new Button:
+  val settings: Button = new Button with FloatingMenu.Control:
+    bindMenu(settingsMenu, Controls.this)
     padding = Insets(inset)
-    background <== hoverableBg(this)
-    graphic = new FontIcon:
-      setStyle(fontIconStyle(24))
-      setIconCode(FluentUiFilledAL.CROP_24)
-
-    val animation = Timeline(
-      KeyFrame(Duration(0),   KeyValue(stage.videoCropCoef, 0)),
-      KeyFrame(Duration(250), KeyValue(stage.videoCropCoef, 1, EaseBoth)),
-    )
-    animation.setRate(-1)
-    onAction = _ =>
-      animation.setRate(if (animation.getRate < 0) 1 else -1)
-      animation.play()
+    background <== menuHover.map(if (_) staticHoveredBg else staticBg)
+    graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)
 
   val expand: Button = new Button:
     padding = Insets(inset)
     background <== hoverableBg(this)
-    graphic = new FontIcon:
-      setStyle(fontIconStyle(24))
-      iconCodeProperty <== stage.fullScreen.map(if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24)
+    graphic = new IconView(24):
+      iconCodeProperty <== stage.fullScreen.map:
+        if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24
     onAction = _ => stage.fullScreen = !stage.fullScreen()
 
 
-  private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, crop, expand):
+  private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, settings, expand):
     alignment = Pos.Center
     padding = Insets(left = inset, right = inset, top = shortInset, bottom = shortInset)
     background = Background fill Color.Black.opacity(backgroundOpacity)
 
   children = Seq(seek, bottomRow)
-
-  applyControlHide(this)

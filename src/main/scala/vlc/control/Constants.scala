@@ -19,4 +19,3 @@ private val staticBgHover = AutoBg.fill(bgHoverColor, CornerRadii(99999))
 private val staticHoveredBg = staticBg + staticBgHover
 
 private def hoverableBg(node: Node) = node.hover.map(if (_) staticHoveredBg else staticBg)
-private def fontIconStyle(size: Int) = s"-fx-icon-size: ${size}px; -fx-icon-color: white;"

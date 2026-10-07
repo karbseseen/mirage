@@ -2,7 +2,7 @@ package vlc.control
 
 import javafx.beans.property.SimpleIntegerProperty
 import scalafx.Includes.jfxNode2sfx
-import scalafx.scene.control.Button
+import scalafx.geometry.Insets
 import uk.co.caprica.vlcj.player.base.TrackDescription
 
 import scala.jdk.CollectionConverters.*
@@ -29,8 +29,14 @@ private abstract class FloatingTracks extends FloatingMenu:
     control.managed <== control.visible
     children.onChange((children, _) => control.visible = children.size > 1)
 
-  protected class TrackItem(vlcId: Int) extends FloatingMenu.Item:
-    underline <== selectedId.isEqualTo(vlcId)
-    text = getTracks.asScala.find(_.id == vlcId).fold("???")(_.description)
+  protected class TrackItem(vlcId: Int) extends FloatingMenu.SelectableItem:
+    padding = Insets(
+      left    = inset * 1.5,
+      right   = inset * 1.5,
+      top     = inset,
+      bottom  = inset,
+    )
+    label.text = getTracks.asScala.find(_.id == vlcId).fold("???")(_.description)
+    selectIcon.visible <== selectedId.isEqualTo(vlcId)
     id = vlcId.toString
-    onAction = _ => onSelect(vlcId)
+    onMouseClicked = _ => onSelect(vlcId)

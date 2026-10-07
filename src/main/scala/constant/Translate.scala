@@ -44,6 +44,7 @@ object Tr:
   val clearToken        = Translate("Clear Github token",         "Удалить Github токен")
   val clickAddButton    = Translate("You should click the 'Add' button", "Вам стоит нажать на кнопку 'Добавить'")
   val createToken       = Translate("You can create it here",     "Его можно создать здесь")
+  val crop              = Translate("Crop",                       "Обрезка")
   val dark              = Translate("Dark",                       "Темная")
   val date              = Translate("Date",                       "Дата")
   val default           = Translate("Default",                    "По умолчанию")

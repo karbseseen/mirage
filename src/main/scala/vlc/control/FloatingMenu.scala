@@ -15,7 +15,7 @@ import scalafx.beans.property.ReadOnlyBooleanWrapper
 import scalafx.collections.ObservableBuffer
 import scalafx.delegate.AlignmentDelegate
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.Node
+import scalafx.scene.{Cursor, Node}
 import scalafx.scene.control.Label
 import scalafx.scene.input.{KeyEvent, MouseEvent}
 import scalafx.scene.layout.*
@@ -31,6 +31,7 @@ import scala.compiletime.uninitialized
 
 private abstract class FloatingMenu(using parent: FloatingMenu.Parent) extends VBox:
   parent._menus += this
+  cursor = parent.funnyCursor
 
   minWidth = 125
   fillWidth = true
@@ -171,6 +172,7 @@ private object FloatingMenu:
 
   trait Parent extends ControlsBase:
     protected implicit val self: this.type = this
+    implicit val funnyCursor: Cursor = getFunnyCursor
 
     private[FloatingMenu] val _menus = mutable.Buffer[FloatingMenu]()
     def menus: collection.Seq[FloatingMenu] = _menus

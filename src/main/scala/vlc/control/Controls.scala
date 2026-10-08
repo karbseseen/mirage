@@ -12,8 +12,9 @@ import org.kordamp.ikonli.javafx.FontIcon
 import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxProperty2sfx}
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.{BooleanBinding, BooleanExpression}
+import scalafx.beans.property.ReadOnlyBooleanProperty
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.Node
+import scalafx.scene.{Cursor, Node}
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Button, Slider}
 import scalafx.scene.layout.*
@@ -48,6 +49,8 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       stops = Seq(Stop(0.2, Color.Transparent), Stop(0.8, Color.Black.opacity(bgOpacity))),
     )
     skin = ProgressSliderSkin(this)
+    cursor = funnyCursor
+
     value.addListener: (_,_,value) =>
       if (pressed() && !valueChanging())
         if (player.isFinished) player.media.play(stage.media)
@@ -64,16 +67,16 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
         stage.updateState(pause = Some(!wasPlaying), time = value.longValue, seek = true, send = true)
 
   val playPauseIcon: FontIcon = IconView(FluentUiFilledMZ.PLAY_48, 28)
-  val playPause: Button = new Button:
-    padding = Insets(longInset)
-    background <== hoverableBg(this)
+  val playPause: Button = new Control(longInset):
     graphic = playPauseIcon
     onAction = _ => stage.togglePause()
+    cursor = funnyCursor
 
   val volume: HBox = new HBox:
     background <== hoverableBg(this)
     alignment = Pos.CenterLeft
     padding = AutoInsets(right = longInset)
+    cursor = funnyCursor
 
     private val slider = new Slider(0, 100, 100):
       value.addListener { (_,_,value) => player.audio.setVolume(value.intValue) }
@@ -111,20 +114,16 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       animation.setRate(if (expand) 1 else -1)
       animation.play()
 
-  val microphone: Button = new Button:
-    padding = Insets(inset)
-    background <== hoverableBg(this)
+  val microphone: Button = new Control:
     graphic = new IconView(24):
       iconCodeProperty <==
         stage.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
     onAction = _ =>
       stage.phone.microphoneEnabled() = !stage.phone.microphoneEnabled()
 
-  val time: Button = new Button:
-    padding = Insets(inset)
+  val time: Button = new Control:
     font = Font(15)
     textFill = Color.White
-    background <== hoverableBg(this)
 
     private var backward = false
     private val textBind = new StringBinding:
@@ -153,26 +152,22 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       (audioMenu, FluentUiFilledMZ.MUSIC_NOTE_24),
       (subtitleMenu, FluentUiFilledAL.CLOSED_CAPTION_24),
     ).map: (floating: FloatingTracks, icon: Ikon) =>
-      new Button with FloatingMenu.Control:
+      new Control with FloatingMenu.Control:
         bindMenu(floating, Controls.this)
-        padding = Insets(inset)
         background <== menuHover.map(if (_) staticBgHover else null)
         graphic = IconView(icon, 24)
 
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
-  val settings: Button = new Button with FloatingMenu.Control:
+  val settings: Button = new Control with FloatingMenu.Control:
     bindMenu(settingsMenu, Controls.this)
     bindMenu(speedMenu, Controls.this)
     bindMenu(customTitleMenu, Controls.this)
-    padding = Insets(inset)
     background <== menuHover.map(if (_) staticHoveredBg else staticBg)
     graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)
 
-  val expand: Button = new Button:
-    padding = Insets(inset)
-    background <== hoverableBg(this)
+  val expand: Button = new Control:
     graphic = new IconView(24):
       iconCodeProperty <== stage.fullScreen.map:
         if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24
@@ -185,3 +180,9 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
     background = Background fill Color.Black.opacity(bgOpacity)
 
   children = Seq(seek, bottomRow)
+
+
+private class Control(inset: Double = inset)(using cursor: Cursor) extends Button:
+  padding = Insets(inset)
+  background <== hoverableBg(this)
+  this.cursor = cursor

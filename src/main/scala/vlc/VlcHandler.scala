@@ -115,7 +115,7 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
     Some(trackType).collect:
       case TrackType.VIDEO => stage.controls.videoMenu
       case TrackType.AUDIO => stage.controls.audioMenu
-      case TrackType.TEXT => stage.controls.titleMenu
+      case TrackType.TEXT => stage.controls.subtitleMenu
 
   private def setBufferingUi(progress: Float): () => Unit =
     val bufferStart = !isBuffering

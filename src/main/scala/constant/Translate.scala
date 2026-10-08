@@ -95,6 +95,7 @@ object Tr:
   val system            = Translate("System",                     "Системная")
   val theUpdate         = Translate("Update",                     "Обновление")
   val theme             = Translate("Theme",                      "Тема")
+  val title             = Translate("Title",                      "Название")
   val toUpdate          = Translate("Update",                     "Обновить")
   val tokenCleared      = Translate("Token deleted successfully", "Токен успешно удален")
   val tokenNotCleared   = Translate("Couldn't delete token",      "Не удалось удалить токен")
@@ -110,6 +111,28 @@ object Tr:
   val yepWithFiles      = Translate("Yep, with files",            "Да, вместе с файлами")
   val yepWithoutFiles   = Translate("Yep, without files",         "Да, без файлов")
 
+  val funnyFilmNames: IArray[Translate] = IArray(
+    Translate("The Killer Bra", "Лифчик-убийца"),
+    Translate("Killer Condom", "Презерватив-убийца"),
+    Translate("Hedgehog in the Fog", "Ёжик в тумане"),
+    Translate("Sausage Party", "Сосисочная вечеринка"),
+    Translate("Our Dad Mayonnaise", "Наш папа — майонез"),
+    Translate("Attack of the Killer Donuts", "Нападение пончиков-убийц"),
+    Translate("Killer Barbys vs. Dracula", "Убийцы Барби против Дракулы"),
+    Translate("Attack of the Killer Tomatoes", "Нападение помидоров-убийц"),
+    Translate("Gayniggers from Outer Space", "Геи-ниггеры из далёкого космоса"),
+    Translate("Hollywood Chainsaw Hookers", "Голливудские шлюхи с бензопилами"),
+    Translate("Death Bed: The Bed That Eats", "На смертном одре: Постель-людоед"),
+    Translate("Cannibal Women in the Avocado Jungle of Death", "Женщины-каннибалы в смертельных джунглях авокадо"),
+    Translate(
+      "The Man with the Smallest Penis in Existence and the Electron Microscope Technician Who Loved Him",
+      "Человек с самым маленьким пенисом в мире и техник электронного микроскопа, которая любила его",
+    ),
+    Translate(
+      "I Killed My Lesbian Wife, Hung Her on a Meat Hook, and Now I Have a Three-Picture Deal at Disney",
+      "Я убил жену-лесбиянку, повесил ее на мясной крюк, и теперь у меня контракт с Диснеем на три фильма",
+    ),
+  )
   val microphoneError = Translate(
     "Couldn't initialize microphone",
     "Не получилось запустить микрофон",

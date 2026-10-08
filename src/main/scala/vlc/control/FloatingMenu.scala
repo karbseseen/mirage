@@ -7,7 +7,7 @@ import javafx.event as jfxe
 import javafx.event.EventHandler
 import javafx.scene.input.KeyCode
 import org.kordamp.ikonli.fluentui.FluentUiFilledAL
-import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxObservableValue2sfx, jfxParent2sfx, jfxProperty2sfx}
+import scalafx.Includes.{jfxBackground2sfx, jfxColor2sfx, jfxNode2sfx, jfxObservableValue2sfx, jfxParent2sfx, jfxProperty2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.{Bindings, BooleanExpression}
@@ -22,6 +22,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Rectangle
 import scalafx.util.Duration
+import util.let
 
 import java.lang
 import scala.collection.mutable
@@ -33,26 +34,35 @@ private abstract class FloatingMenu(using parent: FloatingMenu.Parent) extends V
 
   minWidth = 125
   fillWidth = true
-  background = AutoBg.fill(bgColor)
+  background = AutoBg fill Color.Black.opacity(menuBgOpacity)
   clip = new Rectangle:
     width <== FloatingMenu.this.width
     height <== FloatingMenu.this.height
-    arcWidth = 15
-    arcHeight = 15
+    arcWidth = menuCornerRadii * 2
+    arcHeight = menuCornerRadii * 2
+  border = BorderStroke(
+    Color.White.opacity(0.5),
+    BorderStrokeStyle.Solid,
+    CornerRadii(menuCornerRadii),
+    BorderWidths(1),
+  ).let(Border(_))
+  onMouseClicked = _.consume()
 
   private val _holder = new FloatingMenu.Holder:
     children.add(FloatingMenu.this)
     disable <== FloatingMenu.this.disable
   def holder: StackPane = _holder
   def viewMode: SimpleObjectProperty[FloatingMenu.ViewMode] = _holder.viewMode
+  def showing: ObservableValue[lang.Boolean] = _holder.showing
   def bindControl(control: FloatingMenu.Control, controls: Controls): Unit =
     _holder.bindControl(control, controls)
 
 
 private object FloatingMenu:
 
+  private inline val corderRadii = 15.0
   enum ViewMode:
-    case Hover, WeakHover, Hide
+    case Hide, Hover, WeakHover, Always
 
   private class Holder extends StackPane:
     maxWidth = Region.UsePrefSize
@@ -63,7 +73,7 @@ private object FloatingMenu:
     managed <== visible
 
     val viewMode = SimpleObjectProperty(this, "viewMode", ViewMode.Hover: ViewMode)
-    private var show: ObservableValue[lang.Boolean] = uninitialized
+    var showing: ObservableValue[lang.Boolean] = uninitialized
     hover.addListener: _ =>
       if (viewMode() == ViewMode.WeakHover)
         viewMode() = ViewMode.Hover
@@ -91,13 +101,15 @@ private object FloatingMenu:
         interpolator = EaseBoth
 
       control.holders() = this :: control.holders()
-      show = viewMode.flatMap[lang.Boolean]:
-        case ViewMode.Hover     => control.menuHover
-        case ViewMode.WeakHover => ReadOnlyBooleanWrapper(true)
+      showing = viewMode.flatMap[lang.Boolean]:
         case ViewMode.Hide      => ReadOnlyBooleanWrapper(false)
-      show.addListener: (_,_,show) =>
+        case ViewMode.Hover     => control.menuHover
+        case ViewMode.WeakHover |
+             ViewMode.Always    => ReadOnlyBooleanWrapper(true)
+      showing.addListener: (_,_,show) =>
         animation.setRate(if (show) 1 else -1)
         animation.play()
+
 
   trait Control extends Region:
     private[FloatingMenu] val holders = SimpleObjectProperty[List[Holder]](this, "holders", Nil)
@@ -106,6 +118,7 @@ private object FloatingMenu:
 
     def bindMenu(menu: FloatingMenu, controls: Controls): Unit =
       menu.bindControl(this, controls)
+
 
   trait Item extends Region with AlignmentDelegate[?]:
     padding = Insets(inset)
@@ -122,6 +135,40 @@ private object FloatingMenu:
       managed <== visible
     children = Seq[Node](label, selectIcon)
 
+  class DependantMenuItem(dependant: Dependant) extends Label with Item:
+    textFill = Color.White
+    onMouseClicked = event =>
+      dependant.viewMode() = ViewMode.Always
+      dependant.master.viewMode() = ViewMode.Hide
+      event.consume()
+
+
+  class Dependant(val master: FloatingMenu)(using Parent) extends FloatingMenu:
+    viewMode() = ViewMode.Hide
+    holder.visible.addListener: (_,_,visible) =>
+      if (!visible && viewMode() != ViewMode.Hide)
+        viewMode() = ViewMode.Hide
+        if (master.viewMode() == ViewMode.Hide)
+          master.viewMode() = ViewMode.Hover
+
+    protected val titleLabel: Label = new Label:
+      alignment = Pos.Center
+      textFill = Color.White
+    children += new StackPane:
+      children += new StackPane:
+        alignment = Pos.CenterLeft
+        padding = Insets(longInset)
+        children += IconView(FluentUiFilledAL.CHEVRON_LEFT_16, 18)
+        onMouseClicked = event =>
+          exitMenu()
+          event.consume()
+      children += titleLabel
+
+    protected def exitMenu(): Unit =
+      master.viewMode() = ViewMode.WeakHover
+      viewMode() = ViewMode.Hide
+
+
   trait Parent extends ControlsBase:
     protected implicit val self: this.type = this
 
@@ -129,13 +176,14 @@ private object FloatingMenu:
     def menus: collection.Seq[FloatingMenu] = _menus
 
     private val eventHandler: EventHandler[jfxe.Event] = event =>
-      val weakHoverMenus = menus.filter(_.viewMode() == ViewMode.WeakHover)
+      val weakHoverMenus = menus.filter: menu =>
+        (menu.viewMode() == ViewMode.WeakHover || menu.viewMode() == ViewMode.Always) && !menu.hover()
       weakHoverMenus.foreach(_.viewMode() = ViewMode.Hover)
       if (weakHoverMenus.nonEmpty)
         restartAutoHide(autoHideTimeout / 2)
         event.consume()
 
-    stage.addEventFilter(MouseEvent.MouseClicked, eventHandler)
+    stage.addEventFilter(MouseEvent.MousePressed, eventHandler)
     stage.addEventFilter(KeyEvent.KeyPressed, event =>
       if (event.getCode == KeyCode.ESCAPE) eventHandler.handle(event)
     )

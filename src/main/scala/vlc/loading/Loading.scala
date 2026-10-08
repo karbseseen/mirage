@@ -1,11 +1,11 @@
 package vlc.loading
 
+import core.DailyRandom
 import javafx.beans.binding.Bindings
 import javafx.beans.value.ObservableValue
 import javafx.scene.layout as jfxsl
 import p2p.base.P2p
 import scalafx.Includes.jfxNumberBinding2sfx
-import scalafx.Includes.jfxProperty2sfx
 import scalafx.beans.binding.NumberBinding
 import scalafx.geometry.Pos
 import scalafx.scene.Node
@@ -26,23 +26,17 @@ private[vlc] class Loading extends StackPane:
   managed <== visible
   visible.addListener: (_,_,visible) =>
     if (visible)
-      val now = LocalDate.now
-      val seed = now.toEpochDay + (P2p.roomName().hashCode.toLong << 32)
-
-      if (!this.seed.contains(seed))
-        this.seed = Some(seed)
-
-        implicit val random: Random = Random(seed)
-        random.nextInt
-        random.nextInt
-        random.nextInt
+      val daily = new DailyRandom
+      if (!seed.contains(daily.seed))
+        seed = Some(daily.seed)
+        implicit val random: Random = daily.random
 
         val pairs = for
           instance <- instances
           probability <- instance.probabilities
         yield instance -> probability
         val groups = pairs.groupBy(_._2.group)
-        val group = groups.selectWithProbability(_._1.probability(now))._2
+        val group = groups.selectWithProbability(_._1.probability(LocalDate.now))._2
         val instance = group.selectWithProbability(_._2.value)._1
         children = instance.apply(this)
 

@@ -45,7 +45,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
     margin = AutoInsets(top = shortInset)
     background = Background fill new LinearGradient(
       0.5, 0, 0.5, 1,
-      stops = Seq(Stop(0.2, Color.Transparent), Stop(0.8, Color.Black.opacity(backgroundOpacity))),
+      stops = Seq(Stop(0.2, Color.Transparent), Stop(0.8, Color.Black.opacity(bgOpacity))),
     )
     skin = ProgressSliderSkin(this)
     value.addListener: (_,_,value) =>
@@ -151,7 +151,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
     children = Seq(
       (videoMenu, FluentUiFilledMZ.VIDEO_24),
       (audioMenu, FluentUiFilledMZ.MUSIC_NOTE_24),
-      (titleMenu, FluentUiFilledAL.CLOSED_CAPTION_24),
+      (subtitleMenu, FluentUiFilledAL.CLOSED_CAPTION_24),
     ).map: (floating: FloatingTracks, icon: Ikon) =>
       new Button with FloatingMenu.Control:
         bindMenu(floating, Controls.this)
@@ -165,6 +165,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
   val settings: Button = new Button with FloatingMenu.Control:
     bindMenu(settingsMenu, Controls.this)
     bindMenu(speedMenu, Controls.this)
+    bindMenu(customTitleMenu, Controls.this)
     padding = Insets(inset)
     background <== menuHover.map(if (_) staticHoveredBg else staticBg)
     graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)
@@ -181,6 +182,6 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
   private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, settings, expand):
     alignment = Pos.Center
     padding = Insets(left = inset, right = inset, top = shortInset, bottom = shortInset)
-    background = Background fill Color.Black.opacity(backgroundOpacity)
+    background = Background fill Color.Black.opacity(bgOpacity)
 
   children = Seq(seek, bottomRow)

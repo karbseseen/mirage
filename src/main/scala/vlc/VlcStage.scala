@@ -49,6 +49,11 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
     () => if (customTitle().isBlank) defaultTitle() else customTitle(),
     defaultTitle, customTitle
   )
+  customTitle.addListener: (_,_,customTitle) =>
+    val newState = RoomSync.mergedState.updateAndGet: state =>
+      if (state.title == customTitle) state
+      else state.copy(title = customTitle, titleCounter = state.titleCounter.inc)
+    if (customTitle != newState.title) P2p.sendToAll(newState)
 
   val phone: Phone = new Phone
 

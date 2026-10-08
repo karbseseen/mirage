@@ -10,7 +10,9 @@ import scalafx.scene.paint.Color
 private inline val shortInset = 6.0
 private inline val inset = 8.0
 private inline val longInset = 12.0
-private inline val backgroundOpacity = 0.22
+private inline val bgOpacity = 0.3
+private inline val menuBgOpacity = 0.65
+private inline val menuCornerRadii = 10.0
 private inline val autoHideTimeout = 3000L
 
 private val bgColor = Color.gray(0.12, 0.72)

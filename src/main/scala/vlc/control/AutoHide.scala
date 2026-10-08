@@ -1,11 +1,10 @@
 package vlc.control
 
 import core.TaskQueue.{ScheduledTask, scheduleSingleAt}
-import scalafx.Includes.jfxScene2sfx
+import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx, jfxScene2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.Linear
 import scalafx.application.Platform.runLater
-import scalafx.beans.property.PropertyIncludes.jfxObjectProperty2sfx
 import scalafx.scene.Cursor
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.Region
@@ -45,14 +44,15 @@ private trait AutoHide extends Region with ControlsBase:
         runLater:
           if (task.exists(_.time == actualTime))
             task = None
-            if (animation.rate() > 0 && !(this :: extraParts).exists(_.hover()))
-              val visibleMenus = menus.filter(_.viewMode() == ViewMode.WeakHover)
-              if (visibleMenus.isEmpty)
+            if (animation.rate() > 0 && !hover())
+              if (menus.exists(_.showing()))
+                val weakHoverMenus = menus.filter(_.viewMode() == ViewMode.WeakHover)
+                if (weakHoverMenus.nonEmpty)
+                  weakHoverMenus.foreach(_.viewMode() = ViewMode.Hover)
+                  actualTime = System.currentTimeMillis + autoHideTimeout / 2
+                  createTask()
+              else
                 animation.rate = -1
                 animation.play()
-              else
-                visibleMenus.foreach(_.viewMode() = ViewMode.Hover)
-                actualTime = System.currentTimeMillis + autoHideTimeout / 2
-                createTask()
           else
             createTask()

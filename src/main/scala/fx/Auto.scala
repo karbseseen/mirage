@@ -19,7 +19,7 @@ object AutoInsets:
 
 
 object AutoBg:
-  def fill(fill: Paint = null, radii: CornerRadii = null, insets: Insets = null): Background =
+  infix def fill(fill: Paint = null, radii: CornerRadii = null, insets: Insets = null): Background =
     Background(BackgroundFill(fill, radii, insets))
 
   extension (bg: Background)

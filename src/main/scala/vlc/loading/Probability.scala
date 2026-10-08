@@ -21,7 +21,7 @@ private object Probability:
 
   val christmas: ProbabilityGroup = (today: LocalDate) =>
     (today.getDayOfMonth, today.getMonth) match
-      case (day, Month.DECEMBER) if day < 23 => 90
+      case (day, Month.DECEMBER) if day < 23 => 40 + day
       case (_, Month.DECEMBER) | (1, Month.JANUARY) => Probability.maxValue
       case (day, Month.JANUARY) => 41 - day
       case (day, Month.FEBRUARY) => 10 - day / 3

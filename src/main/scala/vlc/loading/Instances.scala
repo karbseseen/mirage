@@ -12,30 +12,30 @@ import scalafx.util.Duration
 
 private var instances: List[Impl] = Nil
 
-val _ = loadingRoundImage(10, "/vlc/handicapped1.gif", 0.6)
-val _ = loadingRoundImage(4, "/vlc/handicapped2.gif", 0.75)
-val _ = loadingRoundImage(10, "/vlc/guy1.gif", 0.8)
-val _ = loadingRoundImage(7, "/vlc/fight.gif", 0.67)
-val _ = loadingRoundImage(6, "/vlc/dog1.gif", 0.85)
-val _ = loadingRoundImage(10, "/vlc/bird1.gif", 0.89)
-val _ = loadingRoundImage(7, "/vlc/bird2.gif", 0.7, bgColor = Color.web("#53c3fb"), borderColor = Color.White)
-val _ = loadingRoundImage(10, "/vlc/bird4.gif", 0.72, bgColor = Color.web("#a9c459"), borderColor = Color.web("#7c6c66"))
-val _ = loadingRoundImage(10, "/vlc/bird5.gif", 0.8, bgColor = Color.web("#a9c459"), borderColor = Color.web("#4d5928"))
+val _ = loadingRoundImage(10, "/loading/handicapped1.gif", 0.6)
+val _ = loadingRoundImage(4, "/loading/handicapped2.gif", 0.75)
+val _ = loadingRoundImage(10, "/loading/guy1.gif", 0.8)
+val _ = loadingRoundImage(7, "/loading/fight.gif", 0.67)
+val _ = loadingRoundImage(6, "/loading/dog1.gif", 0.85)
+val _ = loadingRoundImage(10, "/loading/bird1.gif", 0.89)
+val _ = loadingRoundImage(7, "/loading/bird2.gif", 0.7, bgColor = Color.web("#53c3fb"), borderColor = Color.White)
+val _ = loadingRoundImage(10, "/loading/bird4.gif", 0.72, bgColor = Color.web("#a9c459"), borderColor = Color.web("#7c6c66"))
+val _ = loadingRoundImage(10, "/loading/bird5.gif", 0.8, bgColor = Color.web("#a9c459"), borderColor = Color.web("#4d5928"))
 
-val _ = loadingRectImage(10, "/vlc/bird3.gif")
-val _ = loadingRectImage(9, "/vlc/guy2.gif")
-val _ = loadingRectImage(8, "/vlc/guy_fall.gif")
-val _ = rotatingLoading(10, "/vlc/mushroom.png", 0.33, 1500)
-val _ = loadingRectImage(10, "/vlc/handicapped3.gif")
-val _ = loadingRectImage(8, "/vlc/handicapped4.gif", corderRadius = 99999)
-val _ = loadingRectImage(7, "/vlc/spongebob1.gif", size = 0.35)
+val _ = loadingRectImage(10, "/loading/bird3.gif")
+val _ = loadingRectImage(9, "/loading/guy2.gif")
+val _ = loadingRectImage(8, "/loading/guy_fall.gif")
+val _ = rotatingLoading(10, "/loading/mushroom.png", 0.33, 1500)
+val _ = loadingRectImage(10, "/loading/handicapped3.gif")
+val _ = loadingRectImage(8, "/loading/handicapped4.gif", corderRadius = 99999)
+val _ = loadingRectImage(7, "/loading/spongebob1.gif", size = 0.35)
 
-val _ = loadingRectImage(Probability.christmas(10), "/vlc/santa1.gif", 0.26)
-val _ = loadingRectImage(Probability.christmas(6), "/vlc/santa2.gif", corderRadius = 99999)
-val _ = loadingRectImage(Probability.christmas(9) :: Probability.default(3) :: Nil, "/vlc/guy_on_ice.gif")
-val _ = loadingRoundImage(Probability.christmas(9) :: Probability.default(3) :: Nil, "/vlc/ski_rex.gif", 0.9)
+val _ = loadingRectImage(Probability.christmas(10), "/loading/santa1.gif", 0.26)
+val _ = loadingRectImage(Probability.christmas(6), "/loading/santa2.gif", corderRadius = 99999)
+val _ = loadingRectImage(Probability.christmas(9) :: Probability.default(3) :: Nil, "/loading/guy_on_ice.gif")
+val _ = loadingRoundImage(Probability.christmas(9) :: Probability.default(3) :: Nil, "/loading/ski_rex.gif", 0.9)
 
-val _ = rotatingLoading(Probability.maslenitsa(10) :: Probability.default(5) :: Nil, "/vlc/pancake.png", duration = 2500)
+val _ = rotatingLoading(Probability.maslenitsa(10) :: Probability.default(3) :: Nil, "/loading/pancake.png", duration = 2500)
 
 
 private def loadingRoundImage(

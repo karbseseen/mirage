@@ -3,13 +3,14 @@ package fx
 import config.ColumnWidthConfig
 import constant.Translate
 import fx.AutoCellBase.Factory
-import javafx.beans.{binding as jfxbb, property as jfxbp, value as jfxbv}
-import javafx.scene.{control as jfxsc, input as jfxsi}
+import javafx.beans.{property as jfxbp, value as jfxbv}
+import javafx.scene.control as jfxsc
 import javafx.util as jfxu
 import scalafx.Includes.{jfxObjectProperty2sfx, jfxObservableValue2sfx}
 import scalafx.beans.property.ObjectProperty
 import scalafx.scene.control.*
 import scalafx.scene.control.ControlIncludes.jfxIndexedCell2sfx
+import scalafx.scene.input.MouseEvent
 import util.also
 
 import scala.compiletime.uninitialized
@@ -58,7 +59,7 @@ sealed trait AutoTableBase[T] extends Control with WithAutoCell[T]:
   //Deselect on second click
   private var preSelectedIndex = -1
   private def selectedIndex = selectionModel.getValue.getSelectedIndex
-  this.addEventFilter(jfxsi.MouseEvent.MOUSE_PRESSED, _ => preSelectedIndex = selectedIndex)
+  this.addEventFilter(MouseEvent.MousePressed)(_ => preSelectedIndex = selectedIndex)
   private def initRow(row: Cell): Unit = row.onMouseClicked = event =>
     if (selectedIndex == preSelectedIndex && selectedIndex >= 0)
       selectionModel.getValue.clearSelection()

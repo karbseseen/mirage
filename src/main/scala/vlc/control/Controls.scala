@@ -16,7 +16,7 @@ import scalafx.beans.property.ReadOnlyBooleanProperty
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.{Cursor, Node}
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
-import scalafx.scene.control.{Button, Slider}
+import scalafx.scene.control.{Label, Slider}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.{Color, LinearGradient}
 import scalafx.scene.text.Font
@@ -33,13 +33,13 @@ private trait ControlsBase:
   def extraParts: List[Node] = menus.map(_.holder).toList
 
 
-private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with AutoHide:
+private[vlc] class Controls(using protected val stage: VlcStage) extends VBox with Menus with AutoHide:
   import stage.player
 
   alignmentInParent = Pos.BottomCenter
   maxHeight = Region.UsePrefSize
 
-  val seek: Slider = new Slider:
+  val seek: Slider = new Slider with Controls.Slider:
     private var wasPlaying = false
     hgrow = Priority.Always
     padding = AutoInsets(left = inset, right = inset)
@@ -48,7 +48,6 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       0.5, 0, 0.5, 1,
       stops = Seq(Stop(0.2, Color.Transparent), Stop(0.8, Color.Black.opacity(bgOpacity))),
     )
-    skin = ProgressSliderSkin(this)
     cursor = funnyCursor
 
     value.addListener: (_,_,value) =>
@@ -67,10 +66,9 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
         stage.updateState(pause = Some(!wasPlaying), time = value.longValue, seek = true, send = true)
 
   val playPauseIcon: FontIcon = IconView(FluentUiFilledMZ.PLAY_48, 28)
-  val playPause: Button = new Control(longInset):
+  val playPause: Label = new Controls.Button(longInset):
     graphic = playPauseIcon
-    onAction = _ => stage.togglePause()
-    cursor = funnyCursor
+    onMouseClicked = _ => stage.togglePause()
 
   val volume: HBox = new HBox:
     background <== hoverableBg(this)
@@ -78,14 +76,13 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
     padding = AutoInsets(right = longInset)
     cursor = funnyCursor
 
-    private val slider = new Slider(0, 100, 100):
+    private val slider = new Slider(0, 100, 100) with Controls.Slider:
       value.addListener { (_,_,value) => player.audio.setVolume(value.intValue) }
       hgrow = Priority.Always
-      skin = ProgressSliderSkin(this)
 
-    private val button = new Button:
-      background = Background.Empty
-      onAction = _ => slider.value() = if (slider.value() > 0) 0 else 100
+    private val button = new Label:
+      padding = Insets(inset)
+      onMouseClicked = _ => slider.value() = if (slider.value() > 0) 0 else 100
       graphic = new IconView(24):
         iconCodeProperty <== slider.value.map: d =>
           val i = d.intValue
@@ -114,14 +111,14 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       animation.setRate(if (expand) 1 else -1)
       animation.play()
 
-  val microphone: Button = new Control:
+  val microphone: Label = new Controls.Button:
     graphic = new IconView(24):
       iconCodeProperty <==
         stage.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
-    onAction = _ =>
+    onMouseClicked = _ =>
       stage.phone.microphoneEnabled() = !stage.phone.microphoneEnabled()
 
-  val time: Button = new Control:
+  val time: Label = new Controls.Button:
     font = Font(15)
     textFill = Color.White
 
@@ -138,7 +135,9 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
         val (h, m) = mTotal /% 60
         if (h > 0) f"$h%d:$m%02d:$s%02d" else f"$m%02d:$s%02d"
     text <== textBind
-    onAction = _ => { backward = !backward; textBind.invalidate() }
+    onMouseClicked = _ =>
+      backward = !backward
+      textBind.invalidate()
 
   private val space = new Region:
     hgrow = Priority.Always
@@ -152,7 +151,7 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
       (audioMenu, FluentUiFilledMZ.MUSIC_NOTE_24),
       (subtitleMenu, FluentUiFilledAL.CLOSED_CAPTION_24),
     ).map: (floating: FloatingTracks, icon: Ikon) =>
-      new Control with FloatingMenu.Control:
+      new Controls.Button with FloatingMenu.Control:
         bindMenu(floating, Controls.this)
         background <== menuHover.map(if (_) staticBgHover else null)
         graphic = IconView(icon, 24)
@@ -160,18 +159,18 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
-  val settings: Button = new Control with FloatingMenu.Control:
+  val settings: Label = new Controls.Button with FloatingMenu.Control:
     bindMenu(settingsMenu, Controls.this)
     bindMenu(speedMenu, Controls.this)
     bindMenu(customTitleMenu, Controls.this)
     background <== menuHover.map(if (_) staticHoveredBg else staticBg)
     graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)
 
-  val expand: Button = new Control:
+  val expand: Label = new Controls.Button:
     graphic = new IconView(24):
       iconCodeProperty <== stage.fullScreen.map:
         if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24
-    onAction = _ => stage.fullScreen = !stage.fullScreen()
+    onMouseClicked = _ => stage.fullScreen = !stage.fullScreen()
 
 
   private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, settings, expand):
@@ -182,7 +181,13 @@ private[vlc] class Controls(val stage: VlcStage) extends VBox with Menus with Au
   children = Seq(seek, bottomRow)
 
 
-private class Control(inset: Double = inset)(using cursor: Cursor) extends Button:
-  padding = Insets(inset)
-  background <== hoverableBg(this)
-  this.cursor = cursor
+private object Controls:
+
+  private class Button(inset: Double = inset)(using cursor: Cursor) extends Label:
+    padding = Insets(inset)
+    background <== hoverableBg(this)
+    this.cursor = cursor
+
+  private trait Slider extends scalafx.scene.control.Slider:
+    skin = ProgressSliderSkin(this)
+    focused.addListener((_,_,focused) => if (focused) scene().getRoot.requestFocus())

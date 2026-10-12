@@ -31,6 +31,7 @@ import java.util.function.UnaryOperator
 
 
 class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Stage:
+  private implicit inline def self: VlcStage = this
 
   icons.addAll(fx.getIconImages)
   fullScreenExitHint = ""
@@ -39,7 +40,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
   val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
   private var pauseTask = Option.empty[Task]
 
-  private val eventHandler = VlcHandler(this)
+  private val eventHandler = new VlcHandler
   def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
   def isBuffering: Boolean = eventHandler.isBuffering
 
@@ -101,12 +102,11 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Sta
       videoTrack, videoCropCoef, root.width, root.height
     )
 
-  private[vlc] val controls: Controls = new Controls(this)
+  private[vlc] val controls: Controls = new Controls
   private[vlc] val loading: Loading = new Loading
 
-  scene = new Scene(root, 800, 600):
+  scene = new Scene(root, 800, 600) with VlcKeyHandler:
     content = imageView :: loading :: controls :: controls.extraParts
-    this.addEventFilter(KeyEvent.KEY_PRESSED, VlcKeyHandler(VlcStage.this))
 
   show()
   player.media.play(media, playerOptions*)

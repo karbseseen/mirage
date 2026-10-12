@@ -3,19 +3,23 @@ package vlc.control
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.Tr
 import core.DailyRandom
-import fx.AutoInsets
+import fx.{AutoInsets, addEventFilter}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
-import javafx.scene.input.{KeyCode, KeyEvent}
+import javafx.scene.control as jfxsc
+import javafx.scene.input.KeyCode
 import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ}
 import scalafx.Includes.{jfxSkin2sfxSkin, jfxStringProperty2sfx, jfxText2sfxText}
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.control.{Button, Label, Slider, TextArea}
+import scalafx.scene.control.*
+import scalafx.scene.input.KeyEvent
 import scalafx.scene.layout.{Background, HBox, Priority, Region}
 import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
 import uk.co.caprica.vlcj.player.base.TrackDescription
+
+import java.util.function.UnaryOperator
 
 
 private trait Menus extends FloatingMenu.Parent:
@@ -140,11 +144,18 @@ private trait Menus extends FloatingMenu.Parent:
           promptText <== Tr.funnyFilmNames(index)
           text() = stage.title()
 
-      this.addEventFilter(KeyEvent.KEY_PRESSED, event =>
+      this.addEventFilter(KeyEvent.KeyPressed): event =>
         if (event.getCode == KeyCode.ENTER)
           stage.customTitle() = text()
           event.consume()
-      )
+
+      private val formatter: UnaryOperator[jfxsc.TextFormatter.Change] = change =>
+        if (change.isContentChange)
+          val text = change.getText
+          if (text.contains('\n') || text.contains('\r'))
+            change.setText(text.replaceAll("(?:\\R|\\t)+", " "))
+        change
+      textFormatter = TextFormatter(formatter)
 
     children += new HBox:
       margin = Insets(inset)

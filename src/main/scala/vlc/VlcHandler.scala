@@ -5,25 +5,21 @@ import javafx.stage.WindowEvent
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import p2p.RoomSync
 import p2p.base.P2p
-import scalafx.Includes.{jfxProperty2sfx, jfxScene2sfx, observableList2ObservableBuffer}
+import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
-import scalafx.scene.Node
 import uk.co.caprica.vlcj.media.{Meta, TrackType, VideoTrackInfo}
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
-import util.{WakeLock, also}
+import util.WakeLock
 import vlc.VlcStage.MinTimeSyncPeriod
-import vlc.loading.Impl
 
 import scala.jdk.CollectionConverters.*
 
 
-private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
+private class VlcHandler(using stage: VlcStage) extends MediaPlayerEventAdapter:
 
-  private var length = 0L
   private var lastTimeSync = 0L
   private var microphoneWasEnabled = false
   private val wakeLock = new WakeLock
-  private var loading: Option[Node] = None
 
   val videoTrack = SimpleObjectProperty(this, "videoTrack", null: VideoTrackInfo)
   @volatile private var _isBuffering = false
@@ -35,7 +31,6 @@ private class VlcHandler(stage: VlcStage) extends MediaPlayerEventAdapter:
 
   override def lengthChanged(player: MediaPlayer, length: Long): Unit =
     runLater:
-      this.length = length
       stage.controls.seek.max = length
 
   override def timeChanged(player: MediaPlayer, time: Long): Unit =

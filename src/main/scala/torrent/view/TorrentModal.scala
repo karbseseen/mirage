@@ -5,8 +5,7 @@ import com.frostwire.jlibtorrent.SessionHandle
 import config.Conf
 import constant.{ConstList, Constants, Tr}
 import core.main.MainApp
-import fx.PropertyInterpolation.b
-import fx.{ModalBox, ModalVBox}
+import util.fx.PropertyInterpolation.b
 import scalafx.Includes.{jfxBooleanBinding2sfx, jfxStringProperty2sfx, observableList2ObservableBuffer}
 import scalafx.geometry.Pos
 import scalafx.scene.control.{Button, Label, TextField}
@@ -15,6 +14,7 @@ import scalafx.scene.text.Font
 import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{DirectoryChooser, FileChooser}
 import torrent.Torrent
+import util.fx.{ModalBox, ModalVBox}
 
 import java.io.File
 import java.nio.file.Paths

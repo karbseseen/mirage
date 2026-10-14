@@ -1,7 +1,6 @@
 package vlc.control
 
 import atlantafx.base.controls.ProgressSliderSkin
-import fx.AutoInsets
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.beans.binding.StringBinding
 import javafx.beans.property.SimpleIntegerProperty
@@ -21,6 +20,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.{Color, LinearGradient}
 import scalafx.scene.text.Font
 import scalafx.util.Duration
+import util.fx.AutoInsets
 import vlc.{VlcStage, isFinished}
 
 import scala.math.Integral.Implicits.infixIntegralOps

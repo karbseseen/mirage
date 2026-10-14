@@ -1,6 +1,5 @@
 package vlc.control
 
-import fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.event as jfxe
@@ -22,6 +21,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Rectangle
 import scalafx.util.Duration
+import util.fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
 import util.let
 
 import java.lang

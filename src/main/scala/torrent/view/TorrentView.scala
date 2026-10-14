@@ -5,8 +5,6 @@ import com.frostwire.jlibtorrent.{TorrentFlags, TorrentStatus}
 import com.sun.javafx.binding.MappedBinding
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
-import fx.PropertyInterpolation.b
-import fx.{AutoColumnBase, AutoSplitPane, AutoTableView, AutoTreeView, mapBinding}
 import javafx.beans.InvalidationListener
 import javafx.beans.binding.{ObjectBinding, StringExpression}
 import javafx.beans.property.SimpleLongProperty
@@ -18,7 +16,9 @@ import scalafx.geometry.{Orientation, Pos}
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
-import torrent.{Hash, State, Torrent, TorrentMedia, TorrentNode}
+import torrent.*
+import util.fx.PropertyInterpolation.b
+import util.fx.*
 import vlc.VlcStage
 
 import java.lang
@@ -137,7 +137,7 @@ private class TorrentFileTable(torrent: Torrent, val node: TorrentNode.Root) ext
       val include = new CheckBox:
         selected <== value.include.isEqualTo(TorrentNode.Include.Yes)
         indeterminate <== value.include.isEqualTo(TorrentNode.Include.Part)
-        this.addEventFilter(MouseEvent.MousePressed, _.consume())
+        this.addEventFilter(MouseEvent.MousePressed)(_.consume())
         onMouseClicked = _ => value.toggleInclude()
       val icon = value match
         case folder: TorrentNode.Folder => FluentUiRegularAL.FOLDER_20

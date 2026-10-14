@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import atlantafx.base.controls as afxbc
 import atlantafx.base.theme.Styles

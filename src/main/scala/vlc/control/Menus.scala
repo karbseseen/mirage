@@ -3,7 +3,6 @@ package vlc.control
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.Tr
 import core.DailyRandom
-import fx.{AutoInsets, addEventFilter}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.scene.control as jfxsc
 import javafx.scene.input.KeyCode
@@ -18,6 +17,7 @@ import scalafx.scene.paint.Color
 import scalafx.scene.text.Font
 import scalafx.util.Duration
 import uk.co.caprica.vlcj.player.base.TrackDescription
+import util.fx.{AutoInsets, addEventFilter}
 
 import java.util.function.UnaryOperator
 

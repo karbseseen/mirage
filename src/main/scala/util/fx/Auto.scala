@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import config.SplitPositionConfig
 import javafx.scene.layout.{Background, BackgroundFill, CornerRadii}

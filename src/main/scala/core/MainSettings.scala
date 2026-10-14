@@ -4,7 +4,6 @@ import atlantafx.base.controls.{Tile, ToggleSwitch}
 import config.{Conf, Language, SingleTheme, Theme}
 import constant.{Constants, Tr, Translate}
 import core.main.MainApp
-import fx.ModalVBox
 import javafx.beans.InvalidationListener
 import javafx.scene.input.KeyCode
 import javafx.util.StringConverter
@@ -19,6 +18,7 @@ import scalafx.scene.control.{CheckBox, ChoiceBox, Label, Separator, TextField}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.VBox
 import scalafx.scene.text.Font
+import util.fx.ModalVBox
 
 import java.lang
 

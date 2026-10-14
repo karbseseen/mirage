@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import javafx.event.{Event, EventHandler}
 import scalafx.event.EventType

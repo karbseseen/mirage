@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import com.sun.javafx.binding.{FlatMappedBinding, MappedBinding, StringFormatter}
 import javafx.beans.binding.StringExpression

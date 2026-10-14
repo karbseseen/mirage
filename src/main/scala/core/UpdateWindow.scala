@@ -5,8 +5,7 @@ import constant.{Constants, Tr}
 import core.boot.JarUpdater
 import core.boot.JarUpdater.deleteFileArgPrefix
 import core.main.MainApp
-import fx.PropertyInterpolation.b
-import fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
+import util.fx.PropertyInterpolation.b
 import javafx.concurrent as jfxc
 import javafx.scene.Node
 import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
@@ -23,6 +22,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.text.{Font, Text, TextFlow}
 import scalafx.stage.{Modality, Stage}
 import util.*
+import util.fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
 
 import java.io.{File, FileOutputStream}
 import java.time.ZoneId

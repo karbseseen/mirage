@@ -23,6 +23,7 @@ import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
 import uk.co.caprica.vlcj.media.VideoTrackInfo
 import uk.co.caprica.vlcj.player.base.Marquee
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
+import util.fx.getIconImages
 import vlc.VlcStage.MinTimeSyncPeriod
 import vlc.control.Controls
 import vlc.loading.Loading
@@ -33,7 +34,7 @@ import java.util.function.UnaryOperator
 class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Stage:
   private implicit inline def self: VlcStage = this
 
-  icons.addAll(fx.getIconImages)
+  icons.addAll(getIconImages)
   fullScreenExitHint = ""
 
   private val factory = new MediaPlayerFactory

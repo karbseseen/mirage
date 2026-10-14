@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import javafx.scene.image.Image
 

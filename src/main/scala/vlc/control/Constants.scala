@@ -1,10 +1,10 @@
 package vlc.control
 
-import fx.AutoBg
-import fx.AutoBg.+
+import util.fx.AutoBg.+
 import scalafx.scene.Node
 import scalafx.scene.layout.CornerRadii
 import scalafx.scene.paint.Color
+import util.fx.AutoBg
 
 
 private inline val shortInset = 6.0

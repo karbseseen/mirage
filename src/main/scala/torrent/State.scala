@@ -3,7 +3,7 @@ package torrent
 import com.frostwire.jlibtorrent.TorrentStatus
 import com.frostwire.jlibtorrent.TorrentStatus.State.*
 import constant.{Tr, Translate}
-import fx.PropertyInterpolation.b
+import util.fx.PropertyInterpolation.b
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL.*
 import org.kordamp.ikonli.fluentui.FluentUiRegularMZ.*

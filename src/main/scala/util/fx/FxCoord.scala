@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import javafx.beans.binding.DoubleBinding
 import javafx.beans.value.{ChangeListener, ObservableValue}

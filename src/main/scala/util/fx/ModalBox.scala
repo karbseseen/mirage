@@ -1,4 +1,4 @@
-package fx
+package util.fx
 
 import constant.Constants
 import scalafx.geometry.Insets

@@ -1,8 +1,8 @@
-package fx
+package util.fx
 
 import config.ColumnWidthConfig
 import constant.Translate
-import fx.AutoCellBase.Factory
+import AutoCellBase.Factory
 import javafx.beans.{property as jfxbp, value as jfxbv}
 import javafx.scene.control as jfxsc
 import javafx.util as jfxu

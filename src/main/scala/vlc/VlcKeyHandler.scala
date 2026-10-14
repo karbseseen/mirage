@@ -1,9 +1,9 @@
 package vlc
 
-import fx.addEventHandler
 import javafx.scene.input.KeyCode
 import scalafx.scene.Scene
 import scalafx.scene.input.KeyEvent
+import util.fx.addEventHandler
 
 
 private trait VlcKeyHandler(using stage: VlcStage) extends Scene:

@@ -5,7 +5,7 @@ import com.frostwire.jlibtorrent.alerts.*
 import com.frostwire.jlibtorrent.swig.libtorrent_errors
 import constant.{Constants, Tr}
 import core.main.MainApp
-import fx.PropertyInterpolation.b
+import util.fx.PropertyInterpolation.b
 import scalafx.Includes.{jfxFloatProperty2sfx, jfxIntegerProperty2sfx, jfxLongProperty2sfx, jfxObjectProperty2sfx, jfxTreeItem2sfx}
 import scalafx.application.Platform
 import torrent.*

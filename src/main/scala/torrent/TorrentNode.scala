@@ -1,7 +1,6 @@
 package torrent
 
 import com.frostwire.jlibtorrent.{Priority, TorrentHandle}
-import fx.SelfProperty
 import javafx.beans.binding.FloatBinding
 import javafx.beans.property.*
 import javafx.beans.value as jfxbv
@@ -11,6 +10,7 @@ import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.TreeItem
 import torrent.TorrentNode.FolderInclude
 import torrent.view.TorrentView
+import util.fx.SelfProperty
 import util.{also, toIArray}
 
 import java.lang

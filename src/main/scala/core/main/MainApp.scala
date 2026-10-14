@@ -4,7 +4,6 @@ import atlantafx.base.controls.ModalPane
 import atlantafx.base.theme.Styles
 import constant.Constants
 import core.MainMenu
-import fx.{NotificationBox, PopupNotification}
 import javafx.beans.value as jfxbv
 import scalafx.Includes.{jfxControl2sfx, jfxStringProperty2sfx}
 import scalafx.application.JFXApp3.PrimaryStage
@@ -12,6 +11,7 @@ import scalafx.application.{JFXApp3, Platform}
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
 import torrent.view.TorrentView
+import util.fx.{NotificationBox, PopupNotification, getIconImages}
 
 import java.lang.ref.Cleaner
 
@@ -34,7 +34,7 @@ object MainApp extends JFXApp3 with OnShutDown:
 
     stage = new PrimaryStage:
       title = Constants.appName
-      icons.addAll(fx.getIconImages)
+      icons.addAll(getIconImages)
       scene = new Scene(new StackPane):
         content = Seq[Node](MainApp.root, modal, notifications)
 

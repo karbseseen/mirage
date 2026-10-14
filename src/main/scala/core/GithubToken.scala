@@ -3,9 +3,9 @@ package core
 import atlantafx.base.theme.Styles
 import com.github.javakeyring.Keyring
 import constant.Tr
-import fx.{NotificationBox, PopupNotification}
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.beans.property.{ReadOnlyStringProperty, StringProperty}
+import util.fx.{NotificationBox, PopupNotification}
 
 import scala.util.Using
 

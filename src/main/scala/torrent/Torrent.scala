@@ -1,5 +1,6 @@
 package torrent
 
+import util.fx.NotificationStage
 import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.swig.*
 import config.Conf
@@ -75,7 +76,7 @@ object Torrent:
   def add(torrentFile: Path, saveDir: File): Unit =
     val torrentFileData =
       try Files.readAllBytes(torrentFile)
-      catch case error: Throwable => throw error.also(MainApp.showError)
+      catch case error: Throwable => throw error.also(NotificationStage.showError)
     val info = TorrentInfo(torrentFileData)
     session.download(info, saveDir, null, null, null, TorrentFlags.STOP_WHEN_READY)
 
@@ -85,7 +86,7 @@ object Torrent:
   def create(file: File): Unit =
     Thread: () =>
       try createInner(file)
-      catch case error: Throwable => MainApp.showError(error)
+      catch case error: Throwable => NotificationStage.showError(error)
     .start()
 
   private def createInner(file: File): Unit =
@@ -117,7 +118,7 @@ object Torrent:
 
   private def save(info: TorrentInfo): Unit =
     try Files.write(directory.toPath.resolve(s"${info.hash}.torrent"), info.bencode)
-    catch case error: Throwable => MainApp.showError(error)
+    catch case error: Throwable => NotificationStage.showError(error)
 
 
   val all: ObservableBuffer[Torrent] = ObservableBuffer.empty

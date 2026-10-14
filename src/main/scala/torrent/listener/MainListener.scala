@@ -1,5 +1,6 @@
 package torrent.listener
 
+import util.fx.NotificationStage
 import com.frostwire.jlibtorrent.*
 import com.frostwire.jlibtorrent.alerts.*
 import com.frostwire.jlibtorrent.swig.libtorrent_errors
@@ -47,7 +48,7 @@ private[listener] class MainListener extends TorrentListener:
 
 
   listen[FileRenameFailedAlert]: event =>
-    MainApp.showError(b"${Tr.cantRename} ${event.handle.torrentFile.files.fileName(event.getIndex)}")
+    NotificationStage.showError(b"${Tr.cantRename} ${event.handle.torrentFile.files.fileName(event.getIndex)}")
 
   listen[FileRenamedAlert]: event =>
     forTorrentUi(event.handle.hash): torrent =>
@@ -155,7 +156,7 @@ private[listener] class MainListener extends TorrentListener:
       Files.write(path, data)
       true
     catch case error: Throwable =>
-      MainApp.showError(error)
+      NotificationStage.showError(error)
       false
     afterResumeSave(event, success)
 

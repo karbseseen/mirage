@@ -94,7 +94,7 @@ class MainSettings extends VBox with ModalVBox:
 
   children += new Tile:
     titleProperty <== Tr.clearToken
-    setActionHandler(() => GithubToken.clear(Some(MainApp.notifications)))
+    setActionHandler(() => GithubToken.clear())
     this.visible <== GithubToken.property.isNotNull
     this.managed <== this.visible
 

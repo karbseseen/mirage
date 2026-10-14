@@ -22,7 +22,7 @@ import scalafx.scene.layout.*
 import scalafx.scene.text.{Font, Text, TextFlow}
 import scalafx.stage.{Modality, Stage}
 import util.*
-import util.fx.{AutoTableView, ErrorView, NotificationBox, SelfProperty}
+import util.fx.{AutoTableView, ErrorView, NotificationStage, SelfProperty}
 
 import java.io.{File, FileOutputStream}
 import java.time.ZoneId
@@ -37,7 +37,7 @@ import scala.util.Using
 private case class Run(value: GHWorkflowRun, artifact: GHArtifact) extends SelfProperty
 
 
-private[core] class UpdateStage extends Stage:
+private class UpdateStage extends NotificationStage:
   title <== Tr.theUpdate
   initModality(Modality.WindowModal)
   initOwner(MainApp.stage.scene.value.getWindow)
@@ -46,13 +46,12 @@ private[core] class UpdateStage extends Stage:
 
 
 private class UpdateScene extends Scene(new StackPane, 600, 400):
-  val notifications = new NotificationBox
-  content = Seq(new Region, notifications)
+  content = Seq(new Region)
   def mainView: Node = content(0)
   def mainView_=(view: Node): Unit = content.set(0, view)
 
   private def setToken(token: String): Unit =
-    GithubToken.set(token, Some(notifications))
+    GithubToken.set(token)
     new InfoService(this, token).start()
 
   private def setTokenView(): Unit =

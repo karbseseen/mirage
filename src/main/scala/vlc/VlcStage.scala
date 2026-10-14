@@ -6,7 +6,6 @@ import core.TaskQueue.{Task, schedulePeriodic}
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.geometry.Rectangle2D
-import javafx.scene.input.KeyEvent
 import p2p.RoomSync
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
@@ -23,7 +22,7 @@ import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
 import uk.co.caprica.vlcj.media.VideoTrackInfo
 import uk.co.caprica.vlcj.player.base.Marquee
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
-import util.fx.getIconImages
+import util.fx.{NotificationStage, getIconImages}
 import vlc.VlcStage.MinTimeSyncPeriod
 import vlc.control.Controls
 import vlc.loading.Loading
@@ -31,7 +30,7 @@ import vlc.loading.Loading
 import java.util.function.UnaryOperator
 
 
-class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Stage:
+class VlcStage private (val media: VlcMedia, playerOptions: String*) extends NotificationStage:
   private implicit inline def self: VlcStage = this
 
   icons.addAll(getIconImages)

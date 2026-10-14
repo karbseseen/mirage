@@ -5,16 +5,19 @@ import atlantafx.base.theme.Styles
 import atlantafx.base.util.Animations
 import constant.Constants
 import javafx.beans.property.{ObjectProperty, StringProperty}
+import javafx.beans.value as jfxbv
 import javafx.event.{Event, EventHandler}
 import javafx.scene.{layout, layout as jfxsl}
-import javafx.{collections as jfxc, scene as jfxs}
-import scalafx.Includes.{jfxAnimation2sfx, jfxDuration2sfx, jfxGroup2sfx, jfxPane2sfx, observableList2ObservableBuffer}
+import javafx.{scene, collections as jfxc, scene as jfxs}
+import scalafx.Includes.{jfxAnimation2sfx, jfxDuration2sfx, jfxGroup2sfx, jfxPane2sfx, jfxScene2sfx, jfxStringProperty2sfx, observableList2ObservableBuffer}
+import scalafx.application.Platform
 import scalafx.collections.ObservableBuffer
 import scalafx.delegate.SFXDelegate
 import scalafx.event.subscriptions.Subscription
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control.Control
-import scalafx.scene.layout.Region
+import scalafx.scene.layout.{Region, VBox}
+import scalafx.stage.Stage
 import scalafx.util.Duration
 
 import scala.language.implicitConversions
@@ -59,16 +62,28 @@ class PopupNotification(
   subscription
 
 
-class NotificationBox private (override val delegate: jfxsl.VBox)
-  extends Region(delegate) with SFXDelegate[jfxsl.VBox]:
-  def this() = this(new jfxsl.VBox(Constants.inset))
+trait NotificationStage extends Stage:
+  focused.addListener((_,_,focused) => if (focused) onFocus())
+  protected def onFocus(): Unit =
+    NotificationStage.lastFocused.foreach:
+      _.scene().content.remove(NotificationStage.view)
+    scene().content.add(NotificationStage.view)
+    NotificationStage.lastFocused = Some(this)
 
-  alignmentInParent = Pos.TopRight
-  maxWidth = Region.UsePrefSize
-  maxHeight = Region.UsePrefSize
-  margin = AutoInsets(top = Constants.inset, right = Constants.inset)
+object NotificationStage:
+  private var lastFocused: Option[Stage] = None
+  val view: VBox = new VBox(Constants.inset):
+    alignmentInParent = Pos.TopRight
+    maxWidth = Region.UsePrefSize
+    maxHeight = Region.UsePrefSize
+    margin = AutoInsets(top = Constants.inset, right = Constants.inset)
 
-  def children: ObservableBuffer[afxbc.Notification] = delegate.getChildren.asInstanceOf[jfxc.ObservableList[afxbc.Notification]]
-
-object NotificationBox:
-  implicit def fxNotificationBox2jfx(notifications: NotificationBox): jfxsl.VBox = notifications.delegate
+  /**Thread-safe*/
+  def showError(error: String | Throwable | jfxbv.ObservableValue[String]): Unit =
+    runLaterIfNeeded:
+      view.children += new PopupNotification:
+        styleClass += Styles.DANGER
+        error match
+          case str: String => message = str
+          case error: Throwable => message = error.getMessage
+          case observable: jfxbv.ObservableValue[String @unchecked] => message <== observable

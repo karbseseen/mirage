@@ -5,12 +5,13 @@ import com.github.javakeyring.Keyring
 import constant.Tr
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.beans.property.{ReadOnlyStringProperty, StringProperty}
-import util.fx.{NotificationBox, PopupNotification}
+import util.also
+import util.fx.{NotificationStage, PopupNotification}
 
 import scala.util.Using
 
 
-private[core] object GithubToken:
+private object GithubToken:
   private val domain = "mirage"
   private val key = "github-token"
 
@@ -21,24 +22,16 @@ private[core] object GithubToken:
 
   def get: Option[String] = Option(mutableProperty.value)
 
-  def set(value: String, notifications: Option[NotificationBox] = None): Boolean =
-    val result = Using(Keyring.create)(_.setPassword(domain, key, value)).isSuccess
-
-    if (result) mutableProperty.value = value
-    for notifications <- notifications do
-      notifications.children += new PopupNotification:
+  def set(value: String): Boolean =
+    Using(Keyring.create)(_.setPassword(domain, key, value)).isSuccess.also: result =>
+      if (result) mutableProperty.value = value
+      NotificationStage.view.children += new PopupNotification:
         message <== (if (result) Tr.tokenSaved else Tr.tokenNotSaved)
         styleClass += (if (result) Styles.SUCCESS else Styles.DANGER)
 
-    result
-
-  def clear(notifications: Option[NotificationBox] = None): Boolean =
-    val result = Using(Keyring.create)(_.deletePassword(domain, key)).isSuccess
-
-    if (result) mutableProperty.value = null
-    for notifications <- notifications do
-      notifications.children += new PopupNotification:
+  def clear(): Boolean =
+    Using(Keyring.create)(_.deletePassword(domain, key)).isSuccess.also: result =>
+      if (result) mutableProperty.value = null
+      NotificationStage.view.children += new PopupNotification:
         message <== (if (result) Tr.tokenCleared else Tr.tokenNotCleared)
         styleClass += (if (result) Styles.SUCCESS else Styles.DANGER)
-
-    result

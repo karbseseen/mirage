@@ -3,8 +3,8 @@ package torrent.listener
 import com.frostwire.jlibtorrent.alerts.Alert
 import com.frostwire.jlibtorrent.swig.alert
 import com.frostwire.jlibtorrent.{AlertListener, ErrorCode}
-import core.main.MainApp
 import torrent.listener.TorrentListener.*
+import util.fx.NotificationStage
 
 import scala.language.reflectiveCalls
 import scala.reflect.ClassTag
@@ -35,5 +35,5 @@ private[torrent] abstract class TorrentListener:
   extension (error: ErrorCode)
     protected def check: Boolean =
       val isError = error.isError
-      if (isError) MainApp.showError(error.message)
+      if (isError) NotificationStage.showError(error.message)
       !isError

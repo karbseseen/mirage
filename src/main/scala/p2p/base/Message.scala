@@ -3,30 +3,34 @@ package p2p.base
 import byte_codec.ByteCodec.{CompactBytes, CompactUInt, CompactULong}
 import byte_codec.{ByteCodec, Discriminator as Msg}
 import core.TaskQueue
-import p2p.base.Message.Counter.{inc, toBoolean}
+import p2p.base.Message.Counter.toBoolean
 import torrent.Hash
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
+import scala.util.{Random, Try}
 
 
 sealed trait Message
 
-trait MessageHandler[M <: Message]:
-  def onReceive(message: M, peer: Peer): Unit
-
 object Message:
 
-  @Msg(-1) case class MulticastAnnounce(roomName: String, cookie: Long = MulticastAnnounce.cookie) extends Message
-  @Msg(-2) case class Ping(roomName: String, latency: Int, cookie: Long = Ping.cookie) extends Message
-  @Msg(-3) case class Pong(receiverId: Peer.Id) extends Message
-  @Msg(-4) case object Bye extends Message
+  sealed trait P2pInner extends Message
+
+  @Msg(-1) case class MulticastAnnounce(roomName: String, cookie: Long = MulticastAnnounce.cookie) extends P2pInner
+  @Msg(-2) case class Ping(
+    id: Ping.Id,
+    latency: Int,
+    roomName: String = P2p._roomName,
+    cookie: Long = Ping.cookie,
+  ) extends P2pInner
+  @Msg(-3) case class Pong(pingId: Ping.Id) extends P2pInner
+  @Msg(-4) case object Bye extends P2pInner
 
   @Msg(100) case class PlayerState(
     hash: Hash,
@@ -52,6 +56,10 @@ object Message:
     val cookie = 0xa0763626f5735cd2L
   object Ping:
     val cookie = 0x4777b31c02b707b5L
+    opaque type Id = Long
+    object Id:
+      def random: Id = Random.nextLong
+      implicit def byteCodec: ByteCodec[Id] = ByteCodec.long
 
   opaque type Counter = Int
   object Counter:
@@ -74,45 +82,32 @@ object Message:
       def encode(value: Counter, output: ByteArrayOutputStream): Unit = output.write(value)
       def decode(input: ByteArrayInputStream): Counter = input.read
 
-  opaque type AtomicCounter = AtomicInteger
-  object AtomicCounter:
-    def apply(value: Counter = Counter.zero): AtomicCounter = AtomicInteger(value)
-    extension (atomic: AtomicCounter)
-      inline def get: Counter = atomic.get
-      def inc: Counter = atomic.updateAndGet(Counter.inc)
-      def merge(other: Counter): Counter = atomic.updateAndGet(Counter.merge(_)(other))
-      def set(value: Boolean): Boolean =
-        val old = atomic.getAndUpdate: old =>
-          if (old.toBoolean == value) old else Counter.inc(old)
-        old.toBoolean != value
 
+  trait Handler[M <: Message]:
+    def onReceive(message: M, peer: Peer): Unit
+  private[p2p] case class Holder(senderId: Peer.Id, message: Message)
 
-trait Messages private[p2p]:
-  def myId: Peer.Id
+  private val messageHandlers = mutable.Map[Class[? <: Message], List[Handler[? <: Message]]]()
+  private[p2p] def getHandlers(cls: Class[? <: Message]): List[Handler[? <: Message]] =
+    messageHandlers.getOrElse(cls, Nil)
 
-  protected case class MessageHolder(senderId: Peer.Id, message: Message)
-
-  extension(message: Message) protected def encode: ByteBuffer =
-    ByteBuffer.wrap(ByteCodec.encode(MessageHolder(myId, message)))
-
-  extension(data: ByteBuffer) protected def decode: MessageHolder =
-    ByteCodec.decode[MessageHolder](data.array, 0, data.position)
-
+  extension (message: Message) private[p2p] def encode: ByteBuffer =
+    ByteBuffer.wrap(ByteCodec.encode(Holder(P2p.myId, message)))
+  private[p2p] def decode(data: ByteBuffer) = Try:
+    ByteCodec.decode[Holder](data.array, data.position, data.remaining)
   private[p2p] def send(message: Message, address: InetSocketAddress, channel: DatagramChannel): Unit =
     channel.send(message.encode, address)
 
 
-  private val messageHandlers = mutable.Map.empty[Class[? <: Message], List[MessageHandler[? <: Message]]]
-  protected def getMessageHandlers(cls: Class[? <: Message]): List[MessageHandler[? <: Message]] =
-    messageHandlers.getOrElse(cls, Nil)
+  private[p2p] trait Trait:
 
-  def addMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): MessageHandler[M] =
-    TaskQueue.threadSafe:
-      messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
-        listOpt => Some(handler :: listOpt.getOrElse(Nil))
-    handler
+    def addMessageHandler[M <: Message](handler: Handler[M])(using tag: ClassTag[M]): Handler[M] =
+      TaskQueue.threadSafe:
+        messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+          listOpt => Some(handler :: listOpt.getOrElse(Nil))
+      handler
 
-  def removeMessageHandler[M <: Message](handler: MessageHandler[M])(using tag: ClassTag[M]): Unit =
-    TaskQueue.threadSafe:
-      messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
-        _.map(_.filter(_ != handler)).filter(_.nonEmpty)
+    def removeMessageHandler[M <: Message](handler: Handler[M])(using tag: ClassTag[M]): Unit =
+      TaskQueue.threadSafe:
+        messageHandlers.updateWith(tag.runtimeClass.asInstanceOf[Class[? <: Message]]):
+          _.map(_.filter(_ != handler)).filter(_.nonEmpty)

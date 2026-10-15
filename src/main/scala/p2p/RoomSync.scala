@@ -5,7 +5,7 @@ import com.frostwire.jlibtorrent.{AddTorrentParams, TorrentFlags}
 import config.Conf
 import core.TaskQueue.{Task, scheduleSingle}
 import p2p.base.Message.{Counter, PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
-import p2p.base.{MessageHandler, P2p, Peer}
+import p2p.base.{Message, P2p, Peer}
 import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
 import scalafx.beans.BeanIncludes.jfxStringProperty2sfx
@@ -29,7 +29,7 @@ object RoomSync:
   P2p.addMessageHandler(magnetResponseHandler)
 
 
-  private def playerSyncHandler: MessageHandler[PlayerState] = (peerState, peer) =>
+  private def playerSyncHandler: Message.Handler[PlayerState] = (peerState, peer) =>
     if (VlcStage.instance.forall(!_.isBuffering)) playerSyncHandle(peerState, peer)
 
   private def playerSyncHandle(peerState: PlayerState, peer: Peer): Unit =
@@ -120,12 +120,12 @@ object RoomSync:
         if (uiTasks.nonEmpty) runLater { uiTasks.foreach(_()) }
 
 
-  private def magnetRequestHandler: MessageHandler[TorrentMagnetRequest] = (message, peer) =>
+  private def magnetRequestHandler: Message.Handler[TorrentMagnetRequest] = (message, peer) =>
     for torrent <- Option(Torrent.session.find(message.hash)) do
       peer.send(TorrentMagnetResponse(message.hash, torrent.makeMagnetUri.getBytes))
 
 
-  private def magnetResponseHandler: MessageHandler[TorrentMagnetResponse] = (message, peer) =>
+  private def magnetResponseHandler: Message.Handler[TorrentMagnetResponse] = (message, peer) =>
     if (mergedState.get.hash == message.hash)
       val hash = AddTorrentParams.parseMagnetUri(String(message.magnet)).hash
       val known: Torrent.Known = (torrent, info) =>

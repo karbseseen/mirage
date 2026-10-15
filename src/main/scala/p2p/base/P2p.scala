@@ -2,9 +2,8 @@ package p2p.base
 
 import config.Config
 import core.TaskQueue.*
-import p2p.base.Message.{Bye, MulticastAnnounce, Ping, Pong}
+import p2p.base.Message.*
 import p2p.base.P2p.*
-import p2p.base.Peers.PeerImpl
 import scalafx.Includes.jfxProperty2sfx
 
 import java.net.*
@@ -14,10 +13,10 @@ import java.security.MessageDigest
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
-import scala.util.{Random, Try}
+import scala.util.Random
 
 
-object P2p extends Peers with Messages:
+object P2p extends Peer.Trait with Message.Trait:
 
   private inline val InterfaceUpdatePeriodSmall = 5_000
   private inline val InterfaceUpdatePeriodBig   = 20_000
@@ -40,7 +39,7 @@ object P2p extends Peers with Messages:
       multicastAddress = getMulticastAddress(roomName)
       sockets.foreach(_.channel.close())
       sockets = Nil
-      peerImpls.values.foreach(_.kill())
+      peers.values.foreach(_.kill())
 
   private def getMulticastAddress(roomName: String) =
     val roomBytes = ByteBuffer
@@ -63,44 +62,43 @@ object P2p extends Peers with Messages:
         .continually(channel.receive(buffer.rewind))
         .takeWhile(_ != null)
         .collect { case inet: InetSocketAddress => inet }
-      message <- Try(buffer.decode)
+      message <- Message.decode(buffer.slice(0, buffer.position))
     do
       handleMessage(message, address, channel)
 
-  private def handleMessage(holder: MessageHolder, address: InetSocketAddress, channel: DatagramChannel): Unit =
+  private def handleMessage(holder: Message.Holder, address: InetSocketAddress, channel: DatagramChannel): Unit =
     if (_myId == holder.senderId) _myId = Peer.Id(Random.nextLong, Random.nextLong) //Just in case
 
-    val foundPeer = peerImpls.get(holder.senderId)
+    val foundPeer = peers.get(holder.senderId)
 
-    val (newLatencyX2, needPeer) = holder.message match
+    def createOrUpdatePeer(latency: Float, pongSent: Boolean) = foundPeer match
+      case Some(peer) => peer.update(address, channel, newLatency = Some(latency), pongSent = pongSent)
+      case None => Peer(holder.senderId, latency, address, channel)
+
+    val peer = holder.message match
       case announce: MulticastAnnounce =>
         if (foundPeer.isEmpty && announce.roomName == _roomName && announce.cookie == MulticastAnnounce.cookie)
-          send(Ping(_roomName, 0), address, channel)
-          putPingTime(holder.senderId, System.currentTimeMillis)
-        (0, foundPeer.nonEmpty)
+          Peer.ping(holder.senderId, 0, address, channel)
+        foundPeer.map(_.update(address, channel))
       case ping: Ping =>
-        send(Pong(holder.senderId), address, channel)
-        (ping.latency * 2, ping.roomName == _roomName && ping.cookie == Ping.cookie)
-      case pong: Pong => getPingWaitTime(holder.senderId).fold(0, false)((_, pong.receiverId == myId))
-      case Bye => (0, false)
-      case _ => (0, foundPeer.nonEmpty)
+        Option.when(ping.roomName == _roomName && ping.cookie == Ping.cookie):
+          send(Pong(ping.id), address, channel)
+          createOrUpdatePeer(ping.latency, pongSent = true)
+      case pong: Pong =>
+        Peer.getPingWaitTime(holder.senderId, pong.pingId).map: latencyX2 =>
+          createOrUpdatePeer(latencyX2 * 0.5f, pongSent = false)
+      case Bye => None
+      case custom => foundPeer.map(_.update(address, channel, customReceived = true))
 
-    def latency = (newLatencyX2 :: foundPeer.map(_.latency).toList)
-      .filter(_ > 0)
-      .reduceOption((newX2, found) => (found * 6 + newX2) / 8)
-      .getOrElse(0)
-
-    val peer = foundPeer match
-      case None if needPeer => Some(PeerImpl(holder.senderId, latency, address, channel))
-      case Some(peer) if needPeer => peer.update(latency, address, channel); Some(peer)
-      case Some(peer) if !needPeer => peer.kill(); None
-      case _ => None
+    (foundPeer, peer) match
+      case (Some(oldPeer), None) => oldPeer.kill()
+      case _ => ()
 
     for
       peer <- peer
-      handler <- getMessageHandlers(holder.message.getClass)
+      handler <- Message.getHandlers(holder.message.getClass)
     do
-      try handler.asInstanceOf[MessageHandler[Message]].onReceive(holder.message, peer)
+      try handler.asInstanceOf[Message.Handler[Message]].onReceive(holder.message, peer)
       catch case error: Throwable => error.printStackTrace()
 
 
@@ -121,7 +119,7 @@ object P2p extends Peers with Messages:
     for
       socket <- oldSockets.values
       _ = socket.channel.close()
-      peer <- peerImpls.values
+      peer <- peers.values
       if peer.channel == socket.channel
     do
       peer.kill()
@@ -129,7 +127,7 @@ object P2p extends Peers with Messages:
     val data = MulticastAnnounce(_roomName).encode
     sockets.foreach(_.channel.send(data.rewind, multicastAddress))
 
-  protected def onHasActivePeerChanged(): Unit =
+  private[p2p] def onHasActivePeerChanged(hasActivePeers: Boolean): Unit =
     interfaceUpdateTask.cancel()
     interfaceUpdateTask =
       if (hasActivePeers) schedulePeriodic(InterfaceUpdatePeriodBig, InterfaceUpdatePeriodBig)(updateInterfaces())

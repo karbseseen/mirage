@@ -7,7 +7,7 @@ import core.TaskQueue
 import javafx.beans.property.{ReadOnlyBooleanProperty, SimpleBooleanProperty}
 import javafx.beans.value.ChangeListener
 import p2p.base.Message.{Counter, PhoneData, PhoneMetadata}
-import p2p.base.{P2p, Peer, PeerListener}
+import p2p.base.{P2p, Peer}
 import p2p.phone.codec.{Encoder, OpusEncoder}
 import p2p.phone.portaudio.PortAudioStream
 import scalafx.Includes.jfxBooleanProperty2sfx

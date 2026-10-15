@@ -25,11 +25,12 @@ object Message:
   @Msg(-1) case class MulticastAnnounce(roomName: String, cookie: Long = MulticastAnnounce.cookie) extends P2pInner
   @Msg(-2) case class Ping(
     id: Ping.Id,
+    senderNick: String,
     latency: Int,
     roomName: String = P2p._roomName,
     cookie: Long = Ping.cookie,
   ) extends P2pInner
-  @Msg(-3) case class Pong(pingId: Ping.Id) extends P2pInner
+  @Msg(-3) case class Pong(pingId: Ping.Id, senderNick: String) extends P2pInner
   @Msg(-4) case object Bye extends P2pInner
 
   @Msg(100) case class PlayerState(

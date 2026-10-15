@@ -1,7 +1,8 @@
 package constant
 
 import config.Language
-import javafx.beans.property as jfxbp
+import javafx.beans.binding.StringBinding
+import scalafx.Includes.jfxProperty2sfx
 
 import java.util.function.Consumer
 import scala.annotation.tailrec
@@ -19,12 +20,12 @@ case class Translate(
       case None => ""
       case Some(default) => apply(default)
 
-  private val mutableProperty = new jfxbp.SimpleStringProperty(this, en)
-  def property: jfxbp.ReadOnlyStringProperty = mutableProperty
-  Language.config.subscribe { lang => mutableProperty.set(apply(lang)) }
+  lazy val binding: StringBinding = new StringBinding:
+    protected def computeValue: String = apply(Language.config())
+    bind(Language.config)
 
 object Translate:
-  implicit def asProperty(translate: Translate): jfxbp.ReadOnlyStringProperty = translate.property
+  implicit def toBinding(translate: Translate): StringBinding = translate.binding
 
 
 object Tr:
@@ -68,6 +69,7 @@ object Tr:
   val magnetAddError    = Translate("Couldn't add magnet link",   "Не получилось добавить магнитную ссылку")
   val magnetLink        = Translate("Magnet link",                "Магнитная ссылка")
   val naming            = Translate("Name",                       "Название")
+  val nick              = Translate("Nick",                       "Ник")
   val noSubtitles       = Translate("No subtitles",               "Без субтитров")
   val nope              = Translate("Nope",                       "Нет")
   val orTorrentFile     = Translate("or .torrent file",           "или .torrent файл")
@@ -75,6 +77,7 @@ object Tr:
   val paused            = Translate("Paused",                     "Пауза")
   val peers             = Translate("Peers",                      "Пиры")
   val progress          = Translate("Progress",                   "Прогресс")
+  val randomNick        = Translate("Random nick",                "Рандомный ник")
   val reallyDelete      = Translate("Really-really to delete",    "Точно-точно удалить")
   val reannounce        = Translate("Reannounce",                 "Переанонсировать")
   val recheckFiles      = Translate("Recheck files",              "Перепроверить файлы")

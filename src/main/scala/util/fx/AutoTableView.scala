@@ -1,6 +1,6 @@
 package util.fx
 
-import config.ColumnWidthConfig
+import config.{ColumnWidthConfig, Language}
 import constant.Translate
 import AutoCellBase.Factory
 import javafx.beans.{property as jfxbp, value as jfxbv}
@@ -77,7 +77,7 @@ sealed trait AutoTableBase[T] extends Control with WithAutoCell[T]:
 sealed trait AutoColumnBase[F] extends TableColumnBase[?, F] with WithAutoCell[F]:
   private[fx] def columnInit(tableName: String, nameOrIndex: Translate | Int): Unit =
     val (name, configName) = nameOrIndex match
-      case tr: Translate => (Some(tr), tr.getName)
+      case tr: Translate => (Some(tr), tr(Language.en))
       case int: Int => (None, s"unnamed-$int")
     name.foreach(text <== _)
     ColumnWidthConfig(tableName, configName, this)

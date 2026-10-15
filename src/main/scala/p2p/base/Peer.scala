@@ -12,12 +12,14 @@ import scala.util.Random
 
 class Peer private[p2p] (
   val id: Peer.Id,
+  private var _nick: String,
   private var _latency: Float,
   private var _address: InetSocketAddress,
   private var _channel: DatagramChannel,
 ):
   import Peer.*
 
+  def nick: String = _nick
   def latency: Int = _latency.toInt
   def address: InetSocketAddress = _address
   private[p2p] def channel: DatagramChannel = _channel
@@ -46,17 +48,23 @@ class Peer private[p2p] (
   map = map.updatedWith(id): oldPeer =>
     oldPeer.foreach(_.kill())
     Some(this)
-  listeners.foreach(_.onPeer(this, added = true))
+  listeners.foreach(_.onPeer(this, Add))
 
   private[p2p] def update(
     address: InetSocketAddress,
     channel: DatagramChannel,
+    nick: Option[String] = None,
     newLatency: Option[Float] = None,
     pongSent: Boolean = false,
     customReceived: Boolean = false,
   ): this.type = this.also: _ =>
     _address = address
     _channel = channel
+    nick.filter(_ != _nick).foreach: nick =>
+      val oldNick = _nick
+      _nick = nick
+      listeners.foreach(_.onPeer(this, Rename(oldNick)))
+      
     newLatency.foreach: newLatency =>
       _latency += (newLatency - _latency) * 0.1f
 
@@ -77,7 +85,13 @@ class Peer private[p2p] (
   private def die(): Unit =
     map -= id
     pingTask.cancel()
-    listeners.foreach(_.onPeer(this, added = false))
+    listeners.foreach(_.onPeer(this, Die))
+
+  private[p2p] def ping(): Unit =
+    lastPingTime = System.currentTimeMillis
+    Peer.ping(id, latency, address, channel, lastPingTime)
+    pingTask.cancel()
+    pingTask = newPingTask
 
   private var pingTask = newPingTask
   private var pingRandom = 0L
@@ -107,8 +121,13 @@ class Peer private[p2p] (
 object Peer:
   case class Id(part1: Long, part2: Long)
 
+  sealed trait Change
+  case object Add extends Change
+  case object Die extends Change
+  case class Rename(oldNick: String) extends Change
+
   trait Listener:
-    def onPeer(peer: Peer, added: Boolean): Unit
+    def onPeer(peer: Peer, change: Change): Unit
 
 
   private var activeNum = 0
@@ -125,7 +144,7 @@ object Peer:
     now: Long = System.currentTimeMillis,
   ): Unit =
     val pingId = Ping.Id.random
-    Message.send(Ping(pingId, latency), address, channel)
+    Message.send(Ping(pingId, Nick._value, latency), address, channel)
     pingTime((id, pingId)) = now
 
   private[p2p] def getPingWaitTime(peerId: Peer.Id, pingId: Ping.Id): Option[Int] =

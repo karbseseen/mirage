@@ -3,7 +3,6 @@ package core
 import atlantafx.base.controls.{Tile, ToggleSwitch}
 import config.{Conf, Language, SingleTheme, Theme}
 import constant.{Constants, Tr, Translate}
-import core.main.MainApp
 import javafx.beans.InvalidationListener
 import javafx.scene.input.KeyCode
 import javafx.util.StringConverter
@@ -11,10 +10,10 @@ import org.kordamp.ikonli.fluentui.FluentUiFilledAL
 import org.kordamp.ikonli.javafx.FontIcon
 import p2p.base.P2p
 import p2p.phone.Phone
-import scalafx.Includes.{jfxControl2sfx, jfxObjectProperty2sfx, jfxProperty2sfx}
+import scalafx.Includes.{jfxControl2sfx, jfxObservableValue2sfx, jfxProperty2sfx}
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.Pos
-import scalafx.scene.control.{CheckBox, ChoiceBox, Label, Separator, TextField}
+import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.VBox
 import scalafx.scene.text.Font
@@ -61,8 +60,11 @@ class MainSettings extends VBox with ModalVBox:
         def toString(value: Theme.Darkness): String = value.name(Language.config())
         def fromString(name: String): Theme.Darkness = Theme.Darkness.values.find(_.name(Language.config()) == name).orNull
 
+  children += new Separator
+
   children += new Tile:
     private val input = new TextField:
+      prefWidth = 250
       text() = P2p.roomName()
       focused.subscribe(focus => if (!focus) P2p.roomName() = text())
       onKeyPressed = event =>
@@ -71,6 +73,36 @@ class MainSettings extends VBox with ModalVBox:
     titleProperty <== Tr.room
     setAction(input)
     setActionHandler(() => input.requestFocus())
+
+  private val randomNickInput: CheckBox = new CheckBox:
+    selected = P2p.nickConfig().isEmpty
+
+  private val nickInput: TextField = new TextField:
+    prefWidth = 250
+    disable <== randomNickInput.selected
+    text = P2p.nickActual()
+    focused.addListener: (_,_,focus) =>
+      if (!focus && !randomNickInput.selected())
+        if (text().isBlank) text() = P2p.nickActual()
+        else P2p.nickConfig() = text()
+    onKeyPressed = event =>
+      if (event.getCode == KeyCode.ENTER)
+        MainSettings.this.requestFocus()
+
+  randomNickInput.selected.addListener: (_,_,selected) =>
+    P2p.nickConfig() = if (selected) "" else P2p.nickActual()
+    if (selected) nickInput.text = P2p.nickActual()
+    else nickInput.requestFocus()
+
+  children += new Tile:
+    titleProperty <== Tr.randomNick
+    setAction(randomNickInput)
+    setActionHandler(() => randomNickInput.selected() = !randomNickInput.selected())
+
+  children += new Tile:
+    titleProperty <== Tr.nick
+    setAction(nickInput)
+    setActionHandler(() => nickInput.requestFocus())
 
   children += new Separator
 
@@ -110,6 +142,7 @@ class MainSettings extends VBox with ModalVBox:
 
 
   private def choice(name: Translate)(choiceBox: ChoiceBox[?]) =
+    choiceBox.prefWidth = 170
     new Tile:
       titleProperty <== name
       setAction(choiceBox)

@@ -27,9 +27,9 @@ private class State (
     case UNKNOWN =>               (QUESTION_24,               Tr.unknownState   )
 
   val (icon, tooltip) =
-    if (isFileSelect) (TEXT_BULLET_LIST_TREE_24,  Tr.selectFiles.property           )
+    if (isFileSelect) (TEXT_BULLET_LIST_TREE_24,  Tr.selectFiles.binding            )
     else if (paused)  (PAUSE_24,                  b"${Tr.paused} ($defaultTooltip)" )
-    else              (defaultIcon,               defaultTooltip.property           )
+    else              (defaultIcon,               defaultTooltip.binding            )
 
   def copy(
     value: TorrentStatus.State = value,

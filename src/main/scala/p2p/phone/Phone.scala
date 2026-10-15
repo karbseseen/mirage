@@ -151,8 +151,8 @@ private class MetaHandler:
     map(peer) = meta
     updateMaxLoss()
 
-  private val listener = P2p.addPeerListener: (peer, added) =>
-    if (!added)
+  private val listener = P2p.addPeerListener: (peer, change) =>
+    if (change == Peer.Die)
       map -= peer
       updateMaxLoss()
 

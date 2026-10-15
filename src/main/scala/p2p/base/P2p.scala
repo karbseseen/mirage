@@ -16,7 +16,7 @@ import scala.reflect.ClassTag
 import scala.util.Random
 
 
-object P2p extends Peer.Trait with Message.Trait:
+object P2p extends Peer.Trait with Message.Trait with Nick.Trait:
 
   private inline val InterfaceUpdatePeriodSmall = 5_000
   private inline val InterfaceUpdatePeriodBig   = 20_000
@@ -71,9 +71,9 @@ object P2p extends Peer.Trait with Message.Trait:
 
     val foundPeer = peers.get(holder.senderId)
 
-    def createOrUpdatePeer(latency: Float, pongSent: Boolean) = foundPeer match
-      case Some(peer) => peer.update(address, channel, newLatency = Some(latency), pongSent = pongSent)
-      case None => Peer(holder.senderId, latency, address, channel)
+    def createOrUpdatePeer(nick: String, latency: Float, pongSent: Boolean) = foundPeer match
+      case Some(peer) => peer.update(address, channel, nick = Some(nick), newLatency = Some(latency), pongSent = pongSent)
+      case None => Peer(holder.senderId, nick, latency, address, channel)
 
     val peer = holder.message match
       case announce: MulticastAnnounce =>
@@ -82,11 +82,11 @@ object P2p extends Peer.Trait with Message.Trait:
         foundPeer.map(_.update(address, channel))
       case ping: Ping =>
         Option.when(ping.roomName == _roomName && ping.cookie == Ping.cookie):
-          send(Pong(ping.id), address, channel)
-          createOrUpdatePeer(ping.latency, pongSent = true)
+          send(Pong(ping.id, Nick._value), address, channel)
+          createOrUpdatePeer(ping.senderNick, ping.latency, pongSent = true)
       case pong: Pong =>
         Peer.getPingWaitTime(holder.senderId, pong.pingId).map: latencyX2 =>
-          createOrUpdatePeer(latencyX2 * 0.5f, pongSent = false)
+          createOrUpdatePeer(pong.senderNick, latencyX2 * 0.5f, pongSent = false)
       case Bye => None
       case custom => foundPeer.map(_.update(address, channel, customReceived = true))
 

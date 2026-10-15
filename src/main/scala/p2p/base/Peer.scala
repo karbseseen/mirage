@@ -10,7 +10,7 @@ import scala.collection.mutable
 import scala.util.Random
 
 
-class Peer private[p2p] (
+class Peer (
   val id: Peer.Id,
   private var _nick: String,
   private var _latency: Float,

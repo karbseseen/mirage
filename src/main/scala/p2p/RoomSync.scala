@@ -6,12 +6,11 @@ import config.Conf
 import core.TaskQueue.{Task, scheduleSingle}
 import p2p.base.Message.{Counter, PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
 import p2p.base.{Message, P2p, Peer}
-import scalafx.Includes.jfxObservableValue2sfx
 import scalafx.application.Platform.runLater
 import scalafx.beans.BeanIncludes.jfxStringProperty2sfx
 import torrent.Hash.hash
 import torrent.{Hash, Torrent, TorrentMedia}
-import util.{JavaUtil, listIf}
+import util.listIf
 import vlc.VlcStage
 
 import java.io.File

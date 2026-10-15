@@ -7,14 +7,11 @@ import constant.Constants
 import javafx.beans.property.{ObjectProperty, StringProperty}
 import javafx.beans.value as jfxbv
 import javafx.event.{Event, EventHandler}
-import javafx.scene.{layout, layout as jfxsl}
-import javafx.{scene, collections as jfxc, scene as jfxs}
-import scalafx.Includes.{jfxAnimation2sfx, jfxDuration2sfx, jfxGroup2sfx, jfxPane2sfx, jfxScene2sfx, jfxStringProperty2sfx, observableList2ObservableBuffer}
-import scalafx.application.Platform
-import scalafx.collections.ObservableBuffer
-import scalafx.delegate.SFXDelegate
+import javafx.scene.layout as jfxsl
+import javafx.scene as jfxs
+import scalafx.Includes.{jfxAnimation2sfx, jfxDuration2sfx, jfxGroup2sfx, jfxPane2sfx, jfxScene2sfx, jfxStringProperty2sfx}
 import scalafx.event.subscriptions.Subscription
-import scalafx.geometry.{Insets, Pos}
+import scalafx.geometry.Pos
 import scalafx.scene.control.Control
 import scalafx.scene.layout.{Region, VBox}
 import scalafx.stage.Stage
@@ -28,6 +25,9 @@ class Notification(override val delegate: afxbc.Notification) extends Control(de
 
   def message: StringProperty = delegate.messageProperty
   def message_=(value: String): Unit = delegate.setMessage(value)
+
+  def graphic: ObjectProperty[jfxs.Node] = delegate.graphicProperty
+  def graphic_=(value: jfxs.Node): Unit = delegate.setGraphic(value)
 
   def onClose: ObjectProperty[EventHandler[? >: Event]] = delegate.onCloseProperty
   def onClose_=(value: EventHandler[? >: Event]): Unit = delegate.setOnClose(value)

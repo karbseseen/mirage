@@ -50,6 +50,7 @@ class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCal
       true
 
   def getName: String = files.fileName(fileIndex)
+  def getHash: (String, Int) = (torrent.hash.toString, fileIndex)
 
 
   def onStageShow(): Unit =

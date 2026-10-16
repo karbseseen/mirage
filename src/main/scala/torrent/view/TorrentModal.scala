@@ -6,7 +6,7 @@ import config.Conf
 import constant.{ConstList, Constants, Tr}
 import core.main.MainApp
 import util.fx.PropertyInterpolation.b
-import scalafx.Includes.{jfxBooleanBinding2sfx, jfxStringProperty2sfx, observableList2ObservableBuffer}
+import scalafx.Includes.{jfxBooleanBinding2sfx, jfxProperty2sfx, observableList2ObservableBuffer}
 import scalafx.geometry.Pos
 import scalafx.scene.control.{Button, Label, TextField}
 import scalafx.scene.layout.*
@@ -15,6 +15,7 @@ import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{DirectoryChooser, FileChooser}
 import torrent.Torrent
 import util.fx.{ModalBox, ModalVBox}
+import vlc.VlcSavedState
 
 import java.io.File
 import java.nio.file.Paths
@@ -169,12 +170,14 @@ object TorrentModal:
       text <== Tr.yepWithoutFiles
       onAction = _ =>
         Torrent.session.remove(torrent.handle)
+        VlcSavedState.config() -= torrent.hash.toString 
         MainApp.modal.hide()
     val wFiles = new DeleteButton:
       styleClass += Styles.DANGER
       text <== Tr.yepWithFiles
       onAction = _ =>
         Torrent.session.remove(torrent.handle, SessionHandle.DELETE_FILES)
+        VlcSavedState.config() -= torrent.hash.toString
         MainApp.modal.hide()
 
     val label = new Label:

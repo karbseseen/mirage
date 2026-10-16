@@ -2,7 +2,6 @@ package config
 
 import constant.Constants
 import javafx.beans as jfxb
-import javafx.beans.property as jfxbp
 import scalafx.collections.ObservableBuffer
 import scalafx.scene.control.{SplitPane, TableColumnBase}
 

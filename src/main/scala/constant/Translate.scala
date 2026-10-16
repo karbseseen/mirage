@@ -43,7 +43,6 @@ object Tr:
   val chooseMediaFile   = Translate("Choose a media file",        "Выберите медиа файл")
   val chooseTorrentFile = Translate("Choose a Torrent file",      "Выберите торрент файл")
   val clearToken        = Translate("Clear Github token",         "Удалить Github токен")
-  val clickAddButton    = Translate("You should click the 'Add' button", "Вам стоит нажать на кнопку 'Добавить'")
   val createToken       = Translate("You can create it here",     "Его можно создать здесь")
   val crop              = Translate("Crop",                       "Обрезка")
   val dark              = Translate("Dark",                       "Темная")
@@ -88,6 +87,7 @@ object Tr:
   val rename            = Translate("Rename",                     "Переименовать")
   val resetToken        = Translate("Reset token",                "Обновить токен")
   val resume            = Translate("Resume",                     "Продолжить")
+  val resumeFrom        = Translate("Resume from",                "Продолжить с")
   val retry             = Translate("Retry",                      "Попробовать еще раз")
   val room              = Translate("Room",                       "Комната")
   val save              = Translate("Save",                       "Сохранить")
@@ -98,6 +98,7 @@ object Tr:
   val size              = Translate("Size",                       "Размер")
   val speed             = Translate("Speed",                      "Скорость")
   val state             = Translate("State",                      "Состояние")
+  val stayHere          = Translate("Stay here",                  "Остаться")
   val system            = Translate("System",                     "Системная")
   val theUpdate         = Translate("Update",                     "Обновление")
   val theme             = Translate("Theme",                      "Тема")
@@ -117,27 +118,9 @@ object Tr:
   val yepWithFiles      = Translate("Yep, with files",            "Да, вместе с файлами")
   val yepWithoutFiles   = Translate("Yep, without files",         "Да, без файлов")
 
-  val funnyFilmNames: IArray[Translate] = IArray(
-    Translate("The Killer Bra", "Лифчик-убийца"),
-    Translate("Killer Condom", "Презерватив-убийца"),
-    Translate("Hedgehog in the Fog", "Ёжик в тумане"),
-    Translate("Sausage Party", "Сосисочная вечеринка"),
-    Translate("Our Dad Mayonnaise", "Наш папа — майонез"),
-    Translate("Attack of the Killer Donuts", "Нападение пончиков-убийц"),
-    Translate("Killer Barbys vs. Dracula", "Убийцы Барби против Дракулы"),
-    Translate("Attack of the Killer Tomatoes", "Нападение помидоров-убийц"),
-    Translate("Gayniggers from Outer Space", "Геи-ниггеры из далёкого космоса"),
-    Translate("Hollywood Chainsaw Hookers", "Голливудские шлюхи с бензопилами"),
-    Translate("Death Bed: The Bed That Eats", "На смертном одре: Постель-людоед"),
-    Translate("Cannibal Women in the Avocado Jungle of Death", "Женщины-каннибалы в смертельных джунглях авокадо"),
-    Translate(
-      "The Man with the Smallest Penis in Existence and the Electron Microscope Technician Who Loved Him",
-      "Человек с самым маленьким пенисом в мире и техник электронного микроскопа, которая любила его",
-    ),
-    Translate(
-      "I Killed My Lesbian Wife, Hung Her on a Meat Hook, and Now I Have a Three-Picture Deal at Disney",
-      "Я убил жену-лесбиянку, повесил ее на мясной крюк, и теперь у меня контракт с Диснеем на три фильма",
-    ),
+  val clickAddButton = Translate(
+    "You should click the 'Add' button",
+    "Вам стоит нажать на кнопку 'Добавить'",
   )
   val microphoneError = Translate(
     "Couldn't initialize microphone",

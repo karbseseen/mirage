@@ -28,7 +28,7 @@ object MainApp extends JFXApp3 with OnShutDown:
       title = Constants.appName
       icons.addAll(getIconImages)
       scene = new Scene(new StackPane):
-        content = Seq[Node](MainApp.root, modal)
+        content = Seq[Node](MainApp.root, modal, notificationBox)
 
     config.Theme
     p2p.RoomSync

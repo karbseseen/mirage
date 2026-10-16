@@ -41,7 +41,8 @@ private class UpdateStage extends NotificationStage:
   title <== Tr.theUpdate
   initModality(Modality.WindowModal)
   initOwner(MainApp.stage.scene.value.getWindow)
-  scene = new UpdateScene
+  scene = new UpdateScene:
+    content += notificationBox
   icons.addAll(fx.getIconImages)
 
 

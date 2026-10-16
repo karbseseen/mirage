@@ -10,19 +10,18 @@ import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
 import scalafx.scene.text.{Text, TextFlow}
 import util.also
+import util.fx.TextFlowInterpolation.*
 import util.fx.{NotificationStage, PopupNotification}
 
 
 def registerNotifications(): Unit = TaskQueue.scheduleSingle(0):
-  inline def boldText(value: String) = Text(value).also(_.style = "-fx-font-weight: bold")
 
   val listener = P2p.addPeerListener: (peer, change) =>
     val text = Language.config.map[jfxst.TextFlow]: lang =>
-      new TextFlow:
-        children = change match
-          case Peer.Add => boldText(peer.nick) :: Text(" " + Tr.joined(lang) + " ") :: boldText(P2p.roomName()) :: Nil
-          case Peer.Die => boldText(peer.nick) :: Text(" " + Tr.left(lang) + " ") :: boldText(P2p.roomName()) :: Nil
-          case Peer.Rename(oldNick) => boldText(oldNick) :: Text(" " + Tr.isNow(lang) + " ") :: boldText(peer.nick) :: Nil
+      change match
+        case Peer.Add => flow"${peer.nick.bold} ${Tr.joined(lang)} ${P2p.roomName().bold}"
+        case Peer.Die => flow"${peer.nick.bold} ${Tr.left(lang)} ${P2p.roomName().bold}"
+        case Peer.Rename(oldNick) => flow"${oldNick.bold} ${Tr.isNow(lang)} ${peer.nick.bold}"
 
     val styleCl = change match
       case Peer.Add => Styles.SUCCESS
@@ -30,7 +29,7 @@ def registerNotifications(): Unit = TaskQueue.scheduleSingle(0):
       case Peer.Rename(_) => Styles.WARNING
 
     runLater:
-      NotificationStage.view.children += new PopupNotification:
+      NotificationStage.notifications += new PopupNotification:
         graphic <== text
         styleClass += styleCl
 

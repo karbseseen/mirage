@@ -10,7 +10,7 @@ import p2p.RoomSync
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
-import scalafx.Includes.jfxObservableValue2sfx
+import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx}
 import scalafx.scene.Scene
 import scalafx.scene.image.ImageView
 import scalafx.scene.layout.{Background, StackPane}
@@ -50,17 +50,13 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
     () => if (customTitle().isBlank) defaultTitle() else customTitle(),
     defaultTitle, customTitle
   )
-  customTitle.addListener: (_,_,customTitle) =>
-    val newState = RoomSync.mergedState.updateAndGet: state =>
-      if (state.title == customTitle) state
-      else state.copy(title = customTitle, titleCounter = state.titleCounter.inc)
-    if (customTitle != newState.title) P2p.sendToAll(newState)
 
   val phone: Phone = new Phone
 
   media.onStageShow()
   player.events.addMediaPlayerEventListener(eventHandler)
   onHiding = _ =>
+    VlcSavedState.save()
     media.onStageHide()
     player.release()
     factory.release()
@@ -106,11 +102,21 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
   private[vlc] val loading: Loading = new Loading
 
   scene = new Scene(root, 800, 600) with VlcKeyHandler:
-    content = imageView :: loading :: controls :: controls.extraParts
+    content = imageView :: loading :: controls :: controls.extraParts ::: notificationBox :: Nil
 
   show()
   player.media.play(media, playerOptions*)
 
+
+  def updateCustomTitle(value: String): Unit =
+    customTitle() = value
+    var send = false
+    val newState = RoomSync.mergedState.updateAndGet: state =>
+      if (state.title == value) state
+      else
+        send = true
+        state.copy(title = value, titleCounter = state.titleCounter.inc)
+    if (send) P2p.sendToAll(newState)
 
   def togglePause(): Unit =
     if (player.isFinished) player.media.play(media)
@@ -161,20 +167,21 @@ object VlcStage:
 
   private[vlc] inline val MinTimeSyncPeriod = 1500
 
-  private var next                  = Option.empty[(VlcMedia, List[String])]
+  private var next                  = Option.empty[(VlcMedia, Option[String], List[String])]
   @volatile private var _instance   = Option.empty[VlcStage]
   def instance: Option[VlcStage] = _instance
 
-  def play(media: Option[VlcMedia], options: List[String] = Nil): Unit =
+  def play(media: Option[VlcMedia], customTitle: Option[String] = None, options: List[String] = Nil): Unit =
     _instance match
-      case None => media.foreach(newStage(_, options))
+      case None => media.foreach(newStage(_, customTitle, options))
       case Some(stage) if media.contains(stage.media) => stage.requestFocus()
       case Some(stage) =>
-        next = media.map((_, options))
+        next = media.map((_, customTitle, options))
         stage.close()
 
-  private def newStage(media: VlcMedia, options: List[String]): Unit =
+  private def newStage(media: VlcMedia, customTitle: Option[String], options: List[String]): Unit =
     val stage = VlcStage(media, options*)
+    customTitle.foreach(stage.customTitle() = _)
     stage.addEventHandler(WindowEvent.WindowHidden, _ =>
       _instance = None
       next.foreach(newStage)

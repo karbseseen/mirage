@@ -71,7 +71,7 @@ object Message:
       def inc: Counter = if (counter == 255) 2 else counter + 1
       def set(bool: Boolean): Counter = if (counter.toBoolean == bool) counter else counter.inc
       inline def toBoolean: Boolean = (counter & 1) == 1
-      infix def compare(other: Counter): Int = (counter >= 2, other >= 2) match
+      infix def compare(other: Counter): Int = (counter > 0, other > 0) match
         case (false, false) => 0
         case (false, true) => -1
         case (true, false) => 1

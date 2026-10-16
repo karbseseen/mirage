@@ -60,6 +60,8 @@ private class VlcHandler(using stage: VlcStage) extends MediaPlayerEventAdapter:
         .filter(title => !title.isBlank && title != "imem://")
         .foreach(stage.defaultTitle() = _)
       player.marquee.enable(true)
+
+      VlcSavedState.restore()
       stage.controls.speedMenu.setSpeed(player.status.rate)
 
   override def playing(player: MediaPlayer): Unit =

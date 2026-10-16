@@ -87,7 +87,7 @@ object RoomSync:
         val torrent = Torrent.all.find(_.hash == peerState.hash)
         if (torrent.isEmpty) peer.send(TorrentMagnetRequest(peerState.hash))
         val media = torrent.filter(_.handle.torrentFile != null).map(TorrentMedia(_, peerState.fileIndex))
-        VlcStage.play(media, peerState.playerOptions)
+        VlcStage.play(media, Some(peerState.title).filter(_.nonEmpty), peerState.playerOptions)
 
       case Change.Player => VlcStage.instance.foreach: stage =>
         val player = stage.player
@@ -133,7 +133,11 @@ object RoomSync:
         torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
         for state <- Some(mergedState.get).filter(_.hash == message.hash) do
           runLater:
-            VlcStage.play(Some(TorrentMedia(torrent, state.fileIndex)), state.playerOptions)
+            VlcStage.play(
+              Some(TorrentMedia(torrent, state.fileIndex)),
+              Some(state.title).filter(_.nonEmpty),
+              state.playerOptions,
+            )
 
       val confSaveDir = File(Conf.torrentSave())
       val saveDir = if (confSaveDir.isDirectory) confSaveDir else File(".")

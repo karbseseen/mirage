@@ -13,17 +13,15 @@ import scalafx.animation.Interpolator.EaseBoth
 import scalafx.beans.binding.{BooleanBinding, BooleanExpression}
 import scalafx.beans.property.ReadOnlyBooleanProperty
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.{Cursor, Node}
 import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Label, Slider}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.{Color, LinearGradient}
 import scalafx.scene.text.Font
+import scalafx.scene.{Cursor, Node}
 import scalafx.util.Duration
 import util.fx.AutoInsets
-import vlc.{VlcStage, isFinished}
-
-import scala.math.Integral.Implicits.infixIntegralOps
+import vlc.{VlcStage, isFinished, time2str}
 
 
 private trait ControlsBase:
@@ -129,11 +127,6 @@ private[vlc] class Controls(using protected val stage: VlcStage) extends VBox wi
       private def time1 =
         if (backward) "-" + time2str(seek.max.toLong - seek.value.toLong)
         else time2str(seek.value.toLong)
-      private def time2str(msTotal: Long): String =
-        val sTotal = msTotal / 1000
-        val (mTotal, s) = sTotal /% 60
-        val (h, m) = mTotal /% 60
-        if (h > 0) f"$h%d:$m%02d:$s%02d" else f"$m%02d:$s%02d"
     text <== textBind
     onMouseClicked = _ =>
       backward = !backward

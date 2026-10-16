@@ -25,13 +25,13 @@ private object GithubToken:
   def set(value: String): Boolean =
     Using(Keyring.create)(_.setPassword(domain, key, value)).isSuccess.also: result =>
       if (result) mutableProperty.value = value
-      NotificationStage.view.children += new PopupNotification:
+      NotificationStage.notifications += new PopupNotification:
         message <== (if (result) Tr.tokenSaved else Tr.tokenNotSaved)
         styleClass += (if (result) Styles.SUCCESS else Styles.DANGER)
 
   def clear(): Boolean =
     Using(Keyring.create)(_.deletePassword(domain, key)).isSuccess.also: result =>
       if (result) mutableProperty.value = null
-      NotificationStage.view.children += new PopupNotification:
+      NotificationStage.notifications += new PopupNotification:
         message <== (if (result) Tr.tokenCleared else Tr.tokenNotCleared)
         styleClass += (if (result) Styles.SUCCESS else Styles.DANGER)

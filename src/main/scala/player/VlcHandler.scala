@@ -1,21 +1,21 @@
-package vlc
+package player
 
 import javafx.beans.property.SimpleObjectProperty
 import javafx.stage.WindowEvent
 import org.kordamp.ikonli.fluentui.FluentUiFilledMZ
 import p2p.RoomSync
 import p2p.base.P2p
+import player.PlayerStage.MinTimeSyncPeriod
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform.runLater
 import uk.co.caprica.vlcj.media.{Meta, TrackType, VideoTrackInfo}
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
 import util.WakeLock
-import vlc.VlcStage.MinTimeSyncPeriod
 
 import scala.jdk.CollectionConverters.*
 
 
-private class VlcHandler(using stage: VlcStage) extends MediaPlayerEventAdapter:
+private class VlcHandler(using stage: PlayerStage) extends MediaPlayerEventAdapter:
 
   private var lastTimeSync = 0L
   private var microphoneWasEnabled = false
@@ -61,7 +61,7 @@ private class VlcHandler(using stage: VlcStage) extends MediaPlayerEventAdapter:
         .foreach(stage.defaultTitle() = _)
       player.marquee.enable(true)
 
-      VlcSavedState.restore()
+      PlayerSavedState.restore()
       stage.controls.speedMenu.setSpeed(player.status.rate)
 
   override def playing(player: MediaPlayer): Unit =

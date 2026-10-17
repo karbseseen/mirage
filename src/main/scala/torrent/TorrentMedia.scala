@@ -7,7 +7,7 @@ import constant.Constants
 import p2p.RoomSync
 import p2p.base.Message.PlayerState
 import uk.co.caprica.vlcj.media.callback.AbstractCallbackMedia
-import vlc.VlcMedia
+import player.VlcMedia
 
 import java.util.function.UnaryOperator
 import scala.compiletime.uninitialized

@@ -1,4 +1,4 @@
-package vlc.loading
+package player.loading
 
 import core.DailyRandom
 import javafx.beans.binding.Bindings
@@ -17,7 +17,7 @@ import scala.language.implicitConversions
 import scala.util.Random
 
 
-private[vlc] class Loading extends StackPane:
+private[player] class Loading extends StackPane:
   alignmentInParent = Pos.Center
   background = Background fill Color.Black.opacity(0.25)
 
@@ -62,7 +62,7 @@ private[vlc] class Loading extends StackPane:
       case value => value.doubleValue
 
 
-private[vlc] class Impl private[loading](
+private[player] class Impl private[loading](
   val probabilities: Probabilities,
 )(
   val apply: Loading => Node,

@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import atlantafx.base.controls.ProgressSliderSkin
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
@@ -21,17 +21,17 @@ import scalafx.scene.text.Font
 import scalafx.scene.{Cursor, Node}
 import scalafx.util.Duration
 import util.fx.AutoInsets
-import vlc.{VlcStage, isFinished, time2str}
+import player.{PlayerStage, isFinished, time2str}
 
 
 private trait ControlsBase:
-  protected val stage: VlcStage
+  protected val stage: PlayerStage
   protected def restartAutoHide(timeout: Long = autoHideTimeout): Unit
   protected def menus: collection.Seq[FloatingMenu]
   def extraParts: List[Node] = menus.map(_.holder).toList
 
 
-private[vlc] class Controls(using protected val stage: VlcStage) extends VBox with Menus with AutoHide:
+private[player] class Controls(using protected val stage: PlayerStage) extends VBox with Menus with AutoHide:
   import stage.player
 
   alignmentInParent = Pos.BottomCenter

@@ -11,7 +11,7 @@ import scalafx.beans.BeanIncludes.jfxStringProperty2sfx
 import torrent.Hash.hash
 import torrent.{Hash, Torrent, TorrentMedia}
 import util.listIf
-import vlc.VlcStage
+import player.PlayerStage
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
@@ -29,7 +29,7 @@ object RoomSync:
 
 
   private def playerSyncHandler: Message.Handler[PlayerState] = (peerState, peer) =>
-    if (VlcStage.instance.forall(!_.isBuffering)) playerSyncHandle(peerState, peer)
+    if (PlayerStage.instance.forall(!_.isBuffering)) playerSyncHandle(peerState, peer)
 
   private def playerSyncHandle(peerState: PlayerState, peer: Peer): Unit =
     enum Change:
@@ -87,16 +87,16 @@ object RoomSync:
         val torrent = Torrent.all.find(_.hash == peerState.hash)
         if (torrent.isEmpty) peer.send(TorrentMagnetRequest(peerState.hash))
         val media = torrent.filter(_.handle.torrentFile != null).map(TorrentMedia(_, peerState.fileIndex))
-        VlcStage.play(media, Some(peerState.title).filter(_.nonEmpty), peerState.playerOptions)
+        PlayerStage.play(media, Some(peerState.title).filter(_.nonEmpty), peerState.playerOptions)
 
-      case Change.Player => VlcStage.instance.foreach: stage =>
+      case Change.Player => PlayerStage.instance.foreach: stage =>
         val player = stage.player
 
         def updateWaitTask(delay: Long): Unit =
           waitTask.foreach(_.cancel())
           waitTask = Some:
             scheduleSingle(delay):
-              if (VlcStage.instance.contains(stage))
+              if (PlayerStage.instance.contains(stage))
                 player.controls.play()
           player.controls.setPause(true)
 
@@ -133,7 +133,7 @@ object RoomSync:
         torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
         for state <- Some(mergedState.get).filter(_.hash == message.hash) do
           runLater:
-            VlcStage.play(
+            PlayerStage.play(
               Some(TorrentMedia(torrent, state.fileIndex)),
               Some(state.title).filter(_.nonEmpty),
               state.playerOptions,

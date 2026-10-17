@@ -1,4 +1,4 @@
-package vlc
+package player
 
 import javafx.scene.input.KeyCode
 import scalafx.scene.Scene
@@ -6,7 +6,7 @@ import scalafx.scene.input.KeyEvent
 import util.fx.addEventHandler
 
 
-private trait VlcKeyHandler(using stage: VlcStage) extends Scene:
+private trait PlayerKeyHandler(using stage: PlayerStage) extends Scene:
   import stage.player
   import player.controls
 

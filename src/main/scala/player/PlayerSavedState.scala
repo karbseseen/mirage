@@ -1,4 +1,4 @@
-package vlc
+package player
 
 import config.{Config, given}
 import constant.Tr
@@ -12,7 +12,7 @@ import util.fx.TextFlowInterpolation.*
 import scala.collection.immutable
 
 
-case class VlcSavedState(
+case class PlayerSavedState(
   time: Long,
   videoTrackId: Int,
   audioTrackId: Int,
@@ -21,15 +21,15 @@ case class VlcSavedState(
 ) derives YamlCodec
 
 
-object VlcSavedState:
+object PlayerSavedState:
 
-  private type Map = immutable.Map[String, immutable.Map[Int, VlcSavedState]]
+  private type Map = immutable.Map[String, immutable.Map[Int, PlayerSavedState]]
   val config: Config.ObjectProp[Map] = Config.ObjectProp(this, "player-state", immutable.Map.empty)
 
-  private[vlc] def save()(using stage: VlcStage): Unit =
+  private[player] def save()(using stage: PlayerStage): Unit =
     val player = stage.player
     val (hash, fileIndex) = stage.media.getHash
-    val state = VlcSavedState(
+    val state = PlayerSavedState(
       player.status.time,
       player.video.track,
       player.audio.track,
@@ -40,7 +40,7 @@ object VlcSavedState:
       case None => Some(Map(fileIndex -> state))
       case Some(map) => Some(map + (fileIndex -> state))
 
-  private[vlc] def restore()(using stage: VlcStage): Option[VlcSavedState] =
+  private[player] def restore()(using stage: PlayerStage): Option[PlayerSavedState] =
     val (hash, fileIndex) = stage.media.getHash
     config().get(hash).flatMap(_.get(fileIndex)).map: state =>
       val player = stage.player
@@ -54,7 +54,7 @@ object VlcSavedState:
         stage.notificationBox.children += notification(state)
       state
 
-  private def notification(state: VlcSavedState)(using stage: VlcStage) =
+  private def notification(state: PlayerSavedState)(using stage: PlayerStage) =
     new PopupNotification(focusMovable = false):
       notification =>
 

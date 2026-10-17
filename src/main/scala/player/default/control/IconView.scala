@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon

@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import core.TaskQueue.{ScheduledTask, scheduleSingleAt}
 import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx, jfxScene2sfx}
@@ -10,7 +10,7 @@ import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.Region
 import scalafx.stage.WindowEvent
 import scalafx.util.Duration
-import vlc.control.FloatingMenu.ViewMode
+import FloatingMenu.ViewMode
 
 import java.lang
 

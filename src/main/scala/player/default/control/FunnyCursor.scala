@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import scalafx.scene.image.{Image, WritableImage}
 import scalafx.scene.{Cursor, ImageCursor}

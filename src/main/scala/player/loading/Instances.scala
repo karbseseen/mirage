@@ -1,4 +1,4 @@
-package vlc.loading
+package player.loading
 
 import scalafx.animation.Interpolator.Linear
 import scalafx.animation.{Animation, RotateTransition}

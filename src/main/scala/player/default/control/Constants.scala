@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import util.fx.AutoBg.+
 import scalafx.scene.Node

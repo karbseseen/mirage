@@ -1,4 +1,4 @@
-package vlc.loading
+package player.loading
 
 import util.{EasterType, getEasterDate}
 

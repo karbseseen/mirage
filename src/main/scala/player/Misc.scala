@@ -1,4 +1,4 @@
-package vlc
+package player
 
 import uk.co.caprica.vlcj.media.callback.CallbackMedia
 import uk.co.caprica.vlcj.player.base.{MediaPlayer, State}

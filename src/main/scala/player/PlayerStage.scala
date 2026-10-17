@@ -1,4 +1,4 @@
-package vlc
+package player
 
 import byte_codec.ByteCodec.CompactULong
 import constant.Tr
@@ -10,6 +10,9 @@ import p2p.RoomSync
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.P2p
 import p2p.phone.Phone
+import player.PlayerStage.MinTimeSyncPeriod
+import player.default.control.Controls
+import player.loading.Loading
 import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx}
 import scalafx.scene.Scene
 import scalafx.scene.image.ImageView
@@ -23,15 +26,12 @@ import uk.co.caprica.vlcj.media.VideoTrackInfo
 import uk.co.caprica.vlcj.player.base.Marquee
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import util.fx.{NotificationStage, getIconImages}
-import vlc.VlcStage.MinTimeSyncPeriod
-import vlc.control.Controls
-import vlc.loading.Loading
 
 import java.util.function.UnaryOperator
 
 
-class VlcStage private (val media: VlcMedia, playerOptions: String*) extends NotificationStage:
-  private implicit inline def self: VlcStage = this
+class PlayerStage private(val media: VlcMedia, playerOptions: String*) extends NotificationStage:
+  private implicit inline def self: PlayerStage = this
 
   icons.addAll(getIconImages)
   fullScreenExitHint = ""
@@ -44,7 +44,7 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
   def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
   def isBuffering: Boolean = eventHandler.isBuffering
 
-  private[vlc] val defaultTitle = SimpleStringProperty(this, "defaultTitle", media.getName)
+  private[player] val defaultTitle = SimpleStringProperty(this, "defaultTitle", media.getName)
   val customTitle = SimpleStringProperty(this, "customTitle", "")
   title <== Bindings.createStringBinding(
     () => if (customTitle().isBlank) defaultTitle() else customTitle(),
@@ -56,19 +56,19 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
   media.onStageShow()
   player.events.addMediaPlayerEventListener(eventHandler)
   onHiding = _ =>
-    VlcSavedState.save()
+    PlayerSavedState.save()
     media.onStageHide()
     player.release()
     factory.release()
     pauseTask.foreach(_.cancel())
     phone.close()
 
-  private[vlc] val root: StackPane = new StackPane:
+  private[player] val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)
     onMouseClicked = event => if (event.getClickCount == 2) fullScreen = !fullScreen()
 
-  private[vlc] val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
-  private[vlc] val imageView: ImageView = new ImageView:
+  private[player] val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
+  private[player] val imageView: ImageView = new ImageView:
     fitWidth <== root.width
     fitHeight <== root.height
     preserveRatio = true
@@ -98,10 +98,10 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
       videoTrack, videoCropCoef, root.width, root.height
     )
 
-  private[vlc] val controls: Controls = new Controls
-  private[vlc] val loading: Loading = new Loading
+  private[player] val controls: Controls = new Controls
+  private[player] val loading: Loading = new Loading
 
-  scene = new Scene(root, 800, 600) with VlcKeyHandler:
+  scene = new Scene(root, 800, 600) with PlayerKeyHandler:
     content = imageView :: loading :: controls :: controls.extraParts ::: notificationBox :: Nil
 
   show()
@@ -163,13 +163,13 @@ class VlcStage private (val media: VlcMedia, playerOptions: String*) extends Not
     pauseTask = Some(TaskHolder().pauseTask)
 
 
-object VlcStage:
+object PlayerStage:
 
-  private[vlc] inline val MinTimeSyncPeriod = 1500
+  private[player] inline val MinTimeSyncPeriod = 1500
 
   private var next                  = Option.empty[(VlcMedia, Option[String], List[String])]
-  @volatile private var _instance   = Option.empty[VlcStage]
-  def instance: Option[VlcStage] = _instance
+  @volatile private var _instance   = Option.empty[PlayerStage]
+  def instance: Option[PlayerStage] = _instance
 
   def play(media: Option[VlcMedia], customTitle: Option[String] = None, options: List[String] = Nil): Unit =
     _instance match
@@ -180,7 +180,7 @@ object VlcStage:
         stage.close()
 
   private def newStage(media: VlcMedia, customTitle: Option[String], options: List[String]): Unit =
-    val stage = VlcStage(media, options*)
+    val stage = PlayerStage(media, options*)
     customTitle.foreach(stage.customTitle() = _)
     stage.addEventHandler(WindowEvent.WindowHidden, _ =>
       _instance = None

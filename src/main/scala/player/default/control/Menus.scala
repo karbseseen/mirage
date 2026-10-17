@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import atlantafx.base.controls.ProgressSliderSkin
 import constant.{Tr, Translate}

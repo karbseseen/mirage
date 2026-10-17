@@ -1,4 +1,4 @@
-package vlc.control
+package player.default.control
 
 import javafx.beans.property.SimpleIntegerProperty
 import scalafx.Includes.jfxNode2sfx

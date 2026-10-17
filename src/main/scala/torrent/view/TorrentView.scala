@@ -19,7 +19,7 @@ import scalafx.scene.layout.{HBox, Priority}
 import torrent.*
 import util.fx.PropertyInterpolation.b
 import util.fx.*
-import vlc.VlcStage
+import player.PlayerStage
 
 import java.lang
 import java.math.RoundingMode
@@ -70,7 +70,7 @@ private object TorrentTable extends AutoTableView[Torrent]:
     Option(torrent.handle.torrentFile).filter(_.numFiles == 1) match
       case Some(info) => row.onMouseClicked = event =>
         if (event.getClickCount == 2)
-          VlcStage.play(Some(TorrentMedia(torrent, 0)))
+          PlayerStage.play(Some(TorrentMedia(torrent, 0)))
       case _ => row.onMouseClicked = null
 
   rowUnset: row =>
@@ -123,7 +123,7 @@ private class TorrentFileTable(torrent: Torrent, val node: TorrentNode.Root) ext
   rowSet:
     case (row, file: TorrentNode.File) => row.onMouseClicked = event =>
       if (event.getClickCount == 2)
-        VlcStage.play(Some(TorrentMedia(torrent, file.index)))
+        PlayerStage.play(Some(TorrentMedia(torrent, file.index)))
       val rename = new MenuItem:
         text <== Tr.rename
         onAction = _ => MainApp.modal.show(TorrentModal.renameFile(torrent, file.index))

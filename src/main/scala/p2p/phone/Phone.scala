@@ -80,7 +80,7 @@ class Phone:
       enableEncoderCounter = globalCounter
     else if (diff > 0)
       val localCounter = enableEncoderCounter
-      Platform.runLater(Phone.enableEncoderCounter = Phone.enableEncoderCounter merge localCounter)
+      Platform.runLater(Phone.enableEncoderCounter = Phone.enableEncoderCounter max localCounter)
 
   private class PortAudio:
     private var _stream: Option[PortAudioStream] = None
@@ -125,7 +125,7 @@ class Phone:
     def apply(input: Array[Float]): Array[Float] =
       inputQueue.getAndSet(Nil).reverse.foreach: (packet, peer) =>
         jitter.put(packet, peer)
-        enableEncoderCounter = enableEncoderCounter merge packet.enableEncoderCounter
+        enableEncoderCounter = enableEncoderCounter max packet.enableEncoderCounter
       mergeEnableEncoder()
       val buffer = jitter.get
       if (buffer.isEmpty) portAudio.setOutput(false)

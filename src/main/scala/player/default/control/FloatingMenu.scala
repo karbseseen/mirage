@@ -6,6 +6,7 @@ import javafx.event as jfxe
 import javafx.event.EventHandler
 import javafx.scene.input.KeyCode
 import org.kordamp.ikonli.fluentui.FluentUiFilledAL
+import Controls.IconView
 import scalafx.Includes.{jfxBackground2sfx, jfxColor2sfx, jfxNode2sfx, jfxObservableValue2sfx, jfxParent2sfx, jfxProperty2sfx}
 import scalafx.animation.FadeTransition
 import scalafx.animation.Interpolator.EaseBoth
@@ -14,14 +15,14 @@ import scalafx.beans.property.ReadOnlyBooleanWrapper
 import scalafx.collections.ObservableBuffer
 import scalafx.delegate.AlignmentDelegate
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.{Cursor, Node}
 import scalafx.scene.control.Label
 import scalafx.scene.input.{KeyEvent, MouseEvent}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.Color
 import scalafx.scene.shape.Rectangle
+import scalafx.scene.{Cursor, Node}
 import scalafx.util.Duration
-import util.fx.{AutoBg, AutoInsets, GrandParentXBinding, GrandParentYBinding}
+import util.fx.*
 import util.let
 
 import java.lang
@@ -185,7 +186,6 @@ private object FloatingMenu:
         restartAutoHide(autoHideTimeout / 2)
         event.consume()
 
-    stage.addEventFilter(MouseEvent.MousePressed, eventHandler)
-    stage.addEventFilter(KeyEvent.KeyPressed, event =>
+    player.scene.registerEventFilter(MouseEvent.MousePressed)(eventHandler)
+    player.scene.registerEventFilter(KeyEvent.KeyPressed): event =>
       if (event.getCode == KeyCode.ESCAPE) eventHandler.handle(event)
-    )

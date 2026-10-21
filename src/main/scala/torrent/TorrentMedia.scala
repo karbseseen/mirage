@@ -1,20 +1,26 @@
 package torrent
 
 import com.frostwire.jlibtorrent.swig.deadline_flags_t
-import com.frostwire.jlibtorrent.{Priority, TorrentHandle}
+import com.frostwire.jlibtorrent.{AddTorrentParams, Priority, TorrentFlags, TorrentHandle}
 import com.sun.jna.Pointer
+import config.Conf
 import constant.Constants
-import p2p.RoomSync
-import p2p.base.Message.PlayerState
+import p2p.base.Message.{PlayerState, TorrentMagnetRequest, TorrentMagnetResponse}
+import p2p.base.P2p
+import player.Media.TorrentFileId
+import player.{Media, PlayerStage, PlayerSync}
+import scalafx.Includes.jfxProperty2sfx
+import scalafx.application.Platform.runLater
+import torrent.Hash.hash
 import uk.co.caprica.vlcj.media.callback.AbstractCallbackMedia
-import player.VlcMedia
 
+import java.io.File
 import java.util.function.UnaryOperator
 import scala.compiletime.uninitialized
 import scala.util.Try
 
 
-class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCallbackMedia(true) with VlcMedia:
+class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCallbackMedia(true) with Media:
 
   private val info = torrent.handle.torrentFile
   private val files = info.files
@@ -49,19 +55,9 @@ class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCal
       setDeadlines()
       true
 
-  def getName: String = files.fileName(fileIndex)
-  def getHash: (String, Int) = (torrent.hash.toString, fileIndex)
-
-
-  def onStageShow(): Unit =
-    RoomSync.mergedState.updateAndGet: state =>
-      if (state.hash == torrent.hash && state.fileIndex.toInt == fileIndex) state
-      else PlayerState(hash = torrent.hash, fileIndex = fileIndex, fileCounter = state.fileCounter.inc)
-
-  def onStageHide(): Unit =
-    torrent.cancelPieceRequests()
-    RoomSync.mergedState.updateAndGet: state =>
-      PlayerState(hash = Hash.empty, fileIndex = -1, fileCounter = state.fileCounter.inc)
+  def fileId: Media.FileId = TorrentFileId(torrent.hash, fileIndex)
+  def name: String = files.fileName(fileIndex)
+  def close(): Unit = torrent.cancelPieceRequests()
 
 
   private def read(buffer: Pointer, bufferSize: Int): Int =
@@ -105,6 +101,38 @@ class TorrentMedia(val torrent: Torrent, val fileIndex: Int) extends AbstractCal
   private class Data(val piece: Int, val value: Array[Byte])
 
 
-  override def equals(other: Any): Boolean = other match
-    case other: TorrentMedia => torrent == other.torrent && fileIndex == other.fileIndex
-    case _ => false
+object TorrentMedia:
+
+  def play(torrentFileId: TorrentFileId): Unit =
+    Torrent.all.find(_.hash == torrentFileId.hash) match
+      case Some(torrent) if torrent.handle.torrentFile != null =>
+        runLater { PlayerStage.play(Some(TorrentMedia(torrent, torrentFileId.index))) }
+      case Some(torrent) =>
+        runLater { PlayerStage.play(None) }
+      case None =>
+        P2p.sendToAll(TorrentMagnetRequest(torrentFileId.hash))
+        runLater { PlayerStage.play(None) }
+
+  P2p.addMessageHandler[TorrentMagnetRequest]: (message, peer) =>
+    for torrent <- Option(Torrent.session.find(message.hash)) do
+      peer.send(TorrentMagnetResponse(torrent.makeMagnetUri.getBytes))
+
+  P2p.addMessageHandler[TorrentMagnetResponse]: (message, peer) =>
+    val magnet = String(message.magnet)
+
+    for
+      sync@TorrentFileId(hash, fileIndex) <- PlayerSync.getTargetFileId.collect { case torrent: TorrentFileId => torrent }
+      if hash == AddTorrentParams.parseMagnetUri(magnet).hash
+    do
+      val known: Torrent.Known = (torrent, info) =>
+        Torrent.Known.default.onMetadata(torrent, info)
+        torrent.handle.resume()
+        torrent.handle.setFlags(TorrentFlags.AUTO_MANAGED)
+        if (PlayerSync.getTargetFileId.contains(sync))
+          runLater { PlayerStage.play(Some(TorrentMedia(torrent, fileIndex))) }
+
+      val confSaveDir = File(Conf.torrentSave())
+      val saveDir = if (confSaveDir.isDirectory) confSaveDir else File(".")
+
+      Torrent.knownTorrents.updateAndGet(_ + (hash -> known))
+      Torrent.add(magnet, saveDir)

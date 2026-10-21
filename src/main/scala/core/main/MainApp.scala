@@ -9,7 +9,7 @@ import scalafx.application.JFXApp3.PrimaryStage
 import scalafx.scene.layout.{StackPane, VBox}
 import scalafx.scene.{Node, Scene}
 import torrent.view.TorrentView
-import util.fx.{NotificationStage, getIconImages}
+import util.fx.{NotificationStage, setIcon}
 
 import java.lang.ref.Cleaner
 
@@ -24,12 +24,13 @@ object MainApp extends JFXApp3 with OnShutDown:
   lazy val modal = new ModalPane
 
   def start(): Unit =
+    config.Theme
+
     stage = new PrimaryStage with NotificationStage:
+      this.setIcon()
       title = Constants.appName
-      icons.addAll(getIconImages)
       scene = new Scene(new StackPane):
         content = Seq[Node](MainApp.root, modal, notificationBox)
 
-    config.Theme
-    p2p.RoomSync
     p2p.registerNotifications()
+    player.PlayerSync

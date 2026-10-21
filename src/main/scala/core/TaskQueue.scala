@@ -18,7 +18,7 @@ object TaskQueue:
   @volatile private var closing = false
 
 
-  private def schedule(task: ScheduledTask): Unit =
+  def schedule(task: ScheduledTask): Unit =
     if (Thread.currentThread == loopThread)
       taskQueue += task
     else
@@ -28,30 +28,33 @@ object TaskQueue:
   def scheduleSingle(delay: Long)(task: => Unit): SingleTask =
     scheduleSingleAt(System.currentTimeMillis + delay)(task)
   def scheduleSingleAt(time: Long)(task: => Unit): SingleTask =
-    SingleTask(task, time).also(schedule)
+    new SingleTask(time):
+      def run(): Unit = task
+      schedule(this)
 
   def schedulePeriodic(delay: Long, period: Long)(task: => Unit): PeriodicTask =
     schedulePeriodicAt(System.currentTimeMillis + delay, period)(task)
   def schedulePeriodicAt(time: Long, period: Long)(task: => Unit): PeriodicTask =
-    PeriodicTask(task, time, period).also(schedule)
+    new PeriodicTask(time, period):
+      def run(): Unit = task
+      schedule(this)
 
   def register(channel: SelectableChannel, ops: Int)(task: => Unit): Task =
-    new Task(task):
+    new Task:
+      def run(): Unit = task
       private val key = channel.register(selector, ops, this)
       override def cancel(): Unit =
         super.cancel()
         key.cancel()
 
   def onClose(task: => Unit): Task =
-    new Task(task):
+    new Task:
+      def run(): Unit = task
       closeTasks.updateAndGet(this :: _)
 
   def threadSafe(task: => Unit): Unit =
     if (Thread.currentThread == loopThread) task
-    else
-      val singleTask = SingleTask(task, System.currentTimeMillis)
-      newTasks.updateAndGet(singleTask :: _)
-      selector.wakeup()
+    else scheduleSingle(0)(task)
 
 
   private val loopThread = Thread: () =>
@@ -60,13 +63,13 @@ object TaskQueue:
       val timeUntilNext = runAvailable()
       selector.select(
         _.attachment match
-          case task: Task => task.run()
+          case task: Task => task.tryRun()
           case _ => (),
         timeUntilNext.fold(5000L)(_ min 5000L),
       )
     for closeTask <- closeTasks.get.reverse do
       if (!closeTask.isCancelled)
-        closeTask.run()
+        closeTask.tryRun()
   loopThread.start()
 
   @tailrec private def runAvailable(): Option[Long] =
@@ -77,11 +80,11 @@ object TaskQueue:
         runAvailable()
       case Some(task: SingleTask) if task.time <= now =>
         taskQueue.dequeue()
-        task.run()
+        task.tryRun()
         runAvailable()
       case Some(task: PeriodicTask) if task.time <= now =>
         taskQueue.dequeue()
-        task.run()
+        task.tryRun()
         task.time = System.currentTimeMillis + task.period
         taskQueue += task
         runAvailable()
@@ -93,18 +96,20 @@ object TaskQueue:
     selector.wakeup()
 
 
-  sealed abstract class Task(value: => Unit):
+  abstract class Task:
     @volatile private var cancelled = false
     def cancel(): Unit = cancelled = true
     def isCancelled: Boolean = cancelled
-    private[TaskQueue] def run(): Unit =
-      try value
+    def run(): Unit
+    def tryRun(): Unit =
+      try run()
       catch case error: Throwable => error.printStackTrace()
 
-  sealed abstract class ScheduledTask(value: => Unit) extends Task(value):
+  sealed abstract class ScheduledTask extends Task:
     def time: Long
-  class SingleTask private[TaskQueue] (value: => Unit, val time: Long) extends ScheduledTask(value)
-  class PeriodicTask private[TaskQueue] (value: => Unit, @volatile private var _time: Long, val period: Long)
-    extends ScheduledTask(value):
+
+  abstract class SingleTask(val time: Long) extends ScheduledTask
+
+  abstract class PeriodicTask(@volatile private var _time: Long, val period: Long) extends ScheduledTask:
     def time: Long = _time
     private[TaskQueue] def time_=(value: Long): Unit = _time = value

@@ -10,6 +10,7 @@ import javafx.beans.binding.{ObjectBinding, StringExpression}
 import javafx.beans.property.SimpleLongProperty
 import org.kordamp.ikonli.fluentui.FluentUiRegularAL
 import org.kordamp.ikonli.javafx.FontIcon
+import player.PlayerStage
 import scalafx.Includes.{jfxIndexedCell2sfx, jfxObjectProperty2sfx, jfxObservableValue2sfx, jfxScene2sfx, jfxText2sfxText, jfxTreeItem2sfx}
 import scalafx.beans.binding.Bindings
 import scalafx.geometry.{Orientation, Pos}
@@ -17,9 +18,8 @@ import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, Priority}
 import torrent.*
-import util.fx.PropertyInterpolation.b
 import util.fx.*
-import player.PlayerStage
+import util.fx.PropertyInterpolation.b
 
 import java.lang
 import java.math.RoundingMode

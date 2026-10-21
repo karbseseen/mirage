@@ -15,7 +15,7 @@ import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{DirectoryChooser, FileChooser}
 import torrent.Torrent
 import util.fx.{ModalBox, ModalVBox}
-import player.PlayerSavedState
+import player.default.PlayerSavedState
 
 import java.io.File
 import java.nio.file.Paths
@@ -170,14 +170,14 @@ object TorrentModal:
       text <== Tr.yepWithoutFiles
       onAction = _ =>
         Torrent.session.remove(torrent.handle)
-        PlayerSavedState.config() -= torrent.hash.toString 
+        PlayerSavedState -= torrent.hash.toString 
         MainApp.modal.hide()
     val wFiles = new DeleteButton:
       styleClass += Styles.DANGER
       text <== Tr.yepWithFiles
       onAction = _ =>
         Torrent.session.remove(torrent.handle, SessionHandle.DELETE_FILES)
-        PlayerSavedState.config() -= torrent.hash.toString
+        PlayerSavedState -= torrent.hash.toString
         MainApp.modal.hide()
 
     val label = new Label:

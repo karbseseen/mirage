@@ -96,15 +96,21 @@ class PopupNotification(
       play()
 
 
+sealed trait JfxNotificationBox extends jfxsl.VBox
+sealed trait NotificationBox extends VBox
+
+
 trait NotificationStage extends Stage:
-  val notificationBox: VBox = new VBox(Constants.inset):
-    alignmentInParent = Pos.TopRight
-    maxWidth = Region.UsePrefSize
-    maxHeight = Region.UsePrefSize
-    padding = AutoInsets(top = Constants.inset, right = Constants.inset)
-    opacity <== NotificationStage.this.focused.map[lang.Double](if (_) 1 else 0.6)
+  val notificationBox: VBox & NotificationBox =
+    new VBox(new jfxsl.VBox(Constants.inset) with JfxNotificationBox) with NotificationBox:
+      alignmentInParent = Pos.TopRight
+      maxWidth = Region.UsePrefSize
+      maxHeight = Region.UsePrefSize
+      padding = AutoInsets(top = Constants.inset, right = Constants.inset)
+      opacity <== NotificationStage.this.focused.map[lang.Double](if (_) 1 else 0.6)
 
   focused.addListener((_,_,focused) => if (focused) onFocus())
+
   protected def onFocus(): Unit =
     val (movable, nonMoveable) = NotificationStage._notifications.toList.partition:
       _.isInstanceOf[Notification.FocusMovable]
@@ -123,7 +129,7 @@ object NotificationStage:
 
   /**Thread-safe*/
   def showError(error: String | Throwable | jfxbv.ObservableValue[String]): Unit =
-    runLaterIfNeeded:
+    ensureRunLater:
       notifications += new PopupNotification:
         styleClass += Styles.DANGER
         error match

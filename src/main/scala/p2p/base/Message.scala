@@ -4,6 +4,7 @@ import byte_codec.ByteCodec.{CompactBytes, CompactUInt, CompactULong}
 import byte_codec.{ByteCodec, Discriminator as Msg}
 import core.TaskQueue
 import p2p.base.Message.Counter.toBoolean
+import player.Media.FileId
 import torrent.Hash
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
@@ -34,8 +35,7 @@ object Message:
   @Msg(-4) case object Bye extends P2pInner
 
   @Msg(100) case class PlayerState(
-    hash: Hash,
-    fileIndex: CompactUInt,
+    fileId: FileId,
     fileCounter: Counter,
     time: CompactULong    = 0,
     speedX10: Byte        = 10,
@@ -44,14 +44,16 @@ object Message:
     speedCounter: Counter = 0,
     titleCounter: Counter = 0,
     pauseCounter: Counter = 0,
+    buffering: Boolean    = false,
   ) extends Message:
     inline def pause: Boolean = pauseCounter.toBoolean
 
   @Msg(101) case class TorrentMagnetRequest(hash: Hash) extends Message
-  @Msg(102) case class TorrentMagnetResponse(hash: Hash, magnet: CompactBytes) extends Message
+  @Msg(102) case class TorrentMagnetResponse(magnet: CompactBytes) extends Message
 
   @Msg(103) case class PhoneData(index: CompactUInt, data: Array[Byte], enableEncoderCounter: Counter) extends Message
   @Msg(104) case class PhoneMetadata(packetLoss: CompactUInt, encoderEnableCounter: Counter) extends Message
+
 
   object MulticastAnnounce:
     val cookie = 0xa0763626f5735cd2L
@@ -71,12 +73,11 @@ object Message:
       def inc: Counter = if (counter == 255) 2 else counter + 1
       def set(bool: Boolean): Counter = if (counter.toBoolean == bool) counter else counter.inc
       inline def toBoolean: Boolean = (counter & 1) == 1
-      infix def compare(other: Counter): Int = (counter > 0, other > 0) match
-        case (false, false) => 0
-        case (false, true) => -1
-        case (true, false) => 1
-        case (true, true) => (counter - other).toByte.toInt
-      inline infix def merge(other: Counter): Counter =
+      infix def compare(other: Counter): Int = (counter >= 2, other >= 2) match
+        case (false, true)  => -1
+        case (true, false)  => 1
+        case _              => (counter - other).toByte.toInt
+      inline infix def max(other: Counter): Counter =
         if (counter.compare(other) >= 0) counter else other
 
     implicit val byteCodec: ByteCodec[Counter] = new ByteCodec:

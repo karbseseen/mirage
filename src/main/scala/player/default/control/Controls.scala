@@ -1,6 +1,7 @@
 package player.default.control
 
 import atlantafx.base.controls.ProgressSliderSkin
+import core.TaskQueue.{PeriodicTask, schedule}
 import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.beans.binding.StringBinding
 import javafx.beans.property.SimpleIntegerProperty
@@ -8,12 +9,16 @@ import javafx.scene.paint.Stop
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ, FluentUiRegularMZ}
 import org.kordamp.ikonli.javafx.FontIcon
-import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxProperty2sfx}
+import player.PlayerSync.Force
+import player.PlayerSync.Pause.Toggle
+import player.default.DefaultPlayer
+import player.default.control.Controls.IconView
+import player.time2str
+import scalafx.Includes.{jfxBackground2sfx, jfxNode2sfx, jfxObservableValue2sfx, jfxProperty2sfx, jfxSkin2sfxSkin, jfxStage2sfx}
 import scalafx.animation.Interpolator.EaseBoth
+import scalafx.application.Platform.runLater
 import scalafx.beans.binding.{BooleanBinding, BooleanExpression}
-import scalafx.beans.property.ReadOnlyBooleanProperty
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.SceneIncludes.jfxSkin2sfxSkin
 import scalafx.scene.control.{Label, Slider}
 import scalafx.scene.layout.*
 import scalafx.scene.paint.{Color, LinearGradient}
@@ -21,24 +26,30 @@ import scalafx.scene.text.Font
 import scalafx.scene.{Cursor, Node}
 import scalafx.util.Duration
 import util.fx.AutoInsets
-import player.{PlayerStage, isFinished, time2str}
 
 
 private trait ControlsBase:
-  protected val stage: PlayerStage
+  protected val player: DefaultPlayer
   protected def restartAutoHide(timeout: Long = autoHideTimeout): Unit
   protected def menus: collection.Seq[FloatingMenu]
   def extraParts: List[Node] = menus.map(_.holder).toList
 
 
-private[player] class Controls(using protected val stage: PlayerStage) extends VBox with Menus with AutoHide:
-  import stage.player
+private[player] class Controls(using protected val player: DefaultPlayer) extends VBox with Menus with AutoHide:
 
   alignmentInParent = Pos.BottomCenter
   maxHeight = Region.UsePrefSize
 
-  val seek: Slider = new Slider with Controls.Slider:
-    private var wasPlaying = false
+  private var isSeekProgramChange = false
+  def setTime(value: Long): Unit =
+    if (!seek.valueChanging())
+      isSeekProgramChange = true
+      seek.value = value
+      isSeekProgramChange = false
+  def setMaxTime(value: Long): Unit =
+    seek.max = value
+
+  private val seek = new Slider with Controls.Slider:
     hgrow = Priority.Always
     padding = AutoInsets(left = inset, right = inset)
     margin = AutoInsets(top = shortInset)
@@ -48,34 +59,48 @@ private[player] class Controls(using protected val stage: PlayerStage) extends V
     )
     cursor = funnyCursor
 
+    private var dragCounter = 0
+    private var task: Option[Task] = None
+
     value.addListener: (_,_,value) =>
-      if (pressed() && !valueChanging())
-        if (player.isFinished) player.media.play(stage.media)
-        player.controls.setTime(value.longValue)
-        stage.updateState(time = value.longValue, seek = true, send = true)
-    valueChanging.addListener: (_,_,changing) =>
-      if (changing)
-        wasPlaying = player.status.isPlaying
-        if (wasPlaying) player.controls.setPause(true)
-      else
-        if (player.isFinished) player.media.play(stage.media)
-        else if (wasPlaying) player.controls.setPause(false)
-        player.controls.setTime(value.longValue)
-        stage.updateState(pause = Some(!wasPlaying), time = value.longValue, seek = true, send = true)
+      if (!isSeekProgramChange)
+        dragCounter += 1
+        dragCounter match
+          case 1 => player.setTime(value.longValue)
+          case 2 => task = Some(new Task)
+          case _ => ()
 
-  val playPauseIcon: FontIcon = IconView(FluentUiFilledMZ.PLAY_48, 28)
-  val playPause: Label = new Controls.Button(longInset):
-    graphic = playPauseIcon
-    onMouseClicked = _ => stage.togglePause()
+    onMouseReleased = _ =>
+      dragCounter = 0
+      task.foreach(_.cancel())
+      task = None
 
-  val volume: HBox = new HBox:
+    private class Task extends PeriodicTask(System.currentTimeMillis + 500, 500):
+      schedule(this)
+      private val wasPlaying = player.isPlaying
+      if (wasPlaying) player.setPause(true)
+      def run(): Unit = runLater:
+        if (!isCancelled)
+          player.setTime(value.longValue, Force)
+      override def cancel(): Unit =
+        super.cancel()
+        if (!player.restartIfFinished() && wasPlaying) player.setPause(false, Force)
+        player.setTime(value.longValue, Force)
+
+
+  private val playPause = new Controls.Button(longInset):
+    graphic = new IconView(28):
+      iconCodeProperty <== player.playing.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
+    onMouseClicked = _ => player.setPause(Toggle)
+
+  private val volume: HBox = new HBox:
     background <== hoverableBg(this)
     alignment = Pos.CenterLeft
     padding = AutoInsets(right = longInset)
     cursor = funnyCursor
 
     private val slider = new Slider(0, 100, 100) with Controls.Slider:
-      value.addListener { (_,_,value) => player.audio.setVolume(value.intValue) }
+      value.addListener { (_,_,value) => player.volume = value.intValue }
       hgrow = Priority.Always
 
     private val button = new Label:
@@ -109,14 +134,22 @@ private[player] class Controls(using protected val stage: PlayerStage) extends V
       animation.setRate(if (expand) 1 else -1)
       animation.play()
 
-  val microphone: Label = new Controls.Button:
+  private val microphone = new Controls.Button:
+    private var wasEnabled = false
     graphic = new IconView(24):
       iconCodeProperty <==
-        stage.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
+        player.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
+    disable <== player.playing
     onMouseClicked = _ =>
-      stage.phone.microphoneEnabled() = !stage.phone.microphoneEnabled()
+      player.phone.microphoneEnabled() = !player.phone.microphoneEnabled()
+    player.playing.addListener: (_,_,playing) =>
+      if (playing)
+        wasEnabled = player.phone.microphoneEnabled()
+        player.phone.microphoneEnabled() = false
+      else
+        player.phone.microphoneEnabled() = wasEnabled
 
-  val time: Label = new Controls.Button:
+  private val time = new Controls.Button:
     font = Font(15)
     textFill = Color.White
 
@@ -135,7 +168,7 @@ private[player] class Controls(using protected val stage: PlayerStage) extends V
   private val space = new Region:
     hgrow = Priority.Always
 
-  val tracks: HBox = new HBox:
+  private val tracks = new HBox:
     maxHeight = Region.UsePrefSize
     background = staticBg
 
@@ -152,18 +185,18 @@ private[player] class Controls(using protected val stage: PlayerStage) extends V
     visible <== children.view.map[BooleanExpression](_.visible).reduce(_ || _)
     managed <== visible
 
-  val settings: Label = new Controls.Button with FloatingMenu.Control:
+  private val settings = new Controls.Button with FloatingMenu.Control:
     bindMenu(settingsMenu, Controls.this)
     bindMenu(speedMenu, Controls.this)
     bindMenu(customTitleMenu, Controls.this)
     background <== menuHover.map(if (_) staticHoveredBg else staticBg)
     graphic = IconView(FluentUiFilledMZ.SETTINGS_24, 24)
 
-  val expand: Label = new Controls.Button:
+  private val expand = new Controls.Button:
     graphic = new IconView(24):
-      iconCodeProperty <== stage.fullScreen.map:
+      iconCodeProperty <== player.stage.flatMap(_.fullScreen).map:
         if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24
-    onMouseClicked = _ => stage.fullScreen = !stage.fullScreen()
+    onMouseClicked = _ => player.stage().fullScreen = !player.stage().fullScreen()
 
 
   private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, settings, expand):
@@ -184,3 +217,9 @@ private object Controls:
   private trait Slider extends scalafx.scene.control.Slider:
     skin = ProgressSliderSkin(this)
     focused.addListener((_,_,focused) => if (focused) scene().getRoot.requestFocus())
+
+  class IconView(size: Int) extends FontIcon:
+    setStyle(s"-fx-icon-size: ${size}px; -fx-icon-color: white;")
+    def this(icon: Ikon, size: Int) =
+      this(size)
+      setIconCode(icon)

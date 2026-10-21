@@ -11,6 +11,7 @@ import scalafx.scene.layout.Region
 import scalafx.stage.WindowEvent
 import scalafx.util.Duration
 import FloatingMenu.ViewMode
+import util.fx.registerEventHandler
 
 import java.lang
 
@@ -22,19 +23,20 @@ private trait AutoHide extends Region with ControlsBase:
     fromValue = 0
     toValue = 1
     interpolator = Linear
-    onFinished = _ => if (rate() < 0) stage.scene().cursor = Cursor.None
+    onFinished = _ => if (rate() < 0) player.scene().cursor = Cursor.None
 
   translateY <== opacity.map[lang.Number]: opacity =>
     (1 - opacity.doubleValue) * height()
 
-  stage.addEventHandler(WindowEvent.WindowHidden, _ => task.foreach(_.cancel()))
-  stage.root.addEventHandler(MouseEvent.MouseMoved, _ => restartAutoHide())
+  player.stage.registerEventHandler(WindowEvent.WindowHidden)(_ => task.foreach(_.cancel()))
+  player.scene.registerEventHandler(MouseEvent.MouseMoved)(_ => restartAutoHide())
+  player.scene.addListener { (_,oldScene,_) => Option(oldScene).foreach(_.cursor = Cursor.Default) }
 
   protected def restartAutoHide(timeout: Long): Unit =
     if (animation.rate() < 0)
       animation.rate = 1
       animation.play()
-      stage.scene().cursor = Cursor.Default
+      player.scene().cursor = Cursor.Default
     actualTime = System.currentTimeMillis + autoHideTimeout
     if (task.isEmpty) createTask()
 

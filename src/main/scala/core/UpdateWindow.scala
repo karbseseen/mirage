@@ -5,7 +5,6 @@ import constant.{Constants, Tr}
 import core.boot.JarUpdater
 import core.boot.JarUpdater.deleteFileArgPrefix
 import core.main.MainApp
-import util.fx.PropertyInterpolation.b
 import javafx.concurrent as jfxc
 import javafx.scene.Node
 import org.kohsuke.github.{GHArtifact, GHWorkflowRun, GitHub}
@@ -21,8 +20,9 @@ import scalafx.scene.control.ScrollPane.ScrollBarPolicy
 import scalafx.scene.layout.*
 import scalafx.scene.text.{Font, Text, TextFlow}
 import scalafx.stage.{Modality, Stage}
-import util.*
-import util.fx.{AutoTableView, ErrorView, NotificationStage, SelfProperty}
+import util.fx.PropertyInterpolation.b
+import util.fx.*
+import util.{CurrentCmd, JavaUtil, jar}
 
 import java.io.{File, FileOutputStream}
 import java.time.ZoneId
@@ -43,7 +43,7 @@ private class UpdateStage extends NotificationStage:
   initOwner(MainApp.stage.scene.value.getWindow)
   scene = new UpdateScene:
     content += notificationBox
-  icons.addAll(fx.getIconImages)
+  this.setIcon()
 
 
 private class UpdateScene extends Scene(new StackPane, 600, 400):

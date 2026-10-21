@@ -7,7 +7,8 @@ import javafx.animation.{KeyFrame, KeyValue, Timeline}
 import javafx.scene.control as jfxsc
 import javafx.scene.input.KeyCode
 import org.kordamp.ikonli.fluentui.{FluentUiFilledAL, FluentUiFilledMZ}
-import scalafx.Includes.{jfxSkin2sfxSkin, jfxStringProperty2sfx, jfxText2sfxText}
+import Controls.IconView
+import scalafx.Includes.{jfxObservableValue2sfx, jfxSkin2sfxSkin, jfxText2sfxText}
 import scalafx.animation.Interpolator.EaseBoth
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.control.*
@@ -22,8 +23,10 @@ import util.fx.{AutoInsets, addEventFilter}
 import java.util.function.UnaryOperator
 
 
-private trait Menus extends FloatingMenu.Parent:
-  import stage.player
+private trait Menus extends FloatingTrackMenus:
+
+  def setSpeed(value: Float): Unit = speedMenu.setSpeed(value)
+  def isSpeedShown: Boolean = speedMenu.showing()
 
 
   private val buttonPadding = Insets(
@@ -36,21 +39,6 @@ private trait Menus extends FloatingMenu.Parent:
     hgrow = Priority.Always
 
 
-  val videoMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.video.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.video.setTrack(vlcId)
-
-  val audioMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.audio.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.audio.setTrack(vlcId)
-
-  val subtitleMenu: FloatingTracks = new FloatingTracks:
-    def getTracks: java.util.List[TrackDescription] = player.subpictures.trackDescriptions
-    def onSelect(vlcId: Int): Unit = player.subpictures.setTrack(vlcId)
-    override def removeItem(vlcId: Int): Unit = if (vlcId != -1) super.removeItem(vlcId)
-    children += new TrackItem(-1) { label.text <== Tr.noSubtitles }
-
-
   val settingsMenu: FloatingMenu = new FloatingMenu:
 
     children += new FloatingMenu.SelectableItem:
@@ -58,8 +46,8 @@ private trait Menus extends FloatingMenu.Parent:
       label.graphic = IconView(FluentUiFilledAL.CROP_24, 24)
       selectIcon.visible = false
       private val animation = Timeline(
-        KeyFrame(Duration(0), KeyValue(stage.videoCropCoef, 0)),
-        KeyFrame(Duration(250), KeyValue(stage.videoCropCoef, 1, EaseBoth)),
+        KeyFrame(Duration(0), KeyValue(player.videoCropCoef, 0)),
+        KeyFrame(Duration(250), KeyValue(player.videoCropCoef, 1, EaseBoth)),
       )
       onMouseClicked = event =>
         selectIcon.visible() = !selectIcon.visible()
@@ -68,10 +56,8 @@ private trait Menus extends FloatingMenu.Parent:
         event.consume()
 
 
-  sealed trait SpeedMenu:
-    def setSpeed(speed: Float): Unit
-
-  val speedMenu: FloatingMenu.Dependant & SpeedMenu = new FloatingMenu.Dependant(settingsMenu) with SpeedMenu:
+  protected val speedMenu = new SpeedMenu
+  protected class SpeedMenu extends FloatingMenu.Dependant(settingsMenu):
     thisMenu =>
 
     spacing = inset
@@ -96,8 +82,7 @@ private trait Menus extends FloatingMenu.Parent:
       skin = ProgressSliderSkin(this)
       value.addListener: (_,_,number) =>
         if (!programChange)
-          val rounded = (number.doubleValue * 10).round.toDouble / 10
-          stage.updateSpeed(rounded.toFloat, send = true)
+          player.setSpeedX10((number.doubleValue * 10).round.toByte)
 
     children += new HBox(shortInset):
       margin = Insets(inset)
@@ -107,7 +92,7 @@ private trait Menus extends FloatingMenu.Parent:
         background <== hoverableBg(this)
         textFill = Color.White
         text = value.toString
-        onMouseClicked = _ => stage.updateSpeed(value.toFloat, send = true)
+        onMouseClicked = _ => player.setSpeedX10((value * 10).round.toByte)
 
     private var programChange = false
     def setSpeed(speed: Float): Unit =
@@ -115,9 +100,10 @@ private trait Menus extends FloatingMenu.Parent:
       slider.value = speed
       label.text = s"$speed x"
       programChange = false
+    setSpeed(1)
 
 
-  val customTitleMenu: FloatingMenu.Dependant = new FloatingMenu.Dependant(settingsMenu):
+  protected val customTitleMenu: FloatingMenu.Dependant = new FloatingMenu.Dependant(settingsMenu):
     thisMenu =>
 
     background = Background fill Color.Black.opacity(0.9)
@@ -142,11 +128,11 @@ private trait Menus extends FloatingMenu.Parent:
         if (visible)
           val index = DailyRandom().random.nextInt(funnyFilmNames.length)
           promptText <== funnyFilmNames(index)
-          text() = stage.title()
+          text() = player.title()
 
       this.addEventFilter(KeyEvent.KeyPressed): event =>
         if (event.getCode == KeyCode.ENTER)
-          stage.updateCustomTitle(text())
+          save()
           event.consume()
 
       private val formatter: UnaryOperator[jfxsc.TextFormatter.Change] = change =>
@@ -164,9 +150,7 @@ private trait Menus extends FloatingMenu.Parent:
         background <== hoverableBg(this)
         textFill = Color.White
         text <== Tr.default
-        onMouseClicked = _ =>
-          stage.updateCustomTitle("")
-          input.text() = stage.title()
+        onMouseClicked = _ => saveDefault()
 
       children += hboxSpacing
 
@@ -175,8 +159,15 @@ private trait Menus extends FloatingMenu.Parent:
         background <== hoverableBg(this)
         textFill = Color.White
         text <== Tr.save
-        onMouseClicked = _ =>
-          stage.updateCustomTitle(input.text())
+        onMouseClicked = _ => save()
+
+    private def save(): Unit =
+      if (input.text().isBlank) saveDefault()
+      else player.setCustomTitle(input.text())
+
+    private def saveDefault(): Unit =
+      player.setCustomTitle("")
+      input.text() = player.title()
 
 
 private val funnyFilmNames: IArray[Translate] = IArray(

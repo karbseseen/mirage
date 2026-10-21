@@ -1,191 +1,44 @@
 package player
 
-import byte_codec.ByteCodec.CompactULong
-import constant.Tr
-import core.TaskQueue.{Task, schedulePeriodic}
-import javafx.beans.binding.Bindings
-import javafx.beans.property.*
-import javafx.geometry.Rectangle2D
-import p2p.RoomSync
-import p2p.base.Message.{Counter, PlayerState}
-import p2p.base.P2p
-import p2p.phone.Phone
-import player.PlayerStage.MinTimeSyncPeriod
-import player.default.control.Controls
-import player.loading.Loading
-import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx}
+import player.default.DefaultPlayer
 import scalafx.scene.Scene
-import scalafx.scene.image.ImageView
 import scalafx.scene.layout.{Background, StackPane}
 import scalafx.scene.paint.Color
-import scalafx.stage.{Stage, WindowEvent}
-import torrent.Hash
-import uk.co.caprica.vlcj.factory.MediaPlayerFactory
-import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
-import uk.co.caprica.vlcj.media.VideoTrackInfo
-import uk.co.caprica.vlcj.player.base.Marquee
-import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
-import util.fx.{NotificationStage, getIconImages}
-
-import java.util.function.UnaryOperator
+import scalafx.stage.WindowEvent
+import util.fx.{NotificationStage, addEventHandler, setIcon}
 
 
-class PlayerStage private(val media: VlcMedia, playerOptions: String*) extends NotificationStage:
-  private implicit inline def self: PlayerStage = this
-
-  icons.addAll(getIconImages)
+private class PlayerStage(player: Player) extends NotificationStage:
+  this.setIcon()
   fullScreenExitHint = ""
 
-  private val factory = new MediaPlayerFactory
-  val player: EmbeddedMediaPlayer = factory.mediaPlayers.newEmbeddedMediaPlayer
-  private var pauseTask = Option.empty[Task]
-
-  private val eventHandler = new VlcHandler
-  def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = eventHandler.videoTrack
-  def isBuffering: Boolean = eventHandler.isBuffering
-
-  private[player] val defaultTitle = SimpleStringProperty(this, "defaultTitle", media.getName)
-  val customTitle = SimpleStringProperty(this, "customTitle", "")
-  title <== Bindings.createStringBinding(
-    () => if (customTitle().isBlank) defaultTitle() else customTitle(),
-    defaultTitle, customTitle
-  )
-
-  val phone: Phone = new Phone
-
-  media.onStageShow()
-  player.events.addMediaPlayerEventListener(eventHandler)
-  onHiding = _ =>
-    PlayerSavedState.save()
-    media.onStageHide()
-    player.release()
-    factory.release()
-    pauseTask.foreach(_.cancel())
-    phone.close()
-
-  private[player] val root: StackPane = new StackPane:
+  private val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)
     onMouseClicked = event => if (event.getClickCount == 2) fullScreen = !fullScreen()
+    children = player.views ::: notificationBox :: Nil
 
-  private[player] val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
-  private[player] val imageView: ImageView = new ImageView:
-    fitWidth <== root.width
-    fitHeight <== root.height
-    preserveRatio = true
-    player.videoSurface.set(ImageViewVideoSurface(this))
-    viewport <== Bindings.createObjectBinding(
-      () =>
-        val (videoWidth, videoHeight) = Option(videoTrack.get).fold(1.0, 1.0):
-          video => (video.width.toDouble, video.height.toDouble)
-        val videoRatio = videoWidth / videoHeight
-        val windowRatio = root.width() / root.height()
-        if (videoRatio > windowRatio)
-          val videoCropWidth = videoHeight * windowRatio
-          Rectangle2D(
-            (videoWidth - videoCropWidth) / 2 * videoCropCoef.get,
-            0,
-            videoWidth * (1 - videoCropCoef.get) + videoCropWidth * videoCropCoef.get,
-            videoHeight,
-          )
-        else
-          val videoCropHeight = videoWidth / windowRatio
-          Rectangle2D(
-            0,
-            (videoHeight - videoCropHeight) / 2 * videoCropCoef.get,
-            videoWidth,
-            videoHeight * (1 - videoCropCoef.get) + videoCropHeight * videoCropCoef.get,
-          ),
-      videoTrack, videoCropCoef, root.width, root.height
-    )
-
-  private[player] val controls: Controls = new Controls
-  private[player] val loading: Loading = new Loading
-
-  scene = new Scene(root, 800, 600) with PlayerKeyHandler:
-    content = imageView :: loading :: controls :: controls.extraParts ::: notificationBox :: Nil
-
+  scene = Scene(root, 800, 600)
   show()
-  player.media.play(media, playerOptions*)
-
-
-  def updateCustomTitle(value: String): Unit =
-    customTitle() = value
-    var send = false
-    val newState = RoomSync.mergedState.updateAndGet: state =>
-      if (state.title == value) state
-      else
-        send = true
-        state.copy(title = value, titleCounter = state.titleCounter.inc)
-    if (send) P2p.sendToAll(newState)
-
-  def togglePause(): Unit =
-    if (player.isFinished) player.media.play(media)
-    else player.controls.setPause(player.status.isPlaying)
-
-  def updateSpeed(value: Float, send: Boolean = false): Unit =
-    val x10 = (value * 10).round
-    val rounded = x10 / 10f
-    if (player.controls.setRate(rounded))
-      controls.speedMenu.setSpeed(rounded)
-      if (send) updateState(speedX10 = x10.toByte, send = true)
-      if (!controls.speedMenu.showing()) player.marquee.set:
-        Marquee.marquee
-          .text(s"${Tr.speed.get} = $rounded")
-          .location(50, 50)
-          .timeout(2500)
-
-  def updateState(
-    pause: Option[Boolean] = None,
-    time: Long = player.status.time,
-    speedX10: Byte = -1,
-    seek: Boolean = false,
-    send: Boolean,
-  ): PlayerState =
-    extension (counter: Counter) inline def incIf(inline condition: Boolean): Counter =
-      if (condition) counter.inc else counter
-    val newState = RoomSync.mergedState.updateAndGet: oldState =>
-      if (oldState.hash eq Hash.empty) oldState
-      else oldState.copy(
-        time          = time,
-        speedX10      = if (speedX10 > 0) speedX10 else oldState.speedX10,
-        seekCounter   = oldState.seekCounter.incIf(seek),
-        speedCounter  = oldState.speedCounter.incIf(speedX10 > 0 && speedX10 != oldState.speedX10),
-        pauseCounter  = oldState.pauseCounter.incIf(pause.exists(_ != oldState.pause)),
-      )
-    if (!newState.pause) pauseTask.foreach(_.cancel())
-    if (send && (newState.hash ne Hash.empty)) P2p.sendToAll(newState)
-    newState
-
-  def startPauseTask(task: Task => Unit): Unit =
-    class TaskHolder:
-      val pauseTask: Task = schedulePeriodic(MinTimeSyncPeriod, MinTimeSyncPeriod)(task(pauseTask))
-    pauseTask.foreach(_.cancel())
-    pauseTask = Some(TaskHolder().pauseTask)
 
 
 object PlayerStage:
 
-  private[player] inline val MinTimeSyncPeriod = 1500
+  private var current = Option.empty[(Player, PlayerStage)]
+  private var nextTask = Option.empty[() => Unit]
 
-  private var next                  = Option.empty[(VlcMedia, Option[String], List[String])]
-  @volatile private var _instance   = Option.empty[PlayerStage]
-  def instance: Option[PlayerStage] = _instance
-
-  def play(media: Option[VlcMedia], customTitle: Option[String] = None, options: List[String] = Nil): Unit =
-    _instance match
-      case None => media.foreach(newStage(_, customTitle, options))
-      case Some(stage) if media.contains(stage.media) => stage.requestFocus()
-      case Some(stage) =>
-        next = media.map((_, customTitle, options))
+  def play(media: Option[Media]): Unit =
+    current match
+      case None => media.foreach(newStage)
+      case Some(player, stage) if media.exists(_.fileId == player.media.fileId) => stage.requestFocus()
+      case Some(player, stage) =>
+        nextTask = media.map(media => () => newStage(media))
         stage.close()
 
-  private def newStage(media: VlcMedia, customTitle: Option[String], options: List[String]): Unit =
-    val stage = PlayerStage(media, options*)
-    customTitle.foreach(stage.customTitle() = _)
-    stage.addEventHandler(WindowEvent.WindowHidden, _ =>
-      _instance = None
-      next.foreach(newStage)
-      next = None
-    )
-    stage.show()
-    _instance = Some(stage)
+  private def newStage(media: Media): Unit =
+    val player = DefaultPlayer(media)
+    val stage = new PlayerStage(player):
+      this.addEventHandler(WindowEvent.WindowHidden): _ =>
+        current = None
+        nextTask.foreach(_())
+        nextTask = None
+    current = Some(player, stage)

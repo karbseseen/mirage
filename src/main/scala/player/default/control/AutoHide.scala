@@ -11,7 +11,8 @@ import scalafx.scene.layout.Region
 import scalafx.stage.WindowEvent
 import scalafx.util.Duration
 import FloatingMenu.ViewMode
-import util.fx.registerEventHandler
+import util.fx.SfxEvents.registerEventHandler
+import util.fx.JfxEvents.registerEventHandler
 
 import java.lang
 

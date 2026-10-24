@@ -2,7 +2,8 @@ package core
 
 import atlantafx.base.controls.{Tile, ToggleSwitch}
 import config.{Conf, Language, SingleTheme, Theme}
-import constant.{Constants, Tr, Translate}
+import constant.{ConstList, Constants, Tr, Translate}
+import core.main.MainApp
 import javafx.beans.InvalidationListener
 import javafx.scene.input.KeyCode
 import javafx.util.StringConverter
@@ -10,19 +11,26 @@ import org.kordamp.ikonli.fluentui.FluentUiFilledAL
 import org.kordamp.ikonli.javafx.FontIcon
 import p2p.base.P2p
 import p2p.phone.Phone
-import scalafx.Includes.{jfxControl2sfx, jfxObservableValue2sfx, jfxProperty2sfx}
+import player.IntroPlayer
+import scalafx.Includes.{jfxControl2sfx, jfxObservableValue2sfx, jfxProperty2sfx, observableList2ObservableBuffer}
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.Pos
 import scalafx.scene.control.*
 import scalafx.scene.input.MouseEvent
-import scalafx.scene.layout.VBox
+import scalafx.scene.layout.{HBox, Priority, VBox}
 import scalafx.scene.text.Font
+import scalafx.stage.FileChooser
+import scalafx.stage.FileChooser.ExtensionFilter
 import util.fx.ModalVBox
 
+import java.io.File
 import java.lang
 
 
 class MainSettings extends VBox with ModalVBox:
+
+  private inline val textWidth    = 250
+  private inline val choiceWidth  = 180
 
   alignment = Pos.Center
 
@@ -64,7 +72,7 @@ class MainSettings extends VBox with ModalVBox:
 
   children += new Tile:
     private val input = new TextField:
-      prefWidth = 250
+      prefWidth = textWidth
       text() = P2p.roomName()
       focused.subscribe(focus => if (!focus) P2p.roomName() = text())
       onKeyPressed = event =>
@@ -78,7 +86,7 @@ class MainSettings extends VBox with ModalVBox:
     selected = P2p.nickConfig().isEmpty
 
   private val nickInput: TextField = new TextField:
-    prefWidth = 250
+    prefWidth = textWidth
     disable <== randomNickInput.selected
     text = P2p.nickActual()
     focused.addListener: (_,_,focus) =>
@@ -103,6 +111,55 @@ class MainSettings extends VBox with ModalVBox:
     titleProperty <== Tr.nick
     setAction(nickInput)
     setActionHandler(() => nickInput.requestFocus())
+
+  children += new Separator
+
+  children += new Tile:
+    private val input = new TextField:
+      maxWidth = Double.MaxValue
+      hgrow = Priority.Always
+      text = IntroPlayer.fileConfig()
+      focused.addListener: (_,_,focus) =>
+        if (!focus)
+          if (text().isBlank) text() = ""
+          IntroPlayer.fileConfig() = text()
+      onKeyPressed = event =>
+        if (event.getCode == KeyCode.ENTER)
+          MainSettings.this.requestFocus()
+
+    private val fileButton = new Button("..."):
+      onAction = _ => chooseFile
+
+    private val row = new HBox(Constants.inset, input, fileButton):
+      prefWidth = textWidth
+
+    private def chooseFile = new FileChooser:
+      title <== Tr.chooseIntroVideo
+      extensionFilters += ExtensionFilter(Tr.video.getValue, ConstList.videoExt.map(ext => s"*.$ext"))
+      extensionFilters += ExtensionFilter(Tr.any.getValue, "*.*")
+      List(input.text(), IntroPlayer.fileConfig())
+        .filter(_.nonEmpty)
+        .map(File(_))
+        .collectFirst:
+          case file if file.isFile => file.getParentFile
+          case file if file.isDirectory => file
+        .foreach(initialDirectory = _)
+      Option(showOpenDialog(MainApp.stage)).foreach: file =>
+        val path = file.getCanonicalPath
+        input.text = path
+        IntroPlayer.fileConfig() = path
+
+    titleProperty <== Tr.intro
+    setAction(row)
+    setActionHandler(() => input.requestFocus())
+
+  children += choice(Tr.introTransition):
+    new ChoiceBox(ObservableBuffer from IntroPlayer.Transition.values):
+      value <==> IntroPlayer.transitionConfig
+      converter <== Language.config.map: lang =>
+        new StringConverter[IntroPlayer.Transition]:
+          def toString(transition: IntroPlayer.Transition): String = transition.name(lang)
+          def fromString(name: String): IntroPlayer.Transition = throw new NotImplementedError
 
   children += new Separator
 
@@ -142,7 +199,7 @@ class MainSettings extends VBox with ModalVBox:
 
 
   private def choice(name: Translate)(choiceBox: ChoiceBox[?]) =
-    choiceBox.prefWidth = 170
+    choiceBox.prefWidth = choiceWidth
     new Tile:
       titleProperty <== name
       setAction(choiceBox)

@@ -32,7 +32,7 @@ libraryDependencies ++= Seq(
   //"io.github.palexdev" % "materialfx" % "11.17.0",
   "com.frostwire" % "jlibtorrent" % jlibtorrentVersion,
   "com.frostwire" % s"jlibtorrent-${jlibtorrent.platform}" % jlibtorrentVersion % Provided,
-  "uk.co.caprica" % "vlcj-javafx" % "1.2.1",
+  "uk.co.caprica" % "vlcj" % "4.12.1",
   "org.lwjgl" % "lwjgl" % lwjglVersion,
   "org.lwjgl" % "lwjgl" % lwjglVersion % Provided classifier s"natives-${lwjgl.platform}",
   "org.lwjgl" % "lwjgl-opus" % lwjglVersion,

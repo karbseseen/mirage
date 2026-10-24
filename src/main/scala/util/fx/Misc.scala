@@ -6,6 +6,7 @@ import javafx.animation.KeyValue
 import javafx.beans.value.{ObservableValue, WritableValue}
 import javafx.scene.image.Image
 import javafx.util.Duration
+import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform
 import scalafx.stage.Stage
 
@@ -29,6 +30,21 @@ extension (stage: Stage)
 extension[T] (observable: ObservableValue[T])
   def mapBinding[U](func: Function[? >: T, ? <: U]) = MappedBinding(observable, func)
   def flatMapBinding[U](func: Function[? >: T, ? <: ObservableValue[U]]) = FlatMappedBinding(observable, func)
+
+
+object JfxSuperBind:
+  extension[T <: AnyRef, P <: javafx.beans.property.Property[T]] (observable: ObservableValue[P])
+    def <~=(value: ObservableValue[? <: T]): Unit =
+      observable.addListener: (_, oldProperty, newProperty) =>
+        Option(oldProperty).foreach(_.unbind())
+        Option(newProperty).foreach(_ <== value)
+
+object SfxSuperBind:
+  extension[T <: AnyRef, P <: scalafx.beans.property.Property[?, T]] (observable: ObservableValue[P])
+    def <~=(value: ObservableValue[? <: T]): Unit =
+      observable.addListener: (_, oldProperty, newProperty) =>
+        Option(oldProperty).foreach(_.unbind())
+        Option(newProperty).foreach(_ <== value)
 
 
 implicit inline def duration(value: Int): Duration = Duration(value)

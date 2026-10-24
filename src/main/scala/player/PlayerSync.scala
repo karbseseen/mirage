@@ -135,9 +135,12 @@ trait PlayerSync:
   private var idleTask: Option[Task] = None
 
   private var lastSendTime = 0L
+  @volatile private var started = false
 
 
-  def close(): Unit = sync:
+  protected def startSync(): Unit = started = true
+
+  protected def close(): Unit = sync:
     PlayerSync.instance = None
     PlayerSync.fileCounter = myState.fileCounter
     peerWaiter.close()
@@ -148,12 +151,13 @@ trait PlayerSync:
     if (myState.fileCounter.compare(peerState.fileCounter) < 0)
       myState = myState.copy(fileCounter = peerState.fileCounter)
 
-    val tasks =
-      if (peerState.buffering) peerWaiter.waitFor(BufferingPeer(peer), WaitTimeDiff)
-      else peerWaiter.releaseWait(BufferingPeer(peer))
-
-    if (peerWaiter.isWaiting || myState.buffering) tasks
-    else tasks ::: onPeerStateInner(peerState, peer)
+    if (!started) Nil else
+      val tasks =
+        if (peerState.buffering) peerWaiter.waitFor(BufferingPeer(peer), WaitTimeDiff)
+        else peerWaiter.releaseWait(BufferingPeer(peer))
+  
+      if (peerWaiter.isWaiting || myState.buffering) tasks
+      else tasks ::: onPeerStateInner(peerState, peer)
 
   private def onPeerStateInner(peerState: PlayerState, peer: Peer): UnsyncTasks =
     var tasks: UnsyncTasks = Nil
@@ -242,7 +246,7 @@ trait PlayerSync:
 
 
   private def sendToAll(): Unit =
-    if (!peerWaiter.isWaiting)
+    if (!peerWaiter.isWaiting && started)
       lastSendTime = myState.time
       P2p.sendToAll(myState)
 

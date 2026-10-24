@@ -28,7 +28,7 @@ object PlayerSavedState:
   private val config: Config.ObjectProp[Map] = Config.ObjectProp(this, "player-state", immutable.Map.empty)
 
   private[player] def save()(using player: DefaultPlayer): Unit =
-    val (hash, fileIndex) = player.media.fileId.configId
+    val (hash, fileIndex) = player.fileId.configId
     val state = PlayerSavedState(
       player.time,
       player.videoTrack,
@@ -41,7 +41,7 @@ object PlayerSavedState:
       case Some(map) => Some(map + (fileIndex -> state))
 
   private[player] def restore()(using player: DefaultPlayer): Option[PlayerSavedState] =
-    val (hash, fileIndex) = player.media.fileId.configId
+    val (hash, fileIndex) = player.fileId.configId
     config().get(hash).flatMap(_.get(fileIndex)).map: state =>
       player.videoTrack = state.videoTrackId
       player.audioTrack = state.audioTrackId

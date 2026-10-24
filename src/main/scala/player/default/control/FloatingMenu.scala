@@ -23,6 +23,7 @@ import scalafx.scene.shape.Rectangle
 import scalafx.scene.{Cursor, Node}
 import scalafx.util.Duration
 import util.fx.*
+import util.fx.JfxEvents.registerEventFilter
 import util.let
 
 import java.lang

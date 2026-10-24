@@ -91,7 +91,7 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
   private val playPause = new Controls.Button(longInset):
     graphic = new IconView(28):
       iconCodeProperty <== player.playing.map(if (_) FluentUiFilledMZ.PAUSE_48 else FluentUiFilledMZ.PLAY_48)
-    onMouseClicked = _ => player.setPause(Toggle)
+    override def onClick(): Unit = player.setPause(Toggle)
 
   private val volume: HBox = new HBox:
     background <== hoverableBg(this)
@@ -140,8 +140,7 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
       iconCodeProperty <==
         player.phone.microphoneEnabled.map(if (_) FluentUiRegularMZ.MIC_ON_24 else FluentUiRegularMZ.MIC_OFF_24)
     disable <== player.playing
-    onMouseClicked = _ =>
-      player.phone.microphoneEnabled() = !player.phone.microphoneEnabled()
+    override def onClick(): Unit = player.phone.microphoneEnabled() = !player.phone.microphoneEnabled()
     player.playing.addListener: (_,_,playing) =>
       if (playing)
         wasEnabled = player.phone.microphoneEnabled()
@@ -161,7 +160,7 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
         if (backward) "-" + time2str(seek.max.toLong - seek.value.toLong)
         else time2str(seek.value.toLong)
     text <== textBind
-    onMouseClicked = _ =>
+    override def onClick(): Unit =
       backward = !backward
       textBind.invalidate()
 
@@ -196,7 +195,7 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
     graphic = new IconView(24):
       iconCodeProperty <== player.stage.flatMap(_.fullScreen).map:
         if (_) FluentUiFilledAL.ARROW_MINIMIZE_24 else FluentUiFilledAL.ARROW_MAXIMIZE_24
-    onMouseClicked = _ => player.stage().fullScreen = !player.stage().fullScreen()
+    override def onClick(): Unit = player.stage().fullScreen = !player.stage().fullScreen()
 
 
   private val bottomRow = new HBox(inset, playPause, volume, microphone, time, space, tracks, settings, expand):
@@ -209,10 +208,12 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
 
 private object Controls:
 
-  private class Button(inset: Double = inset)(using cursor: Cursor) extends Label:
+  private abstract class Button(inset: Double = inset)(using cursor: Cursor) extends Label:
     padding = Insets(inset)
     background <== hoverableBg(this)
     this.cursor = cursor
+    onMouseClicked = { event => onClick(); event.consume() }
+    def onClick(): Unit = ()
 
   private trait Slider extends scalafx.scene.control.Slider:
     skin = ProgressSliderSkin(this)

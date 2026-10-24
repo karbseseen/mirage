@@ -1,8 +1,23 @@
 package util.fx
 
+import atlantafx.base.controls as afxbc
 import constant.Constants
+import scalafx.Includes.jfxSkin2sfxSkin
 import scalafx.geometry.Insets
+import scalafx.scene.control.Control
 import scalafx.scene.layout.{Pane, Region, VBox}
+
+import scala.language.implicitConversions
+
+
+class ModalPane(override val delegate: afxbc.ModalPane = new afxbc.ModalPane) extends Control(delegate):
+  skin = new afxbc.ModalPaneSkin(delegate):
+    override def doHide(): Unit =
+      super.doHide()
+      getSkinnable.setContent(null)
+  
+object ModalPane:
+  implicit def fxModalPane2afx(modalPane: ModalPane): afxbc.ModalPane = modalPane.delegate
 
 
 sealed trait ModalBox extends Pane:

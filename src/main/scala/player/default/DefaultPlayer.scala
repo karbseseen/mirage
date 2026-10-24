@@ -11,24 +11,25 @@ import player.PlayerSync.Pause.Toggle
 import player.PlayerSync.SetFlag
 import player.default.control.Controls
 import player.loading.Loading
-import player.{Player, PlayerSync, Media}
+import player.{Media, Player, PlayerSync}
 import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx}
 import scalafx.application.Platform.runLater
 import scalafx.scene.Node
 import scalafx.scene.input.KeyEvent
-import scalafx.stage.StageIncludes.jfxStage2sfx
 import uk.co.caprica.vlcj.media.{Meta, TrackType}
-import uk.co.caprica.vlcj.player.base.{Marquee, MediaPlayer}
+import uk.co.caprica.vlcj.player.base.{Marquee, MediaPlayer, MediaPlayerEventAdapter}
 import util.also
-import util.fx.{ensureRunLater, registerEventHandler}
+import util.fx.JfxEvents.registerEventHandler
+import util.fx.SfxSuperBind.<~=
+import util.fx.ensureRunLater
 
 
-class DefaultPlayer(media: Media) extends Player(media) with PlayerSync:
+class DefaultPlayer(protected val media: Media) extends Player with PlayerSync:
   private implicit inline def self: this.type = this
+  def fileId: Media.FileId = media.fileId
 
-  protected type HandlerType = DefaultHandler
-  protected def createHandler: DefaultHandler = new DefaultHandler
-  def playing: ReadOnlyBooleanProperty = vlcHandler.playing
+  def playing: ReadOnlyBooleanProperty = _playing
+  private val _playing = SimpleBooleanProperty(this, "playing", false)
 
   private val _defaultTitle = SimpleStringProperty(this, "defaultTitle", media.name)
   private val _customTitle = SimpleStringProperty(this, "customTitle", "")
@@ -36,23 +37,25 @@ class DefaultPlayer(media: Media) extends Player(media) with PlayerSync:
   val title: StringBinding = new StringBinding:
     def computeValue: String = if (_customTitle().isBlank) _defaultTitle() else _customTitle()
     bind(_defaultTitle, _customTitle)
-  stage.addListener: (_, oldStage, newStage) =>
-    Option(oldStage).foreach(_.title.unbind())
-    Option(newStage).foreach(_.title <== title)
+  stage.map(_.title) <~= title
+
+  def buffering: ReadOnlyBooleanProperty = loading.visible
 
   val phone: Phone = new Phone
-
-  override def close(): Unit =
-    PlayerSavedState.save()
-    phone.close()
-    super[Player].close()
-    super[PlayerSync].close()
-
-  scene.registerEventHandler(KeyEvent.KeyPressed)(new KeyHandler)
 
   private val loading: Loading = new Loading
   private val controls: Controls = new Controls
   override def views: List[Node] = super.views ::: loading :: controls :: controls.extraParts
+
+  override def start(): Unit =
+    super.start()
+    startSync()
+
+  override protected def close(): Unit =
+    PlayerSavedState.save()
+    phone.close()
+    super[PlayerSync].close()
+    super[Player].close()
 
 
   override def setPause(pause: PlayerSync.Pause, flag: SetFlag): Boolean =
@@ -79,13 +82,8 @@ class DefaultPlayer(media: Media) extends Player(media) with PlayerSync:
       if (_) runLater(loading.visible = buffering)
 
 
-  protected class DefaultHandler extends Handler:
-
-    def playing: ReadOnlyBooleanProperty = _playing
-    private val _playing = SimpleBooleanProperty(this, "playing", false)
-
+  this addHandler new MediaPlayerEventAdapter:
     override def mediaPlayerReady(player: MediaPlayer): Unit =
-      super.mediaPlayerReady(player)
       runLater:
         player.marquee.enable(true)
         Option(player.media.meta.get(Meta.TITLE))
@@ -94,51 +92,42 @@ class DefaultPlayer(media: Media) extends Player(media) with PlayerSync:
         PlayerSavedState.restore()
 
     override def lengthChanged(player: MediaPlayer, length: Long): Unit =
-      super.lengthChanged(player, length)
       runLater { controls.setMaxTime(length) }
 
     override def timeChanged(player: MediaPlayer, time: Long): Unit =
-      super.timeChanged(player, time)
       onTime(time)
       runLater { controls.setTime(time) }
 
     override def buffering(mediaPlayer: MediaPlayer, progress: Float): Unit =
-      super.buffering(mediaPlayer, progress)
       onBuffering(progress < 100)
 
     override def playing(player: MediaPlayer): Unit =
-      super.playing(player)
       onPause(false)
       runLater { _playing() = true }
 
     override def paused(player: MediaPlayer): Unit =
-      super.paused(player)
       onPause(true)
       runLater { _playing() = false }
 
     override def stopped(player: MediaPlayer): Unit =
-      super.stopped(player)
       onBuffering(false)
       runLater { _playing() = false }
 
     override def finished(player: MediaPlayer): Unit =
-      super.finished(player)
       onBuffering(false)
       runLater { _playing() = false }
 
     override def elementaryStreamAdded(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
-      super.elementaryStreamAdded(player, trackType, id)
       runLater { controls.addTrack(id, trackType) }
 
     override def elementaryStreamDeleted(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
-      super.elementaryStreamDeleted(player, trackType, id)
       runLater { controls.removeTrack(id, trackType) }
 
     override def elementaryStreamSelected(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
-      super.elementaryStreamSelected(player, trackType, id)
       runLater { controls.onTrackSelect(id, trackType) }
 
 
+  scene.registerEventHandler(KeyEvent.KeyPressed)(new KeyHandler)
   private class KeyHandler extends EventHandler[jfxsi.KeyEvent]:
 
     def handle(event: jfxsi.KeyEvent): Unit =
@@ -166,3 +155,11 @@ class DefaultPlayer(media: Media) extends Player(media) with PlayerSync:
           (long + (other / 2)) / other
         else
           (long - (other / 2)) / other
+
+
+object DefaultPlayer:
+  class Preloaded(media: Media) extends DefaultPlayer(media):
+    vlc.media.play(media, "start-paused")
+    override def start(): Unit =
+      setPause(false)
+      startSync()

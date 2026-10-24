@@ -1,53 +1,75 @@
 package player
 
+import com.sun.jna.{Native, NativeLong, Pointer}
+import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
-import javafx.beans.value.ObservableValue
-import javafx.event.EventHandler
 import javafx.geometry.Rectangle2D
+import javafx.scene.image.{PixelBuffer, PixelFormat, WritableImage}
 import javafx.scene.layout as jfxsl
-import javafx.{scene as jfxsc, stage as jfxst}
-import player.Media
-import scalafx.Includes.{jfxProperty2sfx, jfxRegion2sfx}
+import player.Player.FrameBuffer
+import scalafx.Includes.{jfxObservableValue2sfx, jfxProperty2sfx, jfxRegion2sfx}
 import scalafx.application.Platform.runLater
 import scalafx.scene.Node
 import scalafx.scene.image.ImageView
 import scalafx.stage.WindowEvent
+import uk.co.caprica.vlcj.binding.internal.{libvlc_display_callback_t, libvlc_lock_callback_t, libvlc_video_cleanup_cb, libvlc_video_format_cb}
+import uk.co.caprica.vlcj.binding.lib.LibVlc.{libvlc_video_set_callbacks, libvlc_video_set_format_callbacks}
+import uk.co.caprica.vlcj.binding.lib.{Kernel32, LibC}
+import uk.co.caprica.vlcj.binding.support.types.size_t
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
-import uk.co.caprica.vlcj.javafx.videosurface.ImageViewVideoSurface
+import uk.co.caprica.vlcj.media.callback.CallbackMedia
 import uk.co.caprica.vlcj.media.{TrackType, VideoTrackInfo}
-import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter}
+import uk.co.caprica.vlcj.player.base.{MediaPlayer, MediaPlayerEventAdapter, State, TrackDescription}
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
-import util.WakeLock
-import util.fx.registerEventHandler
+import uk.co.caprica.vlcj.player.embedded.videosurface.VideoSurface
+import uk.co.caprica.vlcj.player.embedded.videosurface.VideoSurfaceAdapters.getVideoSurfaceAdapter
+import util.SystemInfo.OS
+import util.fx.SfxEvents.registerEventHandler
+import util.{SystemInfo, WakeLock, also, let}
 
+import java.nio.{ByteBuffer, ByteOrder}
+import scala.compiletime.uninitialized
 import scala.jdk.CollectionConverters.*
 
 
-private abstract class Player(val media: Media) extends PlayerGetSet:
+private abstract class Player extends PlayerStage.Child:
+  protected val media: CallbackMedia
 
+  private val wakeLock = new WakeLock
   private val vlcFactory = new MediaPlayerFactory
   protected val vlc: EmbeddedMediaPlayer = vlcFactory.mediaPlayers.newEmbeddedMediaPlayer
-
-  protected type HandlerType <: Handler
-  protected def createHandler: HandlerType
-  protected val vlcHandler: HandlerType = createHandler
-  def videoTrackInfo: ReadOnlyObjectProperty[VideoTrackInfo] = vlcHandler.videoTrack
+  def start(): Unit = vlc.media.play(media)
 
   val videoCropCoef = SimpleDoubleProperty(this, "videoCropCoef")
 
-  private val wakeLock = new WakeLock
+  def videoTrackInfo: ReadOnlyObjectProperty[VideoTrackInfo] = _videoTrackInfo
+  private val _videoTrackInfo = SimpleObjectProperty(this, "videoTrackInfo", null: VideoTrackInfo)
 
-  def close(): Unit =
-    wakeLock.unlock()
-    vlc.release()
-    vlcFactory.release()
-    media.close()
+  private val stageSizeChanger: InvalidationListener = _ =>
+    (Option(stage()) zip Option(videoTrackInfo()) ).foreach: (stage, info) =>
+      stage.updateSize(info.width / info.height.toDouble)
+  stage.addListener(stageSizeChanger)
+  videoTrackInfo.addListener(stageSizeChanger)
 
-  def views: List[Node] = surface :: Nil
 
-  protected val surface: ImageView = new ImageView:
-    vlc.videoSurface.set(ImageViewVideoSurface(this))
+  def views: List[Node] = surfaceView :: Nil
+  stage.addListener: (_, oldStage, newStage) =>
+    val views = this.views.map(_.delegate)
+    Option(oldStage).foreach { _.root.children.removeAll(views*) }
+    Option(newStage).foreach { _.root.children.insertAll(0, views.filter(_.getParent == null)) }
+
+  private var closed = false
+  stage.registerEventHandler(WindowEvent.WindowHiding)(_ => close())
+  protected def close(): Unit =
+    if (!closed)
+      closed = true
+      wakeLock.unlock()
+      vlc.release()
+      vlcFactory.release()
+
+  private val surfaceView: ImageView = new ImageView:
+    vlc.videoSurface.set(new Surface)
     preserveRatio = true
 
     private val parentRegion = parent.map:
@@ -81,28 +103,98 @@ private abstract class Player(val media: Media) extends PlayerGetSet:
       videoTrackInfo, videoCropCoef, fitWidth, fitHeight
     )
 
-  def scene: ReadOnlyObjectProperty[jfxsc.Scene] = surface.scene
-  val stage: ObservableValue[jfxst.Stage] = scene.flatMap(_.windowProperty).map:
-    case stage: jfxst.Stage => stage
-    case _ => null
-  stage.registerEventHandler(WindowEvent.WindowHiding)(_ => close())
 
-  vlc.media.play(media)
+  def isPlaying: Boolean = vlc.status.isPlaying
+  def time: Long = vlc.status.time
+  def length: Long = vlc.status.length
+  def speedX10: Int = (vlc.status.rate * 10).round
+
+  def volume: Int = vlc.audio.volume
+  def videoTrack: Int = vlc.video.track
+  def audioTrack: Int = vlc.audio.track
+  def subtitleTrack: Int = vlc.subpictures.track
+
+  def volume_=(value: Int): Boolean = vlc.audio.setVolume(value)
+  def videoTrack_=(value: Int): Int = vlc.video.setTrack(value)
+  def audioTrack_=(value: Int): Int = vlc.audio.setTrack(value)
+  def subtitleTrack_=(value: Int): Int = vlc.subpictures.setTrack(value)
+
+  def videoTrackDescriptions: Iterable[TrackDescription] = vlc.video.trackDescriptions.asScala
+  def audioTrackDescriptions: Iterable[TrackDescription] = vlc.audio.trackDescriptions.asScala
+  def subtitleTrackDescriptions: Iterable[TrackDescription] = vlc.subpictures.trackDescriptions.asScala
+
+  def isFinished: Boolean = vlc.media.info.state match
+    case State.STOPPED | State.ENDED | State.ERROR => true
+    case _ => false
+  def restartIfFinished(): Boolean = isFinished.also(if (_) vlc.media.play(media))
 
 
-  protected class Handler extends MediaPlayerEventAdapter:
-    vlc.events.addMediaPlayerEventListener(this)
+  protected infix def addHandler(handler: MediaPlayerEventAdapter): Unit =
+    vlc.events.addMediaPlayerEventListener(handler)
 
-    def videoTrack: ReadOnlyObjectProperty[VideoTrackInfo] = _videoTrack
-    private val _videoTrack = SimpleObjectProperty(this, "videoTrack", null: VideoTrackInfo)
-
+  this addHandler new MediaPlayerEventAdapter:
     override def playing(player: MediaPlayer):  Unit = wakeLock.lock()
     override def paused(player: MediaPlayer):   Unit = wakeLock.unlock()
     override def stopped(player: MediaPlayer):  Unit = wakeLock.unlock()
     override def finished(player: MediaPlayer): Unit = wakeLock.unlock()
-
     override def elementaryStreamSelected(player: MediaPlayer, trackType: TrackType, id: Int): Unit =
       if (trackType == TrackType.VIDEO)
         player.media.info.videoTracks.asScala
           .find(_.id == id)
-          .foreach { video => runLater(_videoTrack() = video) }
+          .foreach { video => runLater(_videoTrackInfo() = video) }
+
+
+  protected def bufferNum: Int = 1
+  protected def onRender(buffer: ByteBuffer, width: Int, height: Int): Unit = ()
+
+  private class Surface extends VideoSurface(getVideoSurfaceAdapter):
+    private var buffers: IArray[FrameBuffer] = uninitialized
+    private var bufferIndex = 0
+
+    private val setupCallback: libvlc_video_format_cb = (opaque, chroma, width, height, pitches, lines) =>
+      chroma.getPointer.write(0, "RV32".getBytes, 0, 4)
+      pitches.getPointer.setInt(0, width.getValue * 4)
+      lines.getPointer.setInt(0, height.getValue)
+      buffers = IArray.fill(bufferNum) { FrameBuffer(width.getValue, height.getValue) }
+      1
+
+    private val cleanupCallback: libvlc_video_cleanup_cb = _ =>
+      buffers.foreach(_.close())
+
+    private val lockCallback: libvlc_lock_callback_t = (_, planes) =>
+      bufferIndex = (bufferIndex + 1).let(i => if (i == buffers.length) 0 else i)
+      planes.getPointer.setPointer(0, buffers(bufferIndex).pointer)
+      Pointer.createConstant(bufferIndex)
+
+    private val displayCallback: libvlc_display_callback_t = (_, picture) =>
+      val buffer: FrameBuffer = buffers(Pointer.nativeValue(picture).toInt)
+      onRender(buffer.byteBuffer, buffer.pixelBuffer.getWidth, buffer.pixelBuffer.getHeight)
+      runLater:
+        buffer.pixelBuffer.updateBuffer(_ => null)
+        surfaceView.setImage(buffer.image)
+
+    def attach(player: MediaPlayer): Unit =
+      libvlc_video_set_format_callbacks(player.mediaPlayerInstance, setupCallback, cleanupCallback)
+      libvlc_video_set_callbacks(player.mediaPlayerInstance, lockCallback, null, displayCallback, null)
+
+
+private object Player:
+
+  private class FrameBuffer(width: Int, height: Int):
+    private inline val vlcAlignment = 32
+
+    val byteBuffer: ByteBuffer = ByteBuffer
+      .allocateDirect(width * height * 4 + vlcAlignment)
+      .alignedSlice(vlcAlignment)
+      .order(ByteOrder.nativeOrder)
+    val pointer: Pointer = Native.getDirectBufferPointer(byteBuffer)
+    val pixelBuffer = PixelBuffer(width, height, byteBuffer, PixelFormat.getByteBgraPreInstance)
+    val image = WritableImage(pixelBuffer)
+
+    SystemInfo.os match
+      case OS.Windows => Kernel32.INSTANCE.VirtualLock(pointer, size_t(byteBuffer.capacity))
+      case OS.MacOS | OS.Linux => LibC.INSTANCE.mlock(pointer, NativeLong(byteBuffer.capacity))
+
+    def close(): Unit = SystemInfo.os match
+      case OS.Windows => Kernel32.INSTANCE.VirtualUnlock(pointer, size_t(byteBuffer.capacity))
+      case OS.MacOS | OS.Linux => LibC.INSTANCE.munlock(pointer, NativeLong(byteBuffer.capacity))

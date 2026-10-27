@@ -3,12 +3,14 @@ package util.fx
 import atlantafx.base.util.Animations
 import com.sun.javafx.binding.{FlatMappedBinding, MappedBinding}
 import javafx.animation.KeyValue
+import javafx.beans.{InvalidationListener, Observable}
 import javafx.beans.value.{ObservableValue, WritableValue}
 import javafx.scene.image.Image
 import javafx.util.Duration
 import scalafx.Includes.jfxProperty2sfx
 import scalafx.application.Platform
 import scalafx.stage.Stage
+import util.toIArray
 
 import java.util.function.Function
 import scala.language.implicitConversions
@@ -45,6 +47,23 @@ object SfxSuperBind:
       observable.addListener: (_, oldProperty, newProperty) =>
         Option(oldProperty).foreach(_.unbind())
         Option(newProperty).foreach(_ <== value)
+
+
+abstract class SelfRemoveListener[O <: ObservableValue[?]](observable: O*)
+  extends InvalidationListener:
+  val observables: List[O] = observable.toList
+  def onInvalidate(observable: Observable): Boolean
+  def invalidated(observable: Observable): Unit =
+    if (onInvalidate(observable))
+      observables.foreach(_.removeListener(this))
+  observables.foreach(_.addListener(this))
+
+def selfRemoveListener[O <: ObservableValue[?]]
+  (observables: O*)
+  (onInvalidated: Observable => Boolean): SelfRemoveListener[O]
+=
+  new SelfRemoveListener(observables*):
+    def onInvalidate(observable: Observable): Boolean = onInvalidated(observable)
 
 
 implicit inline def duration(value: Int): Duration = Duration(value)

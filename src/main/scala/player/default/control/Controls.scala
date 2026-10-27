@@ -77,10 +77,12 @@ private[player] class Controls(using protected val player: DefaultPlayer) extend
 
     private class Task extends PeriodicTask(System.currentTimeMillis + 500, 500):
       schedule(this)
+      private var lastValue = -1L
       private val wasPlaying = player.isPlaying
       if (wasPlaying) player.setPause(true)
       def run(): Unit = runLater:
-        if (!isCancelled)
+        if (!isCancelled && lastValue != value.longValue)
+          lastValue = value.longValue
           player.setTime(value.longValue, Force)
       override def cancel(): Unit =
         super.cancel()

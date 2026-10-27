@@ -2,9 +2,9 @@ package config
 
 import core.main.MainApp
 import javafx.beans.property.{Property, SimpleBooleanProperty, SimpleObjectProperty, SimpleStringProperty}
-import org.virtuslab.yaml.Node.{MappingNode, ScalarNode}
+import org.virtuslab.yaml.Node.{MappingNode, ScalarNode, SequenceNode}
 import org.virtuslab.yaml.{Node, NodeOps, StringOps, YamlCodec, YamlDecoder, YamlEncoder}
-import util.{JavaUtil, printError}
+import util.printError
 
 import java.io.File
 import java.lang
@@ -20,18 +20,26 @@ object Config:
 
   private type Getter = () => Option[Node]
 
+  extension (str: String) private def fix = str.replace("""\\""", """\""")
+  extension (node: Node) private def fix: Node = node match
+    case node: ScalarNode   => node.fix
+    case node: MappingNode  => node.fix
+    case node: SequenceNode => node.fix
+  extension (node: ScalarNode)    private def fix: ScalarNode   = ScalarNode(node.value.fix)
+  extension (node: MappingNode)   private def fix: MappingNode  = MappingNode(node.mappings.map { (key, value) => (key.fix, value.fix) })
+  extension (node: SequenceNode)  private def fix: SequenceNode = SequenceNode(node.nodes.map(_.fix)*)
+
   private def parseMap(root: MappingNode) = root.mappings.view
-    .flatMap {
+    .flatMap:
       case (ScalarNode(key, _), value) => Some(key, value: Node | Getter)
       case invalid => System.err.println(s"Couldn't parse ${MappingNode(invalid).asYaml}"); None
-    }
     .to(mutable.Map)
 
   private def parseFile = for
     yaml <- Try(Files.readString(file.toPath)).printError(_ => s"Couldn't read ${file.getName}")
     root <- yaml.asNode.toTry.printError(_ => s"Couldn't parse ${file.getName}")
     mapRoot <- Try(root).collect { case root: MappingNode => root }.printError(_ => s"Couldn't parse ${file.getName} as map")
-  yield parseMap(mapRoot)
+  yield parseMap(mapRoot.fix)
 
   private val map = parseFile getOrElse mutable.Map.empty
 

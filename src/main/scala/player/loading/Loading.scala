@@ -1,11 +1,12 @@
 package player.loading
 
-import core.DailyRandom
+import core.TaskQueue.{SingleTask, Task}
+import core.{DailyRandom, TaskQueue}
 import javafx.beans.binding.Bindings
 import javafx.beans.value.ObservableValue
 import javafx.scene.layout as jfxsl
-import p2p.base.P2p
 import scalafx.Includes.jfxNumberBinding2sfx
+import scalafx.application.Platform.runLater
 import scalafx.beans.binding.NumberBinding
 import scalafx.geometry.Pos
 import scalafx.scene.Node
@@ -60,6 +61,22 @@ private[player] class Loading extends StackPane:
     private def get: Double = observable.getValue match
       case null => 0
       case value => value.doubleValue
+
+  private var minHideTime = 0L
+  private var hideTask: Option[Task] = None
+  def show(): Unit =
+    visible = true
+    minHideTime = System.currentTimeMillis + 350
+    hideTask.foreach(_.cancel())
+    hideTask = None
+  def hide(): Unit =
+    if (System.currentTimeMillis < minHideTime)
+      if (hideTask.isEmpty) hideTask = Some:
+        new SingleTask(minHideTime):
+          TaskQueue.schedule(this)
+          def run(): Unit = runLater { if (!isCancelled) visible = false }
+    else
+      visible = false
 
 
 private[player] class Impl private[loading](

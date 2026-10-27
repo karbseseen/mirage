@@ -1,10 +1,11 @@
 package player
 
 import com.sun.jna.{Native, NativeLong, Pointer}
-import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.beans.property.*
+import javafx.beans.value.ObservableValue
 import javafx.geometry.Rectangle2D
+import javafx.scene as jfxs
 import javafx.scene.image.{PixelBuffer, PixelFormat, WritableImage}
 import javafx.scene.layout as jfxsl
 import player.Player.FrameBuffer
@@ -26,6 +27,7 @@ import uk.co.caprica.vlcj.player.embedded.videosurface.VideoSurface
 import uk.co.caprica.vlcj.player.embedded.videosurface.VideoSurfaceAdapters.getVideoSurfaceAdapter
 import util.SystemInfo.OS
 import util.fx.SfxEvents.registerEventHandler
+import util.fx.selfRemoveListener
 import util.{SystemInfo, WakeLock, also, let}
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -33,7 +35,7 @@ import scala.compiletime.uninitialized
 import scala.jdk.CollectionConverters.*
 
 
-private abstract class Player extends PlayerStage.Child:
+private abstract class Player(updateStageSize: Boolean = false):
   protected val media: CallbackMedia
 
   private val wakeLock = new WakeLock
@@ -46,12 +48,15 @@ private abstract class Player extends PlayerStage.Child:
   def videoTrackInfo: ReadOnlyObjectProperty[VideoTrackInfo] = _videoTrackInfo
   private val _videoTrackInfo = SimpleObjectProperty(this, "videoTrackInfo", null: VideoTrackInfo)
 
-  private val stageSizeChanger: InvalidationListener = _ =>
-    (Option(stage()) zip Option(videoTrackInfo()) ).foreach: (stage, info) =>
-      stage.updateSize(info.width / info.height.toDouble)
-  stage.addListener(stageSizeChanger)
-  videoTrackInfo.addListener(stageSizeChanger)
+  val stage = SimpleObjectProperty(this, "stage", null: PlayerStage)
+  val scene: ObservableValue[jfxs.Scene] = stage.flatMap(_.scene)
 
+
+  if (updateStageSize)
+    selfRemoveListener(stage, videoTrackInfo): _ =>
+      val opt = Option(stage()) zip Option(videoTrackInfo())
+      opt.foreach { (stage, info) => stage.updateRatio(info.width / info.height.toDouble) }
+      opt.nonEmpty
 
   def views: List[Node] = surfaceView :: Nil
   stage.addListener: (_, oldStage, newStage) =>
@@ -59,14 +64,17 @@ private abstract class Player extends PlayerStage.Child:
     Option(oldStage).foreach { _.root.children.removeAll(views*) }
     Option(newStage).foreach { _.root.children.insertAll(0, views.filter(_.getParent == null)) }
 
-  private var closed = false
   stage.registerEventHandler(WindowEvent.WindowHiding)(_ => close())
-  protected def close(): Unit =
-    if (!closed)
-      closed = true
-      wakeLock.unlock()
-      vlc.release()
-      vlcFactory.release()
+  private var closed = false
+  final def close(): Boolean =
+    (!closed).also:
+      if (_)
+        closed = true
+        onClose()
+  protected def onClose(): Unit =
+    wakeLock.unlock()
+    vlc.release()
+    vlcFactory.release()
 
   private val surfaceView: ImageView = new ImageView:
     vlc.videoSurface.set(new Surface)

@@ -1,28 +1,22 @@
 package player
 
-import core.main.MainApp.decoratorSize
-import javafx.beans.property.{ReadOnlyObjectProperty, SimpleObjectProperty}
-import javafx.beans.value.ObservableValue
-import javafx.beans.{InvalidationListener, Observable}
-import javafx.scene as jfxs
+import core.TaskQueue
+import core.main.MainApp
 import player.Media.FileId
 import player.default.DefaultPlayer
-import scalafx.Includes.jfxProperty2sfx
+import scalafx.Includes.{jfxProperty2sfx, jfxScene2sfx}
+import scalafx.application.Platform.runLater
 import scalafx.scene.Scene
 import scalafx.scene.layout.{Background, StackPane}
 import scalafx.scene.paint.Color
 import scalafx.stage.{Screen, WindowEvent}
-import util.fx.{NotificationStage, addEventHandler, setIcon}
+import util.also
+import util.fx.{NotificationStage, addEventHandler, selfRemoveListener, setIcon}
 
 
 private class PlayerStage(val fileId: FileId) extends NotificationStage:
   this.setIcon()
   fullScreenExitHint = ""
-
-  val player = SimpleObjectProperty(this, "player", null: Player)
-  player.addListener: (_, oldPlayer, newPlayer) =>
-    Option(oldPlayer).foreach(_._stage() = null)
-    Option(newPlayer).foreach(_._stage() = this)
 
   val root: StackPane = new StackPane:
     background = Background.fill(Color.Black)
@@ -37,25 +31,22 @@ private class PlayerStage(val fileId: FileId) extends NotificationStage:
   private var sizeChanged = false
   private var sizeRatio = 0.0
 
-  new InvalidationListener:
-    width.addListener(this)
-    height.addListener(this)
-    def invalidated(o: Observable): Unit =
-      if (!programChange)
-        sizeChanged = true
-        width.removeListener(this)
-        height.removeListener(this)
+  TaskQueue.scheduleSingle(1000):
+    runLater:
+      selfRemoveListener(width, height): _ =>
+        (!programChange).also:
+          if (_) sizeChanged = true
 
-  updateSize(16 / 9.0)
-  def updateSize(ratio: Double): Unit =
+  updateRatio(16 / 9.0)
+  centerOnScreen()
+  def updateRatio(ratio: Double): Unit =
     if (!sizeChanged && (sizeRatio - ratio).abs > 1e-9)
       programChange = true
       sizeRatio = ratio
       val screenBounds = Screen.primary.visualBounds
       val w = (screenBounds.width min (screenBounds.height * ratio)) * 0.6
-      width = w + decoratorSize.width
-      height = w / ratio + decoratorSize.height
-      centerOnScreen()
+      width   = w         + (MainApp.stage.width()  - MainApp.stage.scene().width())
+      height  = w / ratio + (MainApp.stage.height() - MainApp.stage.scene().height())
       programChange = false
 
 
@@ -79,15 +70,9 @@ object PlayerStage:
       this.addEventHandler(WindowEvent.WindowHidden): _ =>
         current = nextMedia.map(newStage)
         nextMedia = None
-      player() = IntroPlayer.fileConfig() match
+
+      private val player = IntroPlayer.fileConfig() match
         case "" => DefaultPlayer(media)
         case _  => IntroPlayer(media)
-      player().start()
-
-
-  trait Child:
-    self: Player =>
-
-    private[PlayerStage] val _stage = SimpleObjectProperty(this, "stage", null: PlayerStage)
-    def stage: ReadOnlyObjectProperty[PlayerStage] = _stage
-    val scene: ObservableValue[jfxs.Scene] = stage.flatMap(_.scene)
+      player.stage() = this
+      player.start()

@@ -6,11 +6,10 @@ import p2p.base.Message.Counter.{compare, inc, set}
 import p2p.base.Message.{Counter, PlayerState}
 import p2p.base.{P2p, Peer}
 import player.PlayerSync.*
-import player.PlayerSync.SetFlag.{counter, force, send}
 import player.Media.FileId
 import scalafx.application.Platform.runLater
 import uk.co.caprica.vlcj.player.base.MediaPlayer
-import util.{also, listIf}
+import util.also
 
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -18,7 +17,7 @@ import scala.language.implicitConversions
 
 object PlayerSync:
 
-  private inline val AcceptTimeDiff = 1100
+  private inline val AcceptTimeDiff = 1000
   private inline val WaitTimeDiff = 4000
   private inline val TargetDiscardAfter = 1000
   private inline val MinSyncPeriod = 1500
@@ -31,17 +30,15 @@ object PlayerSync:
 
 
   P2p.addMessageHandler[PlayerState]: (peerState, peer) =>
-    val tasks = sync:
+    syncWithAfterTasks:
       val fileDiff = instance.fold(1)(_.myState.fileId.compareTo(peerState.fileId))
       if (fileDiff == 0)
-        instance.fold[UnsyncTasks](Nil)(_.onPeerState(peerState, peer))
+        instance.foreach(_.onPeerState(peerState, peer))
       else
         val fileCounterDiff = fileCounter compare peerState.fileCounter
         val start = (fileCounterDiff < 0 || fileCounterDiff == 0 && fileDiff < 0) &&
           targetFile.trySet(peerState.fileId, peerState.fileCounter)
         if (start) runLater { Media.play(peerState.fileId) }
-        Nil
-    tasks.foreach(_())
 
   private def onFileId(fileId: FileId): Unit =
     fileCounter = targetFile.getIf(_ == fileId) counterOrElse fileCounter.inc
@@ -59,15 +56,18 @@ object PlayerSync:
   val EmptyFlag: SetFlag = 0
   val NoSend: SetFlag = 1
   val Force: SetFlag = 2
-  private val CounterFlag: SetFlag = 4
+  private val NoReset: SetFlag = 4
+  private val CounterFlag: SetFlag = 8
 
   object SetFlag:
     extension (flag: SetFlag)
-      inline def +(inline other: SetFlag): Int = flag | other
-      inline def send:  Boolean = (flag & NoSend) == 0
-      inline def force: Boolean = (flag & Force) != 0
-      inline def counter: Option[Counter] =
-        Option.when((flag & CounterFlag) != 0)((flag >> 24).asInstanceOf[Counter])
+      inline def +(other: SetFlag): Int = flag | other
+
+  extension (flag: SetFlag)
+    private inline def has(other: SetFlag): Boolean = (flag & other) != 0
+    private inline def send: Boolean = !has(NoSend)
+    private inline def counter: Option[Counter] =
+      Option.when((flag & CounterFlag) != 0)((flag >> 24).asInstanceOf[Counter])
 
   private implicit inline def fromRemote(counter: Counter): SetFlag =
     (counter.asInstanceOf[Int] << 24) | CounterFlag | NoSend
@@ -77,7 +77,7 @@ object PlayerSync:
     private var value: Option[Target.Value[T]] = None
 
     def trySet(value: T, flag: SetFlag): Boolean =
-      if (flag.force) this.value = None else discardExpired()
+      if (flag.has(Force)) this.value = None else discardExpired()
       val success = this.value.isEmpty
       if (success) this.value = Some(Target.Value(value, flag))
       success
@@ -106,15 +106,18 @@ object PlayerSync:
       target.flatMap(_.counter).getOrElse(ifEmpty)
 
 
-  private type UnsyncTasks = List[() => Unit]
-  extension (tasks: UnsyncTasks)
-    private def +(task: () => Unit) = task :: tasks
-
   private sealed trait PeerToWait { val peer: Peer }
   private case class BufferingPeer(peer: Peer) extends PeerToWait
   private case class LaggingPeer(peer: Peer) extends PeerToWait
 
+  opaque type AfterSync = mutable.Buffer[() => Unit]
+  extension (afterSync: AfterSync)
+    private inline def apply(task: => Unit) = afterSync += { () => task }
+
   private inline def sync[T](inline func: => T): T = synchronized(func)
+  private inline def syncWithAfterTasks[T](inline func: AfterSync ?=> T): T =
+    implicit val afterSync: AfterSync = mutable.Buffer()
+    sync(func).also(_ => afterSync.foreach(_()))
 
 
 trait PlayerSync:
@@ -122,17 +125,17 @@ trait PlayerSync:
   protected val vlc: MediaPlayer
   protected val media: Media
 
-  private val initFileCounter = sync:
+  private var myState = sync:
     onFileId(media.fileId)
     PlayerSync.instance = Some(this)
-    PlayerSync.fileCounter
+    PlayerState(media.fileId, PlayerSync.fileCounter)
 
-  private var myState = PlayerState(media.fileId, initFileCounter)
   private val targetTime = new Target[Long]
   private val targetPause = new Target[Boolean]
 
   private val peerWaiter = new PeerWaiter
   private var idleTask: Option[Task] = None
+  updateIdleTask()
 
   private var lastSendTime = 0L
   @volatile private var started = false
@@ -140,31 +143,28 @@ trait PlayerSync:
 
   protected def startSync(): Unit = started = true
 
-  protected def close(): Unit = sync:
+  protected def onClose(): Unit = sync:
     PlayerSync.instance = None
     PlayerSync.fileCounter = myState.fileCounter
     peerWaiter.close()
     idleTask.foreach(_.cancel())
 
 
-  private def onPeerState(peerState: PlayerState, peer: Peer): UnsyncTasks =
-    if (myState.fileCounter.compare(peerState.fileCounter) < 0)
-      myState = myState.copy(fileCounter = peerState.fileCounter)
+  private def onPeerState(peerState: PlayerState, peer: Peer)(using afterSync: AfterSync): Unit =
+    if (started)
+      if (myState.fileCounter.compare(peerState.fileCounter) < 0)
+        myState = myState.copy(fileCounter = peerState.fileCounter)
 
-    if (!started) Nil else
-      val tasks =
-        if (peerState.buffering) peerWaiter.waitFor(BufferingPeer(peer), WaitTimeDiff)
-        else peerWaiter.releaseWait(BufferingPeer(peer))
-  
-      if (peerWaiter.isWaiting || myState.buffering) tasks
-      else tasks ::: onPeerStateInner(peerState, peer)
+      if (peerState.buffering) peerWaiter.waitFor(BufferingPeer(peer), WaitTimeDiff)
+      else peerWaiter.releaseWait(BufferingPeer(peer))
 
-  private def onPeerStateInner(peerState: PlayerState, peer: Peer): UnsyncTasks =
-    var tasks: UnsyncTasks = Nil
+      if (!peerWaiter.isWaiting && !myState.buffering)
+        onPeerStateInner(peerState, peer)
 
+  private def onPeerStateInner(peerState: PlayerState, peer: Peer)(using afterSync: AfterSync): Unit =
     val pauseDiff = myState.pauseCounter compare peerState.pauseCounter
     if (pauseDiff < 0)
-      if (myState.pause != peerState.pause) tasks += { () => setPause(peerState.pause, peerState.pauseCounter) }
+      if (myState.pause != peerState.pause) afterSync { setPause(peerState.pause, peerState.pauseCounter) }
       else myState = myState.copy(pauseCounter = peerState.pauseCounter)
 
     val seekDiff = myState.seekCounter compare peerState.seekCounter
@@ -172,19 +172,18 @@ trait PlayerSync:
       val peerTime = peerState.time + (if (peerState.pause) 0 else peer.latency)
       val timeDiff = vlc.status.time - peerTime
       if (seekDiff < 0 || timeDiff > 0) math.abs(timeDiff) match
-        case diff if diff < AcceptTimeDiff                    => ()
-        case diff if diff < WaitTimeDiff && !peerState.pause  => tasks ++= peerWaiter.waitFor(LaggingPeer(peer), diff - 100)
-        case diff                                             => tasks += (() => setTime(peerTime, peerState.seekCounter))
+        case 0                                                => myState = myState.copy(seekCounter = peerState.seekCounter)
+        case diff if diff < AcceptTimeDiff && !peerState.pause=> myState = myState.copy(seekCounter = peerState.seekCounter)
+        case diff if diff < WaitTimeDiff && !peerState.pause  => peerWaiter.waitFor(LaggingPeer(peer), diff - 100)
+        case diff                                             => afterSync { setTime(peerTime, peerState.seekCounter) }
 
     val speedDiff = myState.speedCounter compare peerState.speedCounter
     if (speedDiff < 0 || speedDiff == 0 && myState.speedX10 > peerState.speedX10)
-      tasks += { () => setSpeedX10(peerState.speedX10, peerState.speedCounter) }
+      afterSync { setSpeedX10(peerState.speedX10, peerState.speedCounter) }
 
     val titleDiff = myState.titleCounter compare peerState.titleCounter
     if (titleDiff < 0 || titleDiff == 0 && myState.title > peerState.title)
-      tasks += { () => setCustomTitle(peerState.title, peerState.titleCounter) }
-
-    tasks
+      setCustomTitle(peerState.title, peerState.titleCounter)
 
 
   def setTime(time: Long, flag: SetFlag = EmptyFlag): Boolean =
@@ -210,7 +209,7 @@ trait PlayerSync:
       case Pause.False => false
       case Pause.Toggle => !myState.pause
     sync:
-      peerWaiter.reset()
+      if (!flag.has(NoReset)) peerWaiter.reset()
       myState.pause != value && targetPause.trySet(value, flag)
     .also:
       if (_) vlc.controls.setPause(value)
@@ -246,7 +245,7 @@ trait PlayerSync:
 
 
   private def sendToAll(): Unit =
-    if (!peerWaiter.isWaiting && started)
+    if (!peerWaiter.isWaiting)
       lastSendTime = myState.time
       P2p.sendToAll(myState)
 
@@ -264,7 +263,7 @@ trait PlayerSync:
 
   private class PeerWaiter:
     private val peerMap = mutable.Map[PeerToWait, Task]()
-    private var wasPlaying = false
+    @volatile private var wasPlaying = false
 
     private val listener = P2p.addPeerListener:
       case (peer, Peer.Die) => peerMap.remove(BufferingPeer(peer))
@@ -274,19 +273,18 @@ trait PlayerSync:
 
     def close(): Unit = P2p.removePeerListener(listener)
 
-    def waitFor(peer: PeerToWait, time: Long): UnsyncTasks =
-      val wasEmpty = peerMap.isEmpty
+    def waitFor(peer: PeerToWait, time: Long)(using afterSync: AfterSync): Unit =
+      if (peerMap.isEmpty) afterSync { wasPlaying = setPause(true, NoReset) }
       val at = System.currentTimeMillis + time
       peerMap.updateWith(peer):
         case None => Some(Task(at, peer))
         case Some(task) if task.time < at => task.cancel(); Some(Task(at, peer))
         case Some(task) => Some(task)
-      listIf(wasEmpty) { () => wasPlaying = setPause(true) }
 
-    def releaseWait(peer: PeerToWait): UnsyncTasks =
+    def releaseWait(peer: PeerToWait)(using afterSync: AfterSync): Unit =
       val removed = peerMap.remove(peer)
       removed.foreach(_.cancel())
-      listIf(removed.nonEmpty && peerMap.isEmpty && wasPlaying) { () => setPause(false) }
+      if (removed.nonEmpty && peerMap.isEmpty && wasPlaying) afterSync { setPause(false, NoReset) }
 
     def reset(): Unit =
       peerMap.values.foreach(_.cancel())
@@ -294,4 +292,4 @@ trait PlayerSync:
 
     private class Task(at: Long, peer: PeerToWait) extends TaskQueue.SingleTask(at):
       TaskQueue.schedule(this)
-      def run(): Unit = sync(if (!isCancelled) releaseWait(peer))
+      def run(): Unit = syncWithAfterTasks(if (!isCancelled) releaseWait(peer))

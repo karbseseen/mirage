@@ -24,7 +24,7 @@ import util.fx.SfxSuperBind.<~=
 import util.fx.ensureRunLater
 
 
-class DefaultPlayer(protected val media: Media) extends Player with PlayerSync:
+class DefaultPlayer(protected val media: Media) extends Player(updateStageSize = true) with PlayerSync:
   private implicit inline def self: this.type = this
   def fileId: Media.FileId = media.fileId
 
@@ -39,8 +39,6 @@ class DefaultPlayer(protected val media: Media) extends Player with PlayerSync:
     bind(_defaultTitle, _customTitle)
   stage.map(_.title) <~= title
 
-  def buffering: ReadOnlyBooleanProperty = loading.visible
-
   val phone: Phone = new Phone
 
   private val loading: Loading = new Loading
@@ -51,11 +49,11 @@ class DefaultPlayer(protected val media: Media) extends Player with PlayerSync:
     super.start()
     startSync()
 
-  override protected def close(): Unit =
+  override protected def onClose(): Unit =
     PlayerSavedState.save()
     phone.close()
-    super[PlayerSync].close()
-    super[Player].close()
+    super[PlayerSync].onClose()
+    super[Player].onClose()
 
 
   override def setPause(pause: PlayerSync.Pause, flag: SetFlag): Boolean =
@@ -79,7 +77,7 @@ class DefaultPlayer(protected val media: Media) extends Player with PlayerSync:
 
   override protected def onBuffering(buffering: Boolean): Boolean =
     super.onBuffering(buffering).also:
-      if (_) runLater(loading.visible = buffering)
+      if (_) runLater { if (buffering) loading.show() else loading.hide() }
 
 
   this addHandler new MediaPlayerEventAdapter:
